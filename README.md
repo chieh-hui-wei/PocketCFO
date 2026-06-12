@@ -2,75 +2,95 @@
 
 自動解析電子對帳單，產生每月 **Balance Sheet（資產負債表）** 與 **Income Statement（收支表）**。
 
-## 功能
+## 🚀 特色功能
 
 | 功能 | 說明 |
 |------|------|
-| 📄 PDF 解析 | 上傳銀行/信用卡/證券 PDF → Gemini 自動擷取結構化資料 |
-| 🏦 資產負債表 | 每月現金 + 證券市值 + 信用卡負債 → 淨資產 |
+| 📄 PDF 解析 | 上傳銀行/信用卡/證券 PDF → Gemini 自動擷取結構化資料，並自動比對完整帳號 |
+| 🏦 資產負債表 | 每月現金 + 證券市值 + 信用卡負債 → 淨資產（股票代號與資產佔比圖表整合） |
 | 📊 收支表 | 薪資/投資收入 vs 刷卡/提現支出，**自動排除帳戶間互轉** |
-| 🔌 券商 API | 永豐金（shioaji SDK）、台新證券（REST mTLS）直接拉取持倉 |
-| 🔐 憑證管理 | .pfx / .p12 憑證上傳 |
+| 🔌 券商 API | 支援台新證券與玉山證券 API，永豐金證券則可進行**手動持股與餘額登錄** |
+| 📈 股票庫存管理 | 支援手動新增/編輯股票明細（代號、股數、均價、收盤價自動取得）與調整現金餘額 |
 | 🖨️ PDF 報表 | 自動生成精美排版的企業級 PDF 財務報表 |
+| 💾 資料庫移轉 | 內建 SQLite 至 PostgreSQL 遷移工具，方便將資料庫部署至 Supabase / Neon 等雲端服務 |
 
-## 資料庫表結構 (Database Schema)
+---
 
-系統底層將各項金融數據標準化，總共有 8 張核心表。
-**💡 特別注意**：為了減少資料表重複性，系統並沒有獨立的 `brokers` 表，而是將**「銀行」與「券商」統一整合**在 `accounts` 表中！
+## 💾 資料庫轉移工具 (SQLite ➔ PostgreSQL)
 
-1. **`accounts` (銀行/券商帳戶表)**：代表銀行或券商。如果 `account_type = brokerage`，它就是一個 Broker（券商）。
-2. **`account_snapshots` (帳戶現金快照表)**：紀錄銀行/券商在每個月底的「現金餘額」。這同時也作為 Broker Snapshots（券商現金快照）的儲存地。
-3. **`credit_cards` (信用卡表)**：代表每一張信用卡（例如：台新 @GoGo 卡）。
-4. **`credit_card_snapshots` (信用卡快照表)**：紀錄信用卡在每個月底的「應繳總額」。這是資產負債表裡「負債」的來源。
-5. **`securities` (持股快照表)**：紀錄券商帳戶在每個月底的「股票持有部位」（包含股數、成本、市值、未實現損益）。這是資產負債表裡「證券投資」的來源。
-6. **`transactions` (交易明細表)**：紀錄所有的單筆金流（銀行存款/提款明細、信用卡每筆消費明細）。這是收支表裡「收入與支出」的來源。
-7. **`balance_sheets` (資產負債表)**：每月結算後的總覽快照（總資產、總負債、淨資產）。
-8. **`income_statements` (收支表)**：每月結算後的總覽快照（總收入、總支出、淨收入）。
+如果您想要將本機資料庫同步至免費的雲端 PostgreSQL（例如 Supabase 或 Neon），我們提供了一個非常方便的轉移腳本：
+
+1. **準備雲端資料庫連結**：取得您的 Postgres URL，例如 `postgresql://user:password@host:port/dbname` (支援開啟 SSL 憑證連線的雲端服務)。
+2. **執行移轉腳本**：
+   ```bash
+   docker compose exec backend python scratch/migrate_to_postgres.py
+   ```
+   *此腳本會將本機 `pocketCFO.db` 中的所有帳戶、餘額快照、歷史交易與股票持股完整同步到 Postgres，並自動校正 PK 序號。*
+3. **更改 `.env` 檔案設定**：
+   將 `DATABASE_URL` 改為非同步的 Postgres 驅動連結：
+   ```env
+   DATABASE_URL=postgresql+asyncpg://user:password@host:port/dbname
+   ```
+4. **重新啟動專案** 即可完全接軌雲端資料庫。
+
+---
+
+## 📈 股票與帳戶管理說明
+
+### 🏦 帳戶管理 (Accounts)
+* **帳戶管理頁面** 僅用來管理日常的 **銀行帳戶** 與 **設定內部帳戶過濾**（轉帳排除）。
+* 為了簡化管理，**證券與券商帳戶**已被獨立出帳戶管理頁面，統一移至 **「股票庫存」** 頁面進行配置與新增。
+
+### 📊 手動股票庫存 (Manual Stock Holdings)
+若您使用的券商（如永豐金證券）目前沒有啟用 API 同步，或是 API 連線有問題：
+1. 前往 **「股票庫存」** 頁面。
+2. 點擊左下角 **「+ 新增證券帳戶」**，建立您自訂的券商名稱。
+3. 選取該券商後，點選 **「編輯 / 手動登錄此月庫存」**，即可手動增加持股（輸入代號、股數、平均成本、收盤現價等）。
+4. 點選 **「儲存本月股票庫存」** 後，系統將自動計算估算市值與未實現損益，並同步更新至資產負債表。
+
+---
 
 ## 專案架構
 
 ```
 pocketCFO/
-├── main.py                          # FastAPI entry point
+├── main.py                          # FastAPI 進入點
 ├── pyproject.toml
 ├── .env.example
+├── scratch/
+│   └── migrate_to_postgres.py       # ⭐ SQLite to PostgreSQL 遷移工具
 ├── src/
 │   ├── controllers/                 # FastAPI routers (HTTP 層)
-│   │   ├── upload_controller.py     #   POST /upload/statement, /upload/certificate
+│   │   ├── upload_controller.py     #   PDF 上傳與 Gemini 解析
 │   │   ├── balance_sheet_controller.py
 │   │   ├── income_statement_controller.py
 │   │   └── account_controller.py
-│   ├── middleware/                  # 橫切關注點
-│   │   ├── logging_middleware.py    #   structlog 請求日誌
-│   │   └── error_middleware.py      #   全域例外處理
 │   ├── instances/                   # 單例 / 配置
-│   │   ├── config.py                #   pydantic-settings (.env)
-│   │   ├── database.py              #   SQLAlchemy async engine
-│   │   └── gemini.py                #   Gemini AI client
+│   │   ├── config.py                #   Pydantic-Settings (.env)
+│   │   ├── database.py              #   SQLAlchemy 連線
+│   │   └── gemini.py                #   Gemini AI 用戶端
 │   ├── dbs/                         # 資料層
 │   │   ├── models.py                #   SQLAlchemy ORM models
-│   │   └── repository.py            #   所有 DB 查詢
+│   │   └── repository.py            #   DB 存取 Repository
 │   ├── services/                    # 業務邏輯
-│   │   ├── statement_service.py     #   PDF 解析 → DB 儲存（orchestration）
-│   │   ├── balance_sheet_service.py #   資產負債表計算
-│   │   ├── income_statement_service.py # 收支表計算（含轉帳過濾）
-│   │   ├── parsers/
-│   │   │   └── bank_statement_parser.py # Gemini prompts for each statement type
-│   │   └── brokers/
-│   │       ├── sinopac_client.py    #   永豐金 shioaji SDK wrapper
-│   │       └── taishin_client.py    #   台新證券 REST + mTLS
+│   │   ├── statement_service.py     #   對帳單解析調度
+│   │   ├── balance_sheet_service.py #   資產負債表運算
+│   │   ├── income_statement_service.py # 損益表運算（含跨行轉帳過濾）
+│   │   └── parsers/
+│   │       └── bank_statement_parser.py # Gemini 銀行對帳單 Prompt 定義
 │   └── utils/
 │       ├── date_utils.py
-│       └── transfer_detector.py     #   ⭐ 帳戶互轉偵測邏輯
+│       └── transfer_detector.py     #   ⭐ 帳內互轉智慧偵測
 └── frontend/                        # React + Vite + Tailwind
     └── src/
         ├── pages/
-        │   ├── DashboardPage.tsx    #   總覽圖表
-        │   ├── BalanceSheetPage.tsx #   資產負債表
-        │   └── UploadPage.tsx       #   PDF / 憑證上傳
-        └── services/
-            └── api.ts               #   Axios API client
+        │   ├── DashboardPage.tsx    #   儀表板
+        │   ├── BalanceSheetPage.tsx #   資產負債表及餘額調整
+        │   ├── StockHoldingsPage.tsx #  ⭐ 股票庫存與手動登錄
+        │   └── UploadPage.tsx       #   對帳單上傳與解析預覽
 ```
+
+---
 
 ## 快速開始
 
