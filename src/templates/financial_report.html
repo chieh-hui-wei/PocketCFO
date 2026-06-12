@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Financial Report - {{ period_date }}</title>
+    <link rel="stylesheet" href="file://{{ css_path }}">
+</head>
+<body>
+    <!-- Title Page / Header -->
+    <header class="report-header">
+        <h1>pocketCFO</h1>
+        <h2>Monthly Financial Report</h2>
+        <p class="period">For the Period Ending {{ period_date }}</p>
+    </header>
+
+    <!-- Balance Sheet Section -->
+    <section class="report-section page-break-after">
+        <h3>Balance Sheet</h3>
+        <p class="net-worth">Net Worth: <span class="amount">${{ "{:,.2f}".format(bs.net_worth) }}</span></p>
+
+        <div class="financial-table">
+            <div class="table-section">
+                <h4>Assets</h4>
+                <table class="data-table">
+                    <tbody>
+                        <tr>
+                            <td>Total Cash</td>
+                            <td class="amount">${{ "{:,.2f}".format(bs.total_cash) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Securities</td>
+                            <td class="amount">${{ "{:,.2f}".format(bs.total_securities_market_value) }}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td>Total Assets</td>
+                            <td class="amount">${{ "{:,.2f}".format(bs.total_assets) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-section">
+                <h4>Liabilities</h4>
+                <table class="data-table">
+                    <tbody>
+                        <tr>
+                            <td>Credit Card Payables</td>
+                            <td class="amount">${{ "{:,.2f}".format(bs.total_credit_card_payable) }}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td>Total Liabilities</td>
+                            <td class="amount">${{ "{:,.2f}".format(bs.total_liabilities) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Detailed Securities Table -->
+        <div class="table-section mt-4">
+            <h4>Securities Breakdown</h4>
+            <table class="data-table bordered">
+                <thead>
+                    <tr>
+                        <th>Broker</th>
+                        <th>Ticker</th>
+                        <th>Name</th>
+                        <th>Qty</th>
+                        <th>Market Value</th>
+                        <th>Unrealized P&L</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sec in bs_details.get("securities", []) %}
+                    <tr>
+                        <td>{{ sec.broker }}</td>
+                        <td>{{ sec.ticker }}</td>
+                        <td>{{ sec.name }}</td>
+                        <td>{{ "{:,.2f}".format(sec.quantity) }}</td>
+                        <td class="amount">${{ "{:,.2f}".format(sec.market_value) }}</td>
+                        <td class="amount {% if sec.unrealized_pnl >= 0 %}positive{% else %}negative{% endif %}">
+                            ${{ "{:,.2f}".format(sec.unrealized_pnl) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Income Statement Section -->
+    <section class="report-section">
+        <h3>Income Statement</h3>
+        <p class="net-income">Net Income: <span class="amount">${{ "{:,.2f}".format(ist.net_income) }}</span></p>
+
+        <div class="financial-table">
+            <div class="table-section">
+                <h4>Income</h4>
+                <table class="data-table">
+                    <tbody>
+                        <tr>
+                            <td>Salary</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.salary_income) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Investment Income</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.investment_income) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Dividend Income</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.dividend_income) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Interest Income</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.interest_income) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Other Income</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.other_income) }}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td>Total Income</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.total_income) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-section">
+                <h4>Expenses</h4>
+                <table class="data-table">
+                    <tbody>
+                        <tr>
+                            <td>Total Expenses</td>
+                            <td class="amount">${{ "{:,.2f}".format(ist.total_expenses) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="report-footer">
+        <p>Generated by pocketCFO • strictly confidential</p>
+    </footer>
+</body>
+</html>

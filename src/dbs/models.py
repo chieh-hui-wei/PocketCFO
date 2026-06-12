@@ -1,0 +1,250 @@
+"""
+src/dbs/models.py
+SQLAlchemy ORM models for pocketCFO.
+
+Tables:
+  accounts          – bank / brokerage accounts
+  account_snapshots – monthly balance snapshots (feeds balance sheet)
+  securities        – individual holdings per account per month
+  transactions      – raw transactions from bank statements
+  credit_card_bills – monthly credit card statement summaries
+  credit_card_items – line items within each bill
+  balance_sheets    – computed monthly balance sheet header
+  income_statements – computed monthly income statement header
+"""
+
+from __future__ import annotations
+
+import enum
+from datetime import date, datetime
+
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.instances.database import Base
+
+# ── Enums ──────────────────────────────────────────────────────────────────────
+
+
+class AccountType(str, enum.Enum):
+    BANK = "bank"
+    BROKERAGE = "brokerage"
+    CREDIT_CARD = "credit_card"
+    LIABILITY = "liability"
+
+
+class StatementType(str, enum.Enum):
+    BANK = "bank"
+    CREDIT_CARD = "credit_card"
+    BROKERAGE = "brokerage"
+
+
+class TransactionCategory(str, enum.Enum):
+    SALARY = "salary"
+    INVESTMENT = "investment"
+    TRANSFER_IN = "transfer_in"
+    TRANSFER_OUT = "transfer_out"
+    EXPENSE = "expense"
+    DIVIDEND = "dividend"
+    INTEREST = "interest"
+    OTHER = "other"
+
+
+class TransactionSource(str, enum.Enum):
+    BANK = "bank"
+    CREDIT_CARD = "credit_card"
+    E_INVOICE = "e_invoice"
+    BROKERAGE = "brokerage"
+
+
+# ── Account ────────────────────────────────────────────────────────────────────
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False
+    )  # e.g. "sinopac_stock"
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False)
+    institution: Mapped[str] = mapped_column(
+        String(128), nullable=False
+    )  # 永豐金, 台新
+    currency: Mapped[str] = mapped_column(String(8), default="TWD")
+    is_internal: Mapped[bool] = mapped_column(
+        Boolean, default=True
+    )  # user-owned → transfers excluded
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    snapshots: Mapped[list["AccountSnapshot"]] = relationship(back_populates="account")
+    securities: Mapped[list["Security"]] = relationship(back_populates="account")
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="account", foreign_keys="[Transaction.account_id]"
+    )
+
+
+# ── Monthly balance snapshot ───────────────────────────────────────────────────
+
+
+class AccountSnapshot(Base):
+    """One record per account per month — cash balance at month-end."""
+
+    __tablename__ = "account_snapshots"
+    __table_args__ = (UniqueConstraint("account_id", "period_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    period_date: Mapped[date] = mapped_column(
+        Date, nullable=False
+    )  # always 1st of month
+    balance: Mapped[float] = mapped_column(Float, nullable=False)
+    original_balance: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="TWD")
+    exchange_rate: Mapped[float] = mapped_column(Float, default=1.0)
+    payment_due_date: Mapped[date | None] = mapped_column(Date)
+    source: Mapped[str] = mapped_column(String(32), default="pdf")  # pdf | api
+    raw_data: Mapped[str | None] = mapped_column(Text)  # JSON blob from Gemini
+    upload_history_id: Mapped[int | None] = mapped_column(ForeignKey("upload_histories.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    account: Mapped["Account"] = relationship(back_populates="snapshots")
+
+# ── Security holdings ──────────────────────────────────────────────────────────
+
+
+class Security(Base):
+    """Stock / ETF position per account per month."""
+
+    __tablename__ = "securities"
+    __table_args__ = (UniqueConstraint("account_id", "period_date", "ticker"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    ticker: Mapped[str] = mapped_column(String(16), nullable=False)
+    name: Mapped[str] = mapped_column(String(128))
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    avg_cost: Mapped[float] = mapped_column(Float)  # 平均成本
+    current_price: Mapped[float] = mapped_column(Float)  # 收盤價
+    market_value: Mapped[float] = mapped_column(Float)  # 市值
+    unrealized_pnl: Mapped[float] = mapped_column(Float, default=0.0)
+    original_avg_cost: Mapped[float | None] = mapped_column(Float)
+    original_current_price: Mapped[float | None] = mapped_column(Float)
+    original_market_value: Mapped[float | None] = mapped_column(Float)
+    original_unrealized_pnl: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="TWD")
+    exchange_rate: Mapped[float] = mapped_column(Float, default=1.0)
+    upload_history_id: Mapped[int | None] = mapped_column(ForeignKey("upload_histories.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    account: Mapped["Account"] = relationship(back_populates="securities")
+
+
+# ── Bank transactions ──────────────────────────────────────────────────────────
+
+
+class Transaction(Base):
+    """Individual debit/credit from bank statement."""
+
+    __tablename__ = "transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"))
+    txn_date: Mapped[date] = mapped_column(Date, nullable=False)
+    source: Mapped[TransactionSource] = mapped_column(
+        Enum(TransactionSource), default=TransactionSource.BANK, nullable=False
+    )
+    merchant: Mapped[str | None] = mapped_column(String(256))
+    description: Mapped[str] = mapped_column(String(256))
+    amount: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )  # positive=credit, negative=debit
+    original_amount: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="TWD")
+    exchange_rate: Mapped[float] = mapped_column(Float, default=1.0)
+    balance_after: Mapped[float | None] = mapped_column(Float)
+    category: Mapped[TransactionCategory] = mapped_column(
+        Enum(TransactionCategory), default=TransactionCategory.OTHER
+    )
+    is_internal_transfer: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_refund: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
+    payment_method: Mapped[str | None] = mapped_column(String(64))
+    invoice_number: Mapped[str | None] = mapped_column(String(32))
+    counterpart_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id")
+    )
+    raw_data: Mapped[str | None] = mapped_column(Text)
+    upload_history_id: Mapped[int | None] = mapped_column(ForeignKey("upload_histories.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    account: Mapped["Account"] = relationship(
+        back_populates="transactions", foreign_keys=[account_id]
+    )
+
+
+class BalanceSheet(Base):
+    """Computed monthly balance sheet (assets = liabilities + equity)."""
+
+    __tablename__ = "balance_sheets"
+    __table_args__ = (UniqueConstraint("period_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    total_cash: Mapped[float] = mapped_column(Float, default=0.0)
+    total_securities_market_value: Mapped[float] = mapped_column(Float, default=0.0)
+    total_assets: Mapped[float] = mapped_column(Float, default=0.0)
+    total_credit_card_payable: Mapped[float] = mapped_column(Float, default=0.0)
+    total_liabilities: Mapped[float] = mapped_column(Float, default=0.0)
+    net_worth: Mapped[float] = mapped_column(Float, default=0.0)  # assets - liabilities
+    computed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    detail_json: Mapped[str | None] = mapped_column(Text)  # per-account breakdown
+
+
+class IncomeStatement(Base):
+    """Computed monthly income statement."""
+
+    __tablename__ = "income_statements"
+    __table_args__ = (UniqueConstraint("period_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    total_income: Mapped[float] = mapped_column(Float, default=0.0)
+    salary_income: Mapped[float] = mapped_column(Float, default=0.0)
+    investment_income: Mapped[float] = mapped_column(Float, default=0.0)
+    other_income: Mapped[float] = mapped_column(Float, default=0.0)
+    total_expenses: Mapped[float] = mapped_column(Float, default=0.0)
+    credit_card_expenses: Mapped[float] = mapped_column(Float, default=0.0)
+    bank_expenses: Mapped[float] = mapped_column(Float, default=0.0)
+    net_savings: Mapped[float] = mapped_column(Float, default=0.0)
+    computed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    detail_json: Mapped[str | None] = mapped_column(Text)
+# ── Upload History ─────────────────────────────────────────────────────────────
+
+
+class UploadHistory(Base):
+    __tablename__ = "upload_histories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)  # 'success' or 'error'
+    message: Mapped[str | None] = mapped_column(Text)
+    file_hash: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
