@@ -81,6 +81,7 @@ pocketCFO.db
 fintrack.db
 
 # Scratch and test scripts
+scratch/
 scratch_*.py
 test.ipynb
 
