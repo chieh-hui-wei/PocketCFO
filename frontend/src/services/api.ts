@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8888/api/v1",
+  baseURL: import.meta.env.VITE_API_URL ?? "/api/v1",
   timeout: 120_000, // PDF parsing can take time (increased to 2 min to prevent timeout)
 });
 
