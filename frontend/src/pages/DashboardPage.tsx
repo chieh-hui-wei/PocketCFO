@@ -10,7 +10,7 @@ import {
 import { Link } from "react-router-dom";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  BarChart, Bar, Cell
 } from "recharts";
 
 const EXPENSE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"];
@@ -126,43 +126,44 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Donut Chart */}
-        <div className="col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-          <h3 className="font-bold text-slate-800 mb-6">支出分類比重 (本月)</h3>
-          <div className="flex-1 flex items-center justify-center relative">
-            <div className="w-[200px] h-[200px]">
-              {pieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value">
-                      {pieData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="w-full h-full border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
-              )}
-            </div>
-            {/* Center Label */}
-            {pieData.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-xs text-slate-500 font-bold mb-1">本月總計</div>
-                <div className="text-lg font-bold text-slate-900">${(latestIs?.total_expenses ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              </div>
+        {/* Bar Chart (Redesigned) */}
+        <div className="col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-slate-800">支出分類比重 (本月)</h3>
+            {latestIs && (
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+                總計: ${latestIs.total_expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 flex items-center justify-center min-h-[180px] w-full">
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={pieData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 'bold' }} width={80} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, "支出金額"]}
+                  />
+                  <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={16}>
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-[180px] border-2 border-slate-100 rounded-2xl border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
             )}
           </div>
           
-          {/* Legend */}
-          <div className="mt-6 grid grid-cols-2 gap-y-2 gap-x-4">
+          {/* Legend Percentages */}
+          <div className="mt-6 space-y-2">
             {pieData.map((d, i) => (
               <div key={i} className="flex justify-between items-center text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }} />
-                  <span className="text-slate-600 font-medium">{d.name}</span>
-                </div>
+                <span className="text-slate-600 font-medium">{d.name}</span>
                 <span className="text-slate-400 font-bold">{Math.round((d.value / (latestIs?.total_expenses || 1)) * 100)}%</span>
               </div>
             ))}

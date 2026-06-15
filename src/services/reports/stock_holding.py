@@ -69,6 +69,11 @@ class StockHoldingService:
             if has_snap and has_sec:
                 continue
 
+            # Firstrade does not carry over dynamically. It is strictly based on uploaded PDFs or manual saves.
+            if acct.code == "broker_Firstrade":
+                continue
+
+
             # 3. Find the latest month prior to period_date with Security records
             prev_period_stmt = (
                 select(Security.period_date)

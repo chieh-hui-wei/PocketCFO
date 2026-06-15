@@ -5,8 +5,10 @@ import {
   getSecuritiesForPeriod, 
   saveSecuritiesForAccount,
   Account,
-  SecurityRecord
+  SecurityRecord,
+  getSecuritiesHistory
 } from "../services/api";
+import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface EditableSecurity {
   ticker: string;
@@ -37,9 +39,28 @@ export default function StockHoldingsPage() {
   const [newBrokerName, setNewBrokerName] = useState("");
   const [newBrokerInst, setNewBrokerInst] = useState("");
 
-  const handlePrevMonth = () => setCurrentDate(d => { const nd = new Date(d); nd.setMonth(d.getMonth() - 1); return nd; });
-  const handleNextMonth = () => setCurrentDate(d => { const nd = new Date(d); nd.setMonth(d.getMonth() + 1); return nd; });
-  const formatMonth = (d: Date) => `${d.getFullYear()}年${d.getMonth() + 1}月`;
+  const [viewMode, setViewMode] = useState<"month" | "year">("month");
+  const [securitiesHistory, setSecuritiesHistory] = useState<SecurityRecord[]>([]);
+
+  const handlePrevMonth = () => setCurrentDate(d => { 
+    const nd = new Date(d); 
+    if (viewMode === "year") {
+      nd.setFullYear(d.getFullYear() - 1);
+    } else {
+      nd.setMonth(d.getMonth() - 1); 
+    }
+    return nd; 
+  });
+  const handleNextMonth = () => setCurrentDate(d => { 
+    const nd = new Date(d); 
+    if (viewMode === "year") {
+      nd.setFullYear(d.getFullYear() + 1);
+    } else {
+      nd.setMonth(d.getMonth() + 1); 
+    }
+    return nd; 
+  });
+  const formatMonth = (d: Date) => viewMode === "year" ? `${d.getFullYear()}年` : `${d.getFullYear()}年${d.getMonth() + 1}月`;
   const targetPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-01`;
 
   // Reset edit state when account or date changes
@@ -57,8 +78,13 @@ export default function StockHoldingsPage() {
       .catch(console.error);
   };
 
+  const loadHistory = () => {
+    getSecuritiesHistory().then(setSecuritiesHistory).catch(console.error);
+  };
+
   useEffect(() => {
     loadAccounts();
+    loadHistory();
   }, []);
 
   // Fetch securities when date or selection changes
@@ -151,6 +177,7 @@ export default function StockHoldingsPage() {
       const month = currentDate.getMonth() + 1;
       const all = await getSecuritiesForPeriod(year, month);
       setAllSecurities(all);
+      loadHistory();
       setIsEditing(false);
     } catch (err) {
       console.error(err);
@@ -272,6 +299,227 @@ export default function StockHoldingsPage() {
     };
   }).sort((a, b) => b.market_value - a.market_value);
 
+  // Check if we are in annual view mode
+  const renderAnnualView = () => {
+    // 1. Calculate values for the selected year
+    const selectedYear = currentDate.getFullYear();
+    
+    // Filter history records for the selected year and selected brokerage account (if not overview)
+    const yearSecurities = securitiesHistory.filter(s => {
+      const y = s.period_date.substring(0, 4);
+      const matchesYear = y === String(selectedYear);
+      if (!matchesYear) return false;
+      if (selectedAccountId !== "overview") {
+        return s.account_id === selectedAccountId;
+      }
+      return true;
+    });
+
+    // Determine the list of tickers that appeared in this year
+    const tickersInYear = Array.from(new Set(yearSecurities.map(s => s.ticker)));
+    const tickerNames: Record<string, string> = {};
+    yearSecurities.forEach(s => {
+      tickerNames[s.ticker] = s.name || s.ticker;
+    });
+
+    // Calculate ticker values for each month (1月 to 12月)
+    const tickerRows = tickersInYear.map(ticker => {
+      const name = tickerNames[ticker];
+      const monthlyValues = Array.from({ length: 12 }, (_, i) => {
+        const monthStr = String(i + 1).padStart(2, "0");
+        const monthSecs = yearSecurities.filter(s => s.ticker === ticker && s.period_date.substring(5, 7) === monthStr);
+        return monthSecs.reduce((sum, s) => sum + s.market_value, 0);
+      });
+      
+      const maxVal = Math.max(...monthlyValues);
+      
+      return {
+        ticker,
+        name,
+        values: monthlyValues,
+        maxVal,
+      };
+    }).sort((a, b) => b.maxVal - a.maxVal);
+
+    // Compute monthly summary totals
+    const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
+      const monthStr = String(i + 1).padStart(2, "0");
+      const monthSecs = yearSecurities.filter(s => s.period_date.substring(5, 7) === monthStr);
+      return monthSecs.reduce((sum, s) => sum + s.market_value, 0);
+    });
+
+    const monthlyPnls = Array.from({ length: 12 }, (_, i) => {
+      const monthStr = String(i + 1).padStart(2, "0");
+      const monthSecs = yearSecurities.filter(s => s.period_date.substring(5, 7) === monthStr);
+      return monthSecs.reduce((sum, s) => sum + s.unrealized_pnl, 0);
+    });
+
+    // Define data for the trend LineChart
+    const chartData = Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1;
+      return {
+        name: `${monthNum}月`,
+        "股票市值": monthlyTotals[i],
+        "未實現損益": monthlyPnls[i],
+      };
+    });
+
+    // Calculate some metrics for cards
+    // Year-end or latest month with data
+    const nonZeroIndices = monthlyTotals.map((val, idx) => val > 0 ? idx : -1).filter(idx => idx !== -1);
+    const latestActiveIndex = nonZeroIndices.length > 0 ? Math.max(...nonZeroIndices) : -1;
+    
+    const yearEndValue = latestActiveIndex !== -1 ? monthlyTotals[latestActiveIndex] : 0;
+    const yearEndPnl = latestActiveIndex !== -1 ? monthlyPnls[latestActiveIndex] : 0;
+    
+    const maxValInYear = Math.max(...monthlyTotals);
+    const totalUniqueStocks = tickersInYear.length;
+
+    // Formatting currency helper
+    const formatCurrency = (val: number) => `$${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        {/* Metric Cards */}
+        <div className="grid grid-cols-4 gap-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <div className="text-xs font-bold text-slate-400 mb-1">
+              {selectedAccountId === "overview" ? "年底整體股票市值" : "年底券商股票市值"}
+            </div>
+            <div className="text-2xl font-bold text-slate-800">{formatCurrency(yearEndValue)}</div>
+            <div className="text-[10px] text-slate-400 mt-1">
+              {latestActiveIndex !== -1 ? `${selectedYear}年${latestActiveIndex + 1}月最後計值` : "本年度尚無計值資料"}
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <div className="text-xs font-bold text-slate-400 mb-1">年度市值高點</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(maxValInYear)}</div>
+            <div className="text-[10px] text-slate-400 mt-1">本年度單月估值最高峰</div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <div className="text-xs font-bold text-slate-400 mb-1">年度未實現損益</div>
+            <div className={`text-2xl font-bold ${yearEndPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+              {yearEndPnl >= 0 ? `+ ${formatCurrency(yearEndPnl)}` : `- ${formatCurrency(Math.abs(yearEndPnl))}`}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1">年度累計未實現損益估值</div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <div className="text-xs font-bold text-slate-400 mb-1">年度曾持有標的數</div>
+            <div className="text-2xl font-bold text-slate-800">{totalUniqueStocks} 檔</div>
+            <div className="text-[10px] text-slate-400 mt-1">本年度累計持有的不同股票</div>
+          </div>
+        </div>
+
+        {/* Line Chart */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="font-bold text-slate-800 mb-4 text-sm">股票資產與損益趨勢 ({selectedYear}年度)</h3>
+          <div className="h-80 w-full font-sans">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis 
+                  stroke="#94a3b8" 
+                  fontSize={11} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickFormatter={(val) => val >= 10000 ? `${(val / 10000).toFixed(0)}萬` : val}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                  formatter={(value: any, name: any) => [formatCurrency(Number(value)), name]}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="股票市值" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, strokeWidth: 2, fill: "#ffffff" }} 
+                  activeDot={{ r: 6 }} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="未實現損益" 
+                  stroke="#10b981" 
+                  strokeWidth={2} 
+                  strokeDasharray="4 4"
+                  dot={{ r: 3, strokeWidth: 1, fill: "#ffffff" }} 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 12-Month Table Grid (Income Statement style) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-slate-800 text-sm">股票資產年度逐月庫存明細</h3>
+            <span className="text-xs text-slate-400">單位：新台幣 (元)</span>
+          </div>
+          <div className="border border-slate-200 rounded-xl overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[1200px] table-fixed">
+              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th className="px-3 py-3 w-40 sticky left-0 bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] z-10">標的</th>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <th key={i} className="px-2 py-3 text-right">{i + 1}月</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {tickerRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="text-center py-12 text-slate-400 font-sans">
+                      這個年度目前沒有任何持股庫存歷史資料。
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {tickerRows.map(row => (
+                      <tr key={row.ticker} className="hover:bg-slate-50/50 transition-colors font-mono">
+                        <td className="px-3 py-3 font-sans sticky left-0 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-100 z-10">
+                          <div className="font-bold text-slate-700 truncate">{row.name}</div>
+                          <div className="text-[9px] text-slate-400 mt-0.5">{row.ticker}</div>
+                        </td>
+                        {row.values.map((val, idx) => (
+                          <td key={idx} className={`px-2 py-3 text-right ${val > 0 ? "text-slate-700 font-semibold" : "text-slate-300"}`}>
+                            {val > 0 ? val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "-"}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                    {/* Summary row 1: Total Stock Value */}
+                    <tr className="bg-slate-50/70 font-mono font-bold text-slate-800 border-t border-slate-300">
+                      <td className="px-3 py-3 font-sans sticky left-0 bg-slate-50/70 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 z-10">
+                        總股票市值
+                      </td>
+                      {monthlyTotals.map((val, idx) => (
+                        <td key={idx} className="px-2 py-3 text-right text-blue-600">
+                          {val > 0 ? val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "-"}
+                        </td>
+                      ))}
+                    </tr>
+                    {/* Summary row 2: Total Unrealized PnL */}
+                    <tr className="bg-slate-50/70 font-mono font-bold text-slate-800">
+                      <td className="px-3 py-3 font-sans sticky left-0 bg-slate-50/70 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 z-10">
+                        累計未實現損益
+                      </td>
+                      {monthlyPnls.map((val, idx) => (
+                        <td key={idx} className={`px-2 py-3 text-right ${val >= 0 ? "text-green-600" : "text-red-500"}`}>
+                          {val !== 0 ? (val > 0 ? "+" : "") + val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "-"}
+                        </td>
+                      ))}
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* Header */}
@@ -280,10 +528,36 @@ export default function StockHoldingsPage() {
           <h1 className="text-2xl font-bold text-slate-800">股票庫存與配置</h1>
           <p className="text-sm text-slate-500 mt-1">檢視各券商持股分布，以及手動登錄/API自動更新的月度庫存</p>
         </div>
-        <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
-          <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handlePrevMonth}>{"<"}</span>
-          {formatMonth(currentDate)}
-          <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handleNextMonth}>{">"}</span>
+        <div className="flex items-center gap-4">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+            <button
+              onClick={() => setViewMode("month")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "month"
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              月度明細
+            </button>
+            <button
+              onClick={() => setViewMode("year")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "year"
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              年度回顧
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+            <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handlePrevMonth}>{"<"}</span>
+            {formatMonth(currentDate)}
+            <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handleNextMonth}>{">"}</span>
+          </div>
         </div>
       </div>
 
@@ -390,7 +664,9 @@ export default function StockHoldingsPage() {
 
         {/* Right Side Panel */}
         <div className="col-span-3 min-h-[400px]">
-          {selectedAccountId === "overview" ? (
+          {viewMode === "year" ? (
+            renderAnnualView()
+          ) : selectedAccountId === "overview" ? (
             /* OVERVIEW PANEL */
             <div className="space-y-6">
               {/* Summary Metrics */}
@@ -423,135 +699,132 @@ export default function StockHoldingsPage() {
 
               {/* Table & Distribution */}
               <div className="space-y-6">
-                {/* Aggregated List & Broker Summary Table (Left 2 cols) */}
-                  
-                  {/* Aggregated Tickers Table */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-fit">
-                    <h3 className="font-bold text-slate-800 mb-4 text-sm">跨券商股票持股彙總</h3>
-                    <div className="border border-slate-200 rounded-xl overflow-x-auto">
-                      <table className="w-full text-left text-sm min-w-[900px]">
-                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                {/* Aggregated Tickers Table */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-fit">
+                  <h3 className="font-bold text-slate-800 mb-4 text-sm">跨券商股票持股彙總</h3>
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-[900px]">
+                      <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-3">標的名稱</th>
+                          <th className="px-3 py-3 text-right">總股數</th>
+                          <th className="px-3 py-3 text-right">平均成本</th>
+                          <th className="px-3 py-3 text-right">收盤現價</th>
+                          <th className="px-3 py-3 text-right">估算市值</th>
+                          <th className="px-3 py-3 text-right min-w-[110px]">未實現損益</th>
+                          <th className="px-3 py-3 text-right">報酬率</th>
+                          <th className="px-3 py-3 text-right min-w-[100px]">資產佔比</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono">
+                        {aggregateList.length === 0 ? (
                           <tr>
-                            <th className="px-3 py-3">標的名稱</th>
-                            <th className="px-3 py-3 text-right">總股數</th>
-                            <th className="px-3 py-3 text-right">平均成本</th>
-                            <th className="px-3 py-3 text-right">收盤現價</th>
-                            <th className="px-3 py-3 text-right">估算市值</th>
-                            <th className="px-3 py-3 text-right min-w-[110px]">未實現損益</th>
-                            <th className="px-3 py-3 text-right">報酬率</th>
-                            <th className="px-3 py-3 text-right min-w-[100px]">資產佔比</th>
+                            <td colSpan={8} className="text-center py-12 text-slate-400 font-sans">
+                              這個月目前沒有任何持股庫存資料。
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {aggregateList.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="text-center py-12 text-slate-400">
-                                這個月目前沒有任何持股庫存資料。
-                              </td>
-                            </tr>
-                          ) : (
-                            aggregateList.map(item => {
-                              const pct = totalPortfolioValue > 0 ? (item.totalMarketValue / totalPortfolioValue) * 100 : 0;
-                              return (
-                                <tr key={item.ticker} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-3 py-3 whitespace-nowrap">
-                                    <div className="font-bold text-slate-700 whitespace-nowrap">{item.name}</div>
-                                    <div className="text-[10px] text-slate-400 mt-1 whitespace-nowrap">
-                                      <span className="font-mono bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-normal">{item.ticker}</span>
+                        ) : (
+                          aggregateList.map(item => {
+                            const pct = totalPortfolioValue > 0 ? (item.totalMarketValue / totalPortfolioValue) * 100 : 0;
+                            return (
+                              <tr key={item.ticker} className="hover:bg-slate-50/50 transition-colors text-slate-700">
+                                <td className="px-3 py-3 whitespace-nowrap font-sans">
+                                  <div className="font-bold text-slate-700 whitespace-nowrap">{item.name}</div>
+                                  <div className="text-[10px] text-slate-400 mt-1 whitespace-nowrap font-sans">
+                                    <span className="font-mono bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-normal">{item.ticker}</span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 text-right font-semibold">{item.totalQty.toLocaleString()}</td>
+                                <td className="px-3 py-3 text-right text-slate-500">
+                                  ${item.avgCost.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                </td>
+                                <td className="px-3 py-3 text-right text-slate-500">
+                                  ${item.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                  <div className="text-slate-800 font-bold">
+                                    ${item.totalMarketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                  <div className={`font-bold ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {item.unrealizedPnl >= 0 ? `+ $${item.unrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(item.unrealizedPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                                  </div>
+                                </td>
+                                <td className={`px-3 py-3 text-right font-bold ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  {item.roi >= 0 ? `+${item.roi.toFixed(2)}%` : `${item.roi.toFixed(2)}%`}
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <span>{pct.toFixed(1)}%</span>
+                                    <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                                      <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                     </div>
-                                  </td>
-                                  <td className="px-3 py-3 text-right font-mono font-medium">{item.totalQty.toLocaleString()}</td>
-                                  <td className="px-3 py-3 text-right font-mono text-slate-500">
-                                    ${item.avgCost.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                                  </td>
-                                  <td className="px-3 py-3 text-right font-mono text-slate-500">
-                                    ${item.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                                  </td>
-                                  <td className="px-3 py-3 text-right font-mono">
-                                    <div className="text-slate-800 font-bold">
-                                      ${item.totalMarketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </div>
-                                  </td>
-                                  <td className="px-3 py-3 text-right font-mono">
-                                    <div className={`font-bold ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                      {item.unrealizedPnl >= 0 ? `+ $${item.unrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(item.unrealizedPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-                                    </div>
-                                  </td>
-                                  <td className={`px-3 py-3 text-right font-mono font-bold ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                    {item.roi >= 0 ? `+${item.roi.toFixed(2)}%` : `${item.roi.toFixed(2)}%`}
-                                  </td>
-                                  <td className="px-3 py-3 text-right font-mono">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <span>{pct.toFixed(1)}%</span>
-                                      <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
-                                        <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
+                </div>
 
-                  {/* Broker Performance Summary Table */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                    <h3 className="font-bold text-slate-800 mb-4 text-sm">各證券商帳戶狀況彙總</h3>
-                    <div className="border border-slate-200 rounded-xl overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                {/* Broker Performance Summary Table */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                  <h3 className="font-bold text-slate-800 mb-4 text-sm">各證券商帳戶狀況彙總</h3>
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-3">券商帳戶</th>
+                          <th className="px-4 py-3 text-center">持股檔數</th>
+                          <th className="px-4 py-3 text-right">當月估算市值</th>
+                          <th className="px-4 py-3 text-right">未實現損益</th>
+                          <th className="px-4 py-3 text-right">投資報酬率</th>
+                          <th className="px-4 py-3 text-right">資產佔比</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono">
+                        {brokerList.length === 0 ? (
                           <tr>
-                            <th className="px-4 py-3">券商帳戶</th>
-                            <th className="px-4 py-3 text-center">持股檔數</th>
-                            <th className="px-4 py-3 text-right">當月估算市值</th>
-                            <th className="px-4 py-3 text-right">未實現損益</th>
-                            <th className="px-4 py-3 text-right">投資報酬率</th>
-                            <th className="px-4 py-3 text-right">資產佔比</th>
+                            <td colSpan={6} className="text-center py-8 text-slate-400 font-sans">
+                              目前無券商持股資料。
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {brokerList.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="text-center py-8 text-slate-400">
-                                目前無券商持股資料。
-                              </td>
-                            </tr>
-                          ) : (
-                            brokerList.map(b => {
-                              const pct = totalPortfolioValue > 0 ? (b.marketValue / totalPortfolioValue) * 100 : 0;
-                              return (
-                                <tr key={b.accountName} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-4 py-3">
-                                    <div className="font-bold text-slate-700">{b.accountName}</div>
-                                  </td>
-                                  <td className="px-4 py-3 text-center font-mono">{b.stockCount}</td>
-                                  <td className="px-4 py-3 text-right font-mono text-slate-800 font-bold">${b.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                  <td className={`px-4 py-3 text-right font-mono font-bold whitespace-nowrap min-w-[120px] ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                    {b.unrealizedPnl >= 0 ? `+ $${b.unrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(b.unrealizedPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-                                  </td>
-                                  <td className={`px-4 py-3 text-right font-mono font-bold ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                    {b.roi >= 0 ? `+${b.roi.toFixed(2)}%` : `${b.roi.toFixed(2)}%`}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-mono">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <span>{pct.toFixed(0)}%</span>
-                                      <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
-                                        <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                      </div>
+                        ) : (
+                          brokerList.map(b => {
+                            const pct = totalPortfolioValue > 0 ? (b.marketValue / totalPortfolioValue) * 100 : 0;
+                            return (
+                              <tr key={b.accountName} className="hover:bg-slate-50/50 transition-colors text-slate-700">
+                                <td className="px-4 py-3 font-sans">
+                                  <div className="font-bold text-slate-700">{b.accountName}</div>
+                                </td>
+                                <td className="px-4 py-3 text-center">{b.stockCount}</td>
+                                <td className="px-4 py-3 text-right font-bold text-slate-800">${b.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                <td className={`px-4 py-3 text-right font-bold whitespace-nowrap min-w-[120px] ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  {b.unrealizedPnl >= 0 ? `+ $${b.unrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(b.unrealizedPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                                </td>
+                                <td className={`px-4 py-3 text-right font-bold ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  {b.roi >= 0 ? `+${b.roi.toFixed(2)}%` : `${b.roi.toFixed(2)}%`}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <span>{pct.toFixed(0)}%</span>
+                                    <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                                      <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                     </div>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-
+                </div>
               </div>
             </div>
           ) : (
@@ -660,7 +933,7 @@ export default function StockHoldingsPage() {
                                   <td className={`px-4 py-3 text-right font-mono font-bold ${s.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                     {s.roi >= 0 ? `+${s.roi.toFixed(2)}%` : `${s.roi.toFixed(2)}%`}
                                   </td>
-                                  <td className="px-4 py-3 text-right font-mono">
+                                  <td className="px-4 py-3 text-right">
                                     <div className="flex items-center justify-end gap-2">
                                       <span>{s.allocation.toFixed(1)}%</span>
                                       <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
@@ -820,3 +1093,4 @@ export default function StockHoldingsPage() {
     </div>
   );
 }
+

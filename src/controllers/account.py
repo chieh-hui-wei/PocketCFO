@@ -72,6 +72,42 @@ async def create_account(body: CreateAccountRequest, db: AsyncSession = Depends(
     }
 
 
+@router.get("/securities/history")
+async def list_securities_history(
+    db: AsyncSession = Depends(get_db)
+):
+    from sqlalchemy import select
+    from src.dbs.models import Security
+    from sqlalchemy.orm import joinedload
+    
+    stmt = select(Security).options(joinedload(Security.account)).order_by(Security.period_date.asc())
+    result = await db.execute(stmt)
+    securities = result.scalars().all()
+    
+    return [
+        {
+            "id": s.id,
+            "account_id": s.account_id,
+            "account_name": s.account.name if s.account else "Unknown Broker",
+            "period_date": s.period_date.isoformat(),
+            "ticker": s.ticker,
+            "name": s.name,
+            "quantity": s.quantity,
+            "avg_cost": s.avg_cost,
+            "current_price": s.current_price,
+            "market_value": s.market_value,
+            "unrealized_pnl": s.unrealized_pnl,
+            "original_avg_cost": s.original_avg_cost,
+            "original_current_price": s.original_current_price,
+            "original_market_value": s.original_market_value,
+            "original_unrealized_pnl": s.original_unrealized_pnl,
+            "currency": s.currency,
+            "exchange_rate": s.exchange_rate,
+        }
+        for s in securities
+    ]
+
+
 @router.get("/{account_id}/history")
 async def account_snapshot_history(account_id: int, db: AsyncSession = Depends(get_db)):
     repo = SnapshotRepository(db)
@@ -421,41 +457,6 @@ async def save_securities_for_account(
     
     return {"status": "success", "total_market_value": total_market_value_twd}
 
-
-@router.get("/securities/history")
-async def list_securities_history(
-    db: AsyncSession = Depends(get_db)
-):
-    from sqlalchemy import select
-    from src.dbs.models import Security
-    from sqlalchemy.orm import joinedload
-    
-    stmt = select(Security).options(joinedload(Security.account)).order_by(Security.period_date.asc())
-    result = await db.execute(stmt)
-    securities = result.scalars().all()
-    
-    return [
-        {
-            "id": s.id,
-            "account_id": s.account_id,
-            "account_name": s.account.name if s.account else "Unknown Broker",
-            "period_date": s.period_date.isoformat(),
-            "ticker": s.ticker,
-            "name": s.name,
-            "quantity": s.quantity,
-            "avg_cost": s.avg_cost,
-            "current_price": s.current_price,
-            "market_value": s.market_value,
-            "unrealized_pnl": s.unrealized_pnl,
-            "original_avg_cost": s.original_avg_cost,
-            "original_current_price": s.original_current_price,
-            "original_market_value": s.original_market_value,
-            "original_unrealized_pnl": s.original_unrealized_pnl,
-            "currency": s.currency,
-            "exchange_rate": s.exchange_rate,
-        }
-        for s in securities
-    ]
 
 
 class UpdateAccountRequest(BaseModel):

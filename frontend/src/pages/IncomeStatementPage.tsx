@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getIncomeStatementHistory, IncomeStatementRecord, getTransactions, TransactionRecord } from "../services/api";
 import { Link } from "react-router-dom";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const INCOME_COLORS = ["#10b981", "#f59e0b", "#64748b"];
 const EXPENSE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"];
@@ -172,32 +172,37 @@ export default function IncomeStatementPage() {
       {/* Donut Charts */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         
-        {/* Income Donut */}
+        {/* Income Bar Chart (Redesigned) */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-          <h3 className="font-bold text-slate-800 mb-6">收入明細</h3>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-slate-800">收入明細</h3>
+            {activeRecord && (
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+                {viewMode === "year" ? "年總收入" : "總收入"}: ${activeRecord.total_income.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            )}
+          </div>
           <div className="flex-1 flex items-center justify-between">
             <div className="w-[200px] h-[200px] relative">
               {incomePieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={incomePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value">
+                  <BarChart data={incomePieData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 'bold' }} width={80} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number) => [`$${value.toLocaleString()}`, "收入金額"]}
+                    />
+                    <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={16}>
                       {incomePieData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={INCOME_COLORS[index % INCOME_COLORS.length]} />
                       ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-                  </PieChart>
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
-              )}
-              {incomePieData.length > 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <div className="text-xs text-slate-500 font-bold mb-1">
-                    {viewMode === "year" ? "年總收入" : "總收入"}
-                  </div>
-                  <div className="text-lg font-bold text-slate-900">${(activeRecord?.total_income ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                </div>
+                <div className="w-full h-full border-2 border-slate-100 rounded-2xl border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
               )}
             </div>
             
@@ -216,32 +221,37 @@ export default function IncomeStatementPage() {
           </div>
         </div>
 
-        {/* Expense Donut */}
+        {/* Expense Bar Chart (Redesigned) */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-          <h3 className="font-bold text-slate-800 mb-6">支出分類明細</h3>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-slate-800">支出分類明細</h3>
+            {activeRecord && (
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+                {viewMode === "year" ? "年總支出" : "總支出"}: ${activeRecord.total_expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            )}
+          </div>
           <div className="flex-1 flex items-center justify-between">
             <div className="w-[200px] h-[200px] relative">
               {expensePieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={expensePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value">
+                  <BarChart data={expensePieData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 'bold' }} width={80} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number) => [`$${value.toLocaleString()}`, "支出金額"]}
+                    />
+                    <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={14}>
                       {expensePieData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
                       ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-                  </PieChart>
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
-              )}
-              {expensePieData.length > 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <div className="text-xs text-slate-500 font-bold mb-1">
-                    {viewMode === "year" ? "年總支出" : "總支出"}
-                  </div>
-                  <div className="text-lg font-bold text-slate-900">${(activeRecord?.total_expenses ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                </div>
+                <div className="w-full h-full border-2 border-slate-100 rounded-2xl border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
               )}
             </div>
             

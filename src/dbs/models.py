@@ -109,9 +109,9 @@ class AccountSnapshot(Base):
     __table_args__ = (UniqueConstraint("account_id", "period_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
     period_date: Mapped[date] = mapped_column(
-        Date, nullable=False
+        Date, nullable=False, index=True
     )  # always 1st of month
     balance: Mapped[float] = mapped_column(Float, nullable=False)
     original_balance: Mapped[float | None] = mapped_column(Float)
@@ -135,8 +135,8 @@ class Security(Base):
     __table_args__ = (UniqueConstraint("account_id", "period_date", "ticker"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
-    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
+    period_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     ticker: Mapped[str] = mapped_column(String(16), nullable=False)
     name: Mapped[str] = mapped_column(String(128))
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
@@ -165,8 +165,8 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"))
-    txn_date: Mapped[date] = mapped_column(Date, nullable=False)
+    account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"), index=True)
+    txn_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     source: Mapped[TransactionSource] = mapped_column(
         Enum(TransactionSource), default=TransactionSource.BANK, nullable=False
     )
@@ -206,7 +206,7 @@ class BalanceSheet(Base):
     __table_args__ = (UniqueConstraint("period_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    period_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     total_cash: Mapped[float] = mapped_column(Float, default=0.0)
     total_securities_market_value: Mapped[float] = mapped_column(Float, default=0.0)
     total_assets: Mapped[float] = mapped_column(Float, default=0.0)
@@ -224,7 +224,7 @@ class IncomeStatement(Base):
     __table_args__ = (UniqueConstraint("period_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    period_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     total_income: Mapped[float] = mapped_column(Float, default=0.0)
     salary_income: Mapped[float] = mapped_column(Float, default=0.0)
     investment_income: Mapped[float] = mapped_column(Float, default=0.0)

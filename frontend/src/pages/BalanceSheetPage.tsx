@@ -8,7 +8,7 @@ import {
   saveAccountSnapshot,
   deleteAccountSnapshot
 } from "../services/api";
-import { LineChart, Line, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { LineChart, Line, ResponsiveContainer, BarChart, Bar, Cell, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
 
 
@@ -267,32 +267,32 @@ export default function BalanceSheetPage() {
         </div>
       </div>
 
-      {/* Analysis Charts Row */}
+      {/* Analysis Charts Row (Redesigned) */}
       <div className="grid grid-cols-3 gap-6 mb-8">
         
         {/* Chart 1: Assets vs Liabilities */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
           <h3 className="font-bold text-slate-800 text-sm mb-4">資產與負債比例</h3>
-          <div className="flex-1 flex items-center justify-center relative min-h-[160px]">
+          <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
             {assetLiabData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={assetLiabData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value">
+                <BarChart data={assetLiabData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 'bold' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(val) => `${val >= 1000 ? (val/1000) + 'K' : val}`} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, "金額"]}
+                  />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={32}>
                     {assetLiabData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={ASSET_LIAB_COLORS[index % ASSET_LIAB_COLORS.length]} />
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-                </PieChart>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="w-[140px] h-[140px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
-            )}
-            {assetLiabData.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-[10px] text-slate-400 font-bold">淨資產</div>
-                <div className="text-sm font-bold text-slate-700">${(latestBs?.net_worth ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              </div>
             )}
           </div>
           <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
@@ -317,26 +317,26 @@ export default function BalanceSheetPage() {
         {/* Chart 2: Individual Assets Breakdown */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
           <h3 className="font-bold text-slate-800 text-sm mb-4">資產個別佔比</h3>
-          <div className="flex-1 flex items-center justify-center relative min-h-[160px]">
+          <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
             {assetsDetailData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={assetsDetailData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value">
+                <BarChart data={assetsDetailData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={80} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, "資產估值"]}
+                  />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
                     {assetsDetailData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={ASSETS_COLORS[index % ASSETS_COLORS.length]} />
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-                </PieChart>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="w-[140px] h-[140px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
-            )}
-            {assetsDetailData.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-[10px] text-slate-400 font-bold">總資產</div>
-                <div className="text-sm font-bold text-slate-700">${(latestBs?.total_assets ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              </div>
             )}
           </div>
           <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
@@ -361,26 +361,26 @@ export default function BalanceSheetPage() {
         {/* Chart 3: Individual Liabilities Breakdown */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
           <h3 className="font-bold text-slate-800 text-sm mb-4">負債個別佔比</h3>
-          <div className="flex-1 flex items-center justify-center relative min-h-[160px]">
+          <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
             {liabDetailData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={liabDetailData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value">
+                <BarChart data={liabDetailData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={80} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, "負債金額"]}
+                  />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
                     {liabDetailData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={LIAB_COLORS[index % LIAB_COLORS.length]} />
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-                </PieChart>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="w-[140px] h-[140px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
-            )}
-            {liabDetailData.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-[10px] text-slate-400 font-bold">總負債</div>
-                <div className="text-sm font-bold text-slate-700">${(latestBs?.total_liabilities ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              </div>
             )}
           </div>
           <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
