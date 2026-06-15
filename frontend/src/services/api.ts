@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "/api/v1",
+  baseURL: import.meta.env.VITE_API_URL || "/api/v1",
   timeout: 120_000, // PDF parsing can take time (increased to 2 min to prevent timeout)
 });
 
@@ -56,6 +56,7 @@ export async function deleteUploadHistory(id: number) {
 
 export async function getBalanceSheetHistory() {
   const { data } = await api.get("/balance-sheet/");
+  console.log("getBalanceSheetHistory data:", typeof data, Array.isArray(data), data);
   return data as BalanceSheetRecord[];
 }
 
@@ -77,6 +78,7 @@ export async function syncBrokerData(year: number, month: number) {
 
 export async function getIncomeStatementHistory() {
   const { data } = await api.get("/income-statement/");
+  console.log("getIncomeStatementHistory data:", typeof data, Array.isArray(data), data);
   return data as IncomeStatementRecord[];
 }
 
@@ -195,6 +197,7 @@ export interface TransactionRecord {
 
 export async function getTransactions(year: number, month?: number) {
   const { data } = await api.get("/transactions/", { params: { year, month } });
+  console.log("getTransactions data:", typeof data, data);
   return data.transactions as TransactionRecord[];
 }
 

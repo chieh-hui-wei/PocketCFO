@@ -105,7 +105,7 @@ export default function IncomeStatementPage() {
   const handleExport = () => {
     const year = currentDate.getFullYear();
     const month = viewMode === "month" ? currentDate.getMonth() + 1 : "";
-    const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8888/api/v1";
+    const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
     const url = `${baseUrl}/income-statement/export?year=${year}${month ? `&month=${month}` : ""}`;
     window.open(url, "_blank");
   };
