@@ -34,6 +34,7 @@ export default function StockHoldingsPage() {
   const [securities, setSecurities] = useState<EditableSecurity[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Account Form
   const [newBrokerName, setNewBrokerName] = useState("");
@@ -91,6 +92,7 @@ export default function StockHoldingsPage() {
   useEffect(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
+    setIsLoading(true);
     
     getSecuritiesForPeriod(year, month)
       .then(all => {
@@ -109,7 +111,8 @@ export default function StockHoldingsPage() {
           setSecurities(mapped);
         }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
   }, [currentDate, selectedAccountId]);
 
   const handleAddRow = () => {
@@ -412,10 +415,26 @@ export default function StockHoldingsPage() {
 
         {/* Line Chart */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="font-bold text-slate-800 mb-4 text-sm">股票資產與損益趨勢 ({selectedYear}年度)</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-slate-800 text-sm">股票資產與損益趨勢 ({selectedYear}年度)</h3>
+            <span className="text-[10px] text-slate-400 font-medium">(點擊折線圖上之月份點可直接切換至該月份明細)</span>
+          </div>
           <div className="h-80 w-full font-sans">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+              <LineChart 
+                data={chartData} 
+                margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
+                onClick={(state) => {
+                  if (state && state.activeTooltipIndex !== undefined) {
+                    const monthIndex = state.activeTooltipIndex;
+                    const targetDate = new Date(currentDate);
+                    targetDate.setMonth(monthIndex);
+                    setCurrentDate(targetDate);
+                    setViewMode("month");
+                  }
+                }}
+                className="cursor-pointer"
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis 
@@ -454,7 +473,19 @@ export default function StockHoldingsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-slate-800 text-sm">股票資產年度逐月庫存明細</h3>
-            <span className="text-xs text-slate-400">單位：新台幣 (元)</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  const url = `/api/v1/accounts/securities/export?year=${selectedYear}` + 
+                    (selectedAccountId !== "overview" ? `&account_id=${selectedAccountId}` : "");
+                  window.open(url, "_blank");
+                }}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200 cursor-pointer"
+              >
+                匯出 Excel
+              </button>
+              <span className="text-xs text-slate-400">單位：新台幣 (元)</span>
+            </div>
           </div>
           <div className="border border-slate-200 rounded-xl overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[1200px] table-fixed">
@@ -664,7 +695,36 @@ export default function StockHoldingsPage() {
 
         {/* Right Side Panel */}
         <div className="col-span-3 min-h-[400px]">
-          {viewMode === "year" ? (
+          {isLoading ? (
+            /* PULSING LOADING SKELETON */
+            <div className="animate-pulse space-y-6">
+              {/* Metric Cards Skeleton */}
+              <div className="grid grid-cols-4 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 h-24 space-y-3">
+                    <div className="h-3 w-2/3 bg-slate-100 rounded"></div>
+                    <div className="h-6 w-1/2 bg-slate-100 rounded"></div>
+                    <div className="h-2.5 w-3/4 bg-slate-100/50 rounded"></div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Chart Skeleton */}
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 h-96 space-y-4">
+                <div className="h-4 w-48 bg-slate-100 rounded"></div>
+                <div className="h-72 w-full bg-slate-50 rounded-xl"></div>
+              </div>
+
+              {/* Table Skeleton */}
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 h-80 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div className="h-4 w-60 bg-slate-100 rounded"></div>
+                  <div className="h-3 w-16 bg-slate-100 rounded"></div>
+                </div>
+                <div className="h-56 w-full bg-slate-50 rounded-xl"></div>
+              </div>
+            </div>
+          ) : viewMode === "year" ? (
             renderAnnualView()
           ) : selectedAccountId === "overview" ? (
             /* OVERVIEW PANEL */

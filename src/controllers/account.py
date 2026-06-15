@@ -108,6 +108,106 @@ async def list_securities_history(
     ]
 
 
+@router.get("/securities/export")
+async def export_securities_history(
+    year: int = Query(..., ge=2020, le=2100),
+    account_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    from datetime import date
+    from sqlalchemy import select
+    from src.dbs.models import Security
+    from sqlalchemy.orm import joinedload
+    import io
+    import csv
+    from fastapi.responses import StreamingResponse
+    from fastapi import HTTPException
+    
+    try:
+        start_date = date(year, 1, 1)
+        end_date = date(year, 12, 31)
+        
+        stmt = (
+            select(Security)
+            .options(joinedload(Security.account))
+            .where(Security.period_date >= start_date, Security.period_date <= end_date)
+            .order_by(Security.period_date.asc())
+        )
+        if account_id is not None:
+            stmt = stmt.where(Security.account_id == account_id)
+            
+        result = await db.execute(stmt)
+        securities = result.scalars().all()
+        
+        tickers_in_year = sorted(list(set(s.ticker for s in securities)))
+        ticker_names = {}
+        for s in securities:
+            ticker_names[s.ticker] = s.name or s.ticker
+            
+        by_ticker_month = {}
+        by_ticker_pnl = {}
+        
+        for s in securities:
+            m = s.period_date.month
+            key = (s.ticker, m)
+            by_ticker_month[key] = by_ticker_month.get(key, 0.0) + s.market_value
+            by_ticker_pnl[key] = by_ticker_pnl.get(key, 0.0) + s.unrealized_pnl
+            
+        ticker_rows = []
+        for ticker in tickers_in_year:
+            name = ticker_names[ticker]
+            monthly_vals = []
+            for m in range(1, 13):
+                monthly_vals.append(by_ticker_month.get((ticker, m), 0.0))
+            max_val = max(monthly_vals) if monthly_vals else 0.0
+            ticker_rows.append({
+                "ticker": ticker,
+                "name": name,
+                "values": monthly_vals,
+                "max_val": max_val
+            })
+            
+        ticker_rows.sort(key=lambda r: r["max_val"], reverse=True)
+        
+        monthly_totals = []
+        monthly_pnls = []
+        for m in range(1, 13):
+            total_mv = sum(by_ticker_month.get((t, m), 0.0) for t in tickers_in_year)
+            total_pnl = sum(by_ticker_pnl.get((t, m), 0.0) for t in tickers_in_year)
+            monthly_totals.append(total_mv)
+            monthly_pnls.append(total_pnl)
+            
+        stream = io.StringIO()
+        writer = csv.writer(stream)
+        
+        headers = ["標的代號", "標的名稱"] + [f"{m}月" for m in range(1, 13)]
+        writer.writerow(headers)
+        
+        for row in ticker_rows:
+            writer.writerow([row["ticker"], row["name"]] + row["values"])
+            
+        writer.writerow(["總股票市值", ""] + monthly_totals)
+        writer.writerow(["累計未實現損益", ""] + monthly_pnls)
+        
+        csv_content = "\ufeff" + stream.getvalue()
+        
+        if account_id is not None:
+            filename = f"securities_{year}_account_{account_id}_annual.csv"
+        else:
+            filename = f"securities_{year}_annual.csv"
+            
+        return StreamingResponse(
+            io.BytesIO(csv_content.encode("utf-8")),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/{account_id}/history")
 async def account_snapshot_history(account_id: int, db: AsyncSession = Depends(get_db)):
     repo = SnapshotRepository(db)

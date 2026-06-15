@@ -14,6 +14,43 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Caching system for GET requests
+const cache: Record<string, { data: any; expiry: number }> = {};
+const CACHE_TTL = 30_000; // 30 seconds Cache Time-To-Live
+
+async function fetchWithCache(url: string, params?: any) {
+  const cacheKey = url + (params ? JSON.stringify(params) : "");
+  const now = Date.now();
+  if (cache[cacheKey] && cache[cacheKey].expiry > now) {
+    return cache[cacheKey].data;
+  }
+  const data = await api.get(url, { params }).then(res => res.data);
+  cache[cacheKey] = { data, expiry: now + CACHE_TTL };
+  return data;
+}
+
+export function clearApiCache() {
+  for (const key in cache) {
+    delete cache[key];
+  }
+}
+
+// Clear cache automatically on any mutating network request (POST, PUT, DELETE)
+api.interceptors.response.use(
+  (response) => {
+    if (response.config.method && response.config.method.toLowerCase() !== "get") {
+      clearApiCache();
+    }
+    return response;
+  },
+  (error) => {
+    if (error.config && error.config.method && error.config.method.toLowerCase() !== "get") {
+      clearApiCache();
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Uploads ──────────────────────────────────────────────────────────────────
 
 export type StatementKind = "bank" | "credit_card" | "brokerage" | "einvoice";
@@ -43,7 +80,7 @@ export type UploadHistoryRecord = {
 };
 
 export async function getUploadHistory() {
-  const { data } = await api.get("/upload/history");
+  const data = await fetchWithCache("/upload/history");
   return data as UploadHistoryRecord[];
 }
 
@@ -55,7 +92,7 @@ export async function deleteUploadHistory(id: number) {
 // ── Balance Sheet ────────────────────────────────────────────────────────────
 
 export async function getBalanceSheetHistory() {
-  const { data } = await api.get("/balance-sheet/");
+  const data = await fetchWithCache("/balance-sheet/");
   console.log("getBalanceSheetHistory data:", typeof data, Array.isArray(data), data);
   return data as BalanceSheetRecord[];
 }
@@ -77,7 +114,7 @@ export async function syncBrokerData(year: number, month: number) {
 // ── Income Statement ─────────────────────────────────────────────────────────
 
 export async function getIncomeStatementHistory() {
-  const { data } = await api.get("/income-statement/");
+  const data = await fetchWithCache("/income-statement/");
   console.log("getIncomeStatementHistory data:", typeof data, Array.isArray(data), data);
   return data as IncomeStatementRecord[];
 }
@@ -92,7 +129,7 @@ export async function computeIncomeStatement(year: number, month: number) {
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
 export async function getAccounts() {
-  const { data } = await api.get("/accounts/");
+  const data = await fetchWithCache("/accounts/");
   return data as Account[];
 }
 
@@ -120,9 +157,7 @@ export interface AccountWithSnapshot extends Account {
 }
 
 export async function getAccountsWithSnapshots(year: number, month: number) {
-  const { data } = await api.get("/accounts/snapshots", {
-    params: { year, month },
-  });
+  const data = await fetchWithCache("/accounts/snapshots", { year, month });
   return data as AccountWithSnapshot[];
 }
 
@@ -196,13 +231,13 @@ export interface TransactionRecord {
 }
 
 export async function getTransactions(year: number, month?: number) {
-  const { data } = await api.get("/transactions/", { params: { year, month } });
+  const data = await fetchWithCache("/transactions/", { year, month });
   console.log("getTransactions data:", typeof data, data);
   return data.transactions as TransactionRecord[];
 }
 
 export async function getStockTransactions(year: number, month: number) {
-  const { data } = await api.get("/transactions/stocks", { params: { year, month } });
+  const data = await fetchWithCache("/transactions/stocks", { year, month });
   return data.transactions as TransactionRecord[];
 }
 
@@ -229,9 +264,7 @@ export interface SecurityRecord {
 }
 
 export async function getSecuritiesForPeriod(year: number, month: number) {
-  const { data } = await api.get("/accounts/securities", {
-    params: { year, month }
-  });
+  const data = await fetchWithCache("/accounts/securities", { year, month });
   return data as SecurityRecord[];
 }
 
@@ -264,14 +297,12 @@ export interface StockTransactionsSummaryItem {
 }
 
 export async function getStockTransactionsSummary(months: number = 6) {
-  const { data } = await api.get("/transactions/stocks/summary", {
-    params: { months }
-  });
+  const data = await fetchWithCache("/transactions/stocks/summary", { months });
   return data.summary as StockTransactionsSummaryItem[];
 }
 
 export async function getSecuritiesHistory() {
-  const { data } = await api.get("/accounts/securities/history");
+  const data = await fetchWithCache("/accounts/securities/history");
   return data as SecurityRecord[];
 }
 
@@ -360,7 +391,7 @@ export interface CredentialsSettings {
 }
 
 export async function getSettings() {
-  const { data } = await api.get("/settings/");
+  const data = await fetchWithCache("/settings/");
   return data as CredentialsSettings;
 }
 
