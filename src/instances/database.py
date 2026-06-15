@@ -25,10 +25,17 @@ elif "postgresql" in settings.database_url:
     connect_args["ssl"] = "require"
     connect_args["server_settings"] = {"search_path": "public"}
 
+engine_args = {
+    "echo": settings.app_debug,
+    "connect_args": connect_args,
+}
+if "postgresql" in settings.database_url:
+    engine_args["pool_size"] = 2
+    engine_args["max_overflow"] = 0
+
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.app_debug,
-    connect_args=connect_args,
+    **engine_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(
