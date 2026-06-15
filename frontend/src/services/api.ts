@@ -6,6 +6,14 @@ const api = axios.create({
   timeout: 120_000, // PDF parsing can take time (increased to 2 min to prevent timeout)
 });
 
+// Interceptor to strip leading slash from relative paths to preserve the baseURL sub-path
+api.interceptors.request.use((config) => {
+  if (config.url && config.url.startsWith("/")) {
+    config.url = config.url.substring(1);
+  }
+  return config;
+});
+
 // ── Uploads ──────────────────────────────────────────────────────────────────
 
 export type StatementKind = "bank" | "credit_card" | "brokerage" | "einvoice";
