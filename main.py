@@ -5,9 +5,11 @@ pocketCFO FastAPI application entry point.
 from __future__ import annotations
 
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.controllers.auth import router as auth_router
+from src.middleware.auth import verify_token
 from src.controllers.account import router as account_router
 from src.controllers.reports.balance_sheet import router as bs_router
 from src.controllers.reports.income_statement import router as is_router
@@ -55,13 +57,14 @@ app.add_exception_handler(ValueError, value_error_handler)
 app.add_exception_handler(FileNotFoundError, file_not_found_handler)
 
 # ── Routers ────────────────────────────────────────────────────────────────────
-app.include_router(upload_router, prefix="/api/v1")
-app.include_router(bs_router, prefix="/api/v1")
-app.include_router(is_router, prefix="/api/v1")
-app.include_router(account_router, prefix="/api/v1")
-app.include_router(report_router, prefix="/api/v1")
-app.include_router(settings_router, prefix="/api/v1")
-app.include_router(txns_router)
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(upload_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+app.include_router(bs_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+app.include_router(is_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+app.include_router(account_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+app.include_router(report_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+app.include_router(settings_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+app.include_router(txns_router, dependencies=[Depends(verify_token)])
 
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────

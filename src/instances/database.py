@@ -33,6 +33,9 @@ if "postgresql" in settings.database_url:
     engine_args["pool_size"] = 20
     engine_args["max_overflow"] = 10
     engine_args["pool_recycle"] = 300
+    engine_args["pool_pre_ping"] = True
+    engine_args["pool_timeout"] = 15
+
 
 engine = create_async_engine(
     settings.database_url,

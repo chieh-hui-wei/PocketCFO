@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # ── App ──────────────────────────────────────────────────────────────
     app_env: str
     app_secret_key: str
+    app_password: str = "admin"
     app_host: str
     app_port: int
     app_debug: bool

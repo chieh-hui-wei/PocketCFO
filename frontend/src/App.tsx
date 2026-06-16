@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import BalanceSheetPage from "./pages/BalanceSheetPage";
@@ -9,6 +10,7 @@ import StockTransactionsPage from "./pages/StockTransactionsPage";
 import StockHoldingsPage from "./pages/StockHoldingsPage";
 import AccountsPage from "./pages/AccountsPage";
 import SettingsPage from "./pages/SettingsPage";
+import LoginPage from "./pages/LoginPage";
 
 const NAV = [
   { to: "/", label: "總覽", end: true },
@@ -27,6 +29,24 @@ const NAV = [
 ];
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    !!localStorage.getItem("pocketcfo_token")
+  );
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setIsAuthenticated(false);
+    };
+    window.addEventListener("pocketcfo_unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("pocketcfo_unauthorized", handleUnauthorized);
+    };
+  }, []);
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex">

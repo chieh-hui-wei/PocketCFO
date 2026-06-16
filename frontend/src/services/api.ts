@@ -6,10 +6,14 @@ const api = axios.create({
   timeout: 120_000, // PDF parsing can take time (increased to 2 min to prevent timeout)
 });
 
-// Interceptor to strip leading slash from relative paths to preserve the baseURL sub-path
+// Interceptor to strip leading slash and inject JWT token
 api.interceptors.request.use((config) => {
   if (config.url && config.url.startsWith("/")) {
     config.url = config.url.substring(1);
+  }
+  const token = localStorage.getItem("pocketcfo_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -35,7 +39,7 @@ export function clearApiCache() {
   }
 }
 
-// Clear cache automatically on any mutating network request (POST, PUT, DELETE)
+// Clear cache automatically on mutations and handle unauthorized access
 api.interceptors.response.use(
   (response) => {
     if (response.config.method && response.config.method.toLowerCase() !== "get") {
@@ -46,6 +50,13 @@ api.interceptors.response.use(
   (error) => {
     if (error.config && error.config.method && error.config.method.toLowerCase() !== "get") {
       clearApiCache();
+    }
+    if (error.response && error.response.status === 401) {
+      // Don't auto-redirect if we are already trying to login
+      if (error.config && !error.config.url.includes("/auth/login")) {
+        localStorage.removeItem("pocketcfo_token");
+        window.dispatchEvent(new Event("pocketcfo_unauthorized"));
+      }
     }
     return Promise.reject(error);
   }
@@ -420,6 +431,14 @@ export async function uploadCertificate(file: File, broker: "taishin" | "sinopac
   form.append("file", file);
   form.append("broker", broker);
   const { data } = await api.post("/settings/upload-cert", form);
+  return data;
+}
+
+export async function login(password: string) {
+  const { data } = await api.post("/auth/login", { password });
+  if (data.token) {
+    localStorage.setItem("pocketcfo_token", data.token);
+  }
   return data;
 }
 
