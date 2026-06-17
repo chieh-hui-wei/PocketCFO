@@ -158,11 +158,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </form>
 
           {/* Links */}
-          <div className="text-center mt-6">
+          <div className="text-center mt-6 flex flex-col gap-2.5">
             <Link to="/register" className="text-xs text-blue-400 hover:underline font-semibold transition-all duration-200">
               收到邀請？前往註冊帳戶
             </Link>
+            <Link to="/reset-password" className="text-xs text-slate-400 hover:text-slate-200 hover:underline font-medium transition-all duration-200">
+              忘記密碼？
+            </Link>
           </div>
+
 
         </div>
 

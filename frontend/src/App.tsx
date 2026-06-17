@@ -12,6 +12,7 @@ import AccountsPage from "./pages/AccountsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 const NAV = [
   { to: "/", label: "總覽", end: true },
@@ -77,6 +78,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="*" element={<LoginPage onLogin={() => setIsAuthenticated(true)} />} />
         </Routes>
       </BrowserRouter>
