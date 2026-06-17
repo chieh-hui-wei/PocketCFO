@@ -8,9 +8,10 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.dbs.models import Account, AccountType
+from src.dbs.models import Account, AccountType, User
 from src.dbs.repository import AccountRepository, SnapshotRepository
 from src.instances.database import get_db
+from src.middleware.auth import verify_token
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -31,8 +32,11 @@ class SaveSnapshotRequest(BaseModel):
 
 
 @router.get("/")
-async def list_accounts(db: AsyncSession = Depends(get_db)):
-    repo = AccountRepository(db)
+async def list_accounts(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    repo = AccountRepository(db, current_user.id)
     accounts = await repo.get_all()
     return [
         {
@@ -49,8 +53,12 @@ async def list_accounts(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/")
-async def create_account(body: CreateAccountRequest, db: AsyncSession = Depends(get_db)):
-    repo = AccountRepository(db)
+async def create_account(
+    body: CreateAccountRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    repo = AccountRepository(db, current_user.id)
     
     code = body.code
     if not code:
@@ -74,13 +82,19 @@ async def create_account(body: CreateAccountRequest, db: AsyncSession = Depends(
 
 @router.get("/securities/history")
 async def list_securities_history(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from sqlalchemy import select
     from src.dbs.models import Security
     from sqlalchemy.orm import joinedload
     
-    stmt = select(Security).options(joinedload(Security.account)).order_by(Security.period_date.asc())
+    stmt = (
+        select(Security)
+        .options(joinedload(Security.account))
+        .where(Security.user_id == current_user.id)
+        .order_by(Security.period_date.asc())
+    )
     result = await db.execute(stmt)
     securities = result.scalars().all()
     
@@ -112,7 +126,8 @@ async def list_securities_history(
 async def export_securities_history(
     year: int = Query(..., ge=2020, le=2100),
     account_id: int | None = Query(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from datetime import date
     from sqlalchemy import select
@@ -130,7 +145,11 @@ async def export_securities_history(
         stmt = (
             select(Security)
             .options(joinedload(Security.account))
-            .where(Security.period_date >= start_date, Security.period_date <= end_date)
+            .where(
+                Security.period_date >= start_date,
+                Security.period_date <= end_date,
+                Security.user_id == current_user.id
+            )
             .order_by(Security.period_date.asc())
         )
         if account_id is not None:
@@ -209,8 +228,12 @@ async def export_securities_history(
 
 
 @router.get("/{account_id}/history")
-async def account_snapshot_history(account_id: int, db: AsyncSession = Depends(get_db)):
-    repo = SnapshotRepository(db)
+async def account_snapshot_history(
+    account_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    repo = SnapshotRepository(db, current_user.id)
     snaps = await repo.get_history(account_id, limit=24)
     return [
         {"period": s.period_date.isoformat(), "balance": s.balance, "source": s.source}
@@ -223,10 +246,11 @@ async def list_account_snapshots_for_period(
     year: int = Query(..., ge=2020, le=2100),
     month: int = Query(..., ge=1, le=12),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from src.utils.date_utils import first_of_month
-    acct_repo = AccountRepository(db)
-    snap_repo = SnapshotRepository(db)
+    acct_repo = AccountRepository(db, current_user.id)
+    snap_repo = SnapshotRepository(db, current_user.id)
     
     period = first_of_month(year, month)
     accounts = await acct_repo.get_all()
@@ -256,14 +280,15 @@ async def save_snapshot(
     account_id: int,
     body: SaveSnapshotRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from datetime import datetime
     from src.dbs.models import AccountSnapshot
     from src.services.reports.balance_sheet import BalanceSheetService
     from src.utils.date_utils import first_of_month
     
-    repo = SnapshotRepository(db)
-    acct_repo = AccountRepository(db)
+    repo = SnapshotRepository(db, current_user.id)
+    acct_repo = AccountRepository(db, current_user.id)
     
     account = await acct_repo.get_by_id(account_id)
     if not account:
@@ -283,6 +308,7 @@ async def save_snapshot(
             balance = -balance
             
     snapshot = AccountSnapshot(
+        user_id=current_user.id,
         account_id=account_id,
         period_date=period,
         balance=balance,
@@ -293,7 +319,7 @@ async def save_snapshot(
     await db.flush()
     
     # Recompute balance sheet for this month
-    bs_service = BalanceSheetService(db)
+    bs_service = BalanceSheetService(db, current_user.id)
     await bs_service.compute(period.year, period.month)
     
     return {"status": "success", "period": period.isoformat(), "balance": balance}
@@ -304,6 +330,7 @@ async def delete_account_snapshot(
     account_id: int,
     period_str: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from sqlalchemy import delete
     from src.dbs.models import AccountSnapshot
@@ -320,13 +347,14 @@ async def delete_account_snapshot(
     
     stmt = delete(AccountSnapshot).where(
         AccountSnapshot.account_id == account_id,
-        AccountSnapshot.period_date == period
+        AccountSnapshot.period_date == period,
+        AccountSnapshot.user_id == current_user.id
     )
     result = await db.execute(stmt)
     await db.flush()
     
     # Recompute balance sheet for this month
-    bs_service = BalanceSheetService(db)
+    bs_service = BalanceSheetService(db, current_user.id)
     await bs_service.compute(period.year, period.month)
     
     return {"status": "deleted", "count": result.rowcount}
@@ -349,12 +377,13 @@ async def list_securities_for_period(
     year: int = Query(..., ge=2020, le=2100),
     month: int = Query(..., ge=1, le=12),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from src.utils.date_utils import first_of_month
     from src.services.reports.stock_holding import StockHoldingService
     
     period = first_of_month(year, month)
-    holding_service = StockHoldingService(db)
+    holding_service = StockHoldingService(db, current_user.id)
     _, securities = await holding_service.get_or_compute_portfolio(period)
     
     return [
@@ -386,6 +415,7 @@ async def save_securities_for_account(
     body: SaveSecuritiesForAccountRequest,
     period_date: str = Query(...),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     from datetime import datetime, timedelta
     from sqlalchemy import delete, select
@@ -396,7 +426,7 @@ async def save_securities_for_account(
     from src.services.exchange_rate import get_usd_twd_rate
     from src.utils.stock_utils import fetch_month_end_price, normalize_stock_name
     
-    acct_repo = AccountRepository(db)
+    acct_repo = AccountRepository(db, current_user.id)
     account = await acct_repo.get_by_id(account_id)
     if not account:
         return {"error": "Account not found"}, 404
@@ -409,7 +439,11 @@ async def save_securities_for_account(
     period = first_of_month(dt.year, dt.month)
     
     # Query existing securities to calculate old market value in TWD
-    old_secs_stmt = select(Security).where(Security.account_id == account_id, Security.period_date == period)
+    old_secs_stmt = select(Security).where(
+        Security.account_id == account_id,
+        Security.period_date == period,
+        Security.user_id == current_user.id
+    )
     old_secs_res = await db.execute(old_secs_stmt)
     old_secs = old_secs_res.scalars().all()
     old_secs_mv_twd = sum(s.market_value for s in old_secs)
@@ -418,7 +452,8 @@ async def save_securities_for_account(
     await db.execute(
         delete(Security).where(
             Security.account_id == account_id,
-            Security.period_date == period
+            Security.period_date == period,
+            Security.user_id == current_user.id
         )
     )
     
@@ -456,6 +491,7 @@ async def save_securities_for_account(
             pnl_twd = round(pnl_orig * exchange_rate)
             
             sec = Security(
+                user_id=current_user.id,
                 account_id=account_id,
                 period_date=period,
                 ticker=s.ticker,
@@ -474,6 +510,7 @@ async def save_securities_for_account(
             )
         else:
             sec = Security(
+                user_id=current_user.id,
                 account_id=account_id,
                 period_date=period,
                 ticker=s.ticker,
@@ -494,8 +531,12 @@ async def save_securities_for_account(
     await db.flush()
     
     # 3. Update the AccountSnapshot for this brokerage account
-    snap_repo = SnapshotRepository(db)
-    existing_snap_stmt = select(AccountSnapshot).where(AccountSnapshot.account_id == account_id, AccountSnapshot.period_date == period)
+    snap_repo = SnapshotRepository(db, current_user.id)
+    existing_snap_stmt = select(AccountSnapshot).where(
+        AccountSnapshot.account_id == account_id,
+        AccountSnapshot.period_date == period,
+        AccountSnapshot.user_id == current_user.id
+    )
     existing_snap_res = await db.execute(existing_snap_stmt)
     existing_snap = existing_snap_res.scalar_one_or_none()
     
@@ -507,7 +548,11 @@ async def save_securities_for_account(
         # Carry over cash from previous snapshots + transactions
         prev_snap_stmt = (
             select(AccountSnapshot)
-            .where(AccountSnapshot.account_id == account_id, AccountSnapshot.period_date < period)
+            .where(
+                AccountSnapshot.account_id == account_id,
+                AccountSnapshot.period_date < period,
+                AccountSnapshot.user_id == current_user.id
+            )
             .order_by(AccountSnapshot.period_date.desc())
             .limit(1)
         )
@@ -515,7 +560,11 @@ async def save_securities_for_account(
         prev_snap = prev_snap_res.scalar_one_or_none()
         
         if prev_snap:
-            prev_secs_stmt = select(Security).where(Security.account_id == account_id, Security.period_date == prev_snap.period_date)
+            prev_secs_stmt = select(Security).where(
+                Security.account_id == account_id,
+                Security.period_date == prev_snap.period_date,
+                Security.user_id == current_user.id
+            )
             prev_secs_res = await db.execute(prev_secs_stmt)
             prev_secs = prev_secs_res.scalars().all()
             prev_secs_mv_twd = sum(s.market_value for s in prev_secs)
@@ -528,7 +577,8 @@ async def save_securities_for_account(
             txns_stmt = select(Transaction).where(
                 Transaction.account_id == account_id,
                 Transaction.txn_date >= (prev_snap.period_date + timedelta(days=1)),
-                Transaction.txn_date <= end_date
+                Transaction.txn_date <= end_date,
+                Transaction.user_id == current_user.id
             )
             txns_res = await db.execute(txns_stmt)
             txns = txns_res.scalars().all()
@@ -540,6 +590,7 @@ async def save_securities_for_account(
             new_balance_twd = total_market_value_twd
             
     snapshot = AccountSnapshot(
+        user_id=current_user.id,
         account_id=account_id,
         period_date=period,
         balance=round(new_balance_twd),
@@ -552,11 +603,10 @@ async def save_securities_for_account(
     await db.flush()
     
     # 4. Recompute Balance Sheet
-    bs_service = BalanceSheetService(db)
+    bs_service = BalanceSheetService(db, current_user.id)
     await bs_service.compute(period.year, period.month)
     
     return {"status": "success", "total_market_value": total_market_value_twd}
-
 
 
 class UpdateAccountRequest(BaseModel):
@@ -574,8 +624,9 @@ async def update_account(
     account_id: int,
     body: UpdateAccountRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
-    repo = AccountRepository(db)
+    repo = AccountRepository(db, current_user.id)
     account = await repo.get_by_id(account_id)
     if not account or not account.is_active:
         from fastapi import HTTPException
@@ -592,9 +643,14 @@ async def update_account(
     if body.is_internal is not None:
         account.is_internal = body.is_internal
     if body.code is not None:
-        # Check if the code is already used by another active account
+        # Check if the code is already used by another active account for this user
         from sqlalchemy import select
-        stmt = select(Account).where(Account.code == body.code, Account.id != account_id, Account.is_active == True)
+        stmt = select(Account).where(
+            Account.code == body.code,
+            Account.id != account_id,
+            Account.is_active == True,
+            Account.user_id == current_user.id
+        )
         result = await db.execute(stmt)
         existing = result.scalars().first()
         if existing:
@@ -609,8 +665,12 @@ async def update_account(
 
 
 @router.delete("/{account_id}")
-async def delete_account(account_id: int, db: AsyncSession = Depends(get_db)):
-    repo = AccountRepository(db)
+async def delete_account(
+    account_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    repo = AccountRepository(db, current_user.id)
     account = await repo.get_by_id(account_id)
     if not account or not account.is_active:
         from fastapi import HTTPException
@@ -620,4 +680,3 @@ async def delete_account(account_id: int, db: AsyncSession = Depends(get_db)):
     account.is_active = False
     await db.commit()
     return {"status": "success"}
-

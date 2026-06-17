@@ -9,13 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.instances.database import get_db
 from src.services.reports.income_statement import IncomeStatementService
+from src.middleware.auth import verify_token
+from src.dbs.models import User
 
 router = APIRouter(prefix="/income-statement", tags=["income_statement"])
 
 
 @router.get("/")
-async def list_income_statements(db: AsyncSession = Depends(get_db)):
-    svc = IncomeStatementService(db)
+async def list_income_statements(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    svc = IncomeStatementService(db, current_user.id)
     return await svc.get_history(months=36)
 
 
@@ -24,6 +29,7 @@ async def export_income_statement(
     year: int = Query(..., ge=2020, le=2100),
     month: int | None = Query(None, ge=1, le=12),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     import csv
     import io
@@ -37,18 +43,22 @@ async def export_income_statement(
         if month is not None:
             # Export single month
             period = date(year, month, 1)
-            stmt = select(IncomeStatement).where(IncomeStatement.period_date == period)
+            stmt = select(IncomeStatement).where(
+                IncomeStatement.period_date == period,
+                IncomeStatement.user_id == current_user.id
+            )
             res = await db.execute(stmt)
             istmt = res.scalar_one_or_none()
             
             # If not exists, compute it
             if not istmt:
                 try:
-                    svc = IncomeStatementService(db)
+                    svc = IncomeStatementService(db, current_user.id)
                     istmt = await svc.compute(year, month)
                     await db.commit()
                 except Exception:
                     istmt = IncomeStatement(
+                        user_id=current_user.id,
                         period_date=period,
                         total_income=0.0,
                         salary_income=0.0,
@@ -101,7 +111,8 @@ async def export_income_statement(
             end = date(year, 12, 31)
             stmt = select(IncomeStatement).where(
                 IncomeStatement.period_date >= start,
-                IncomeStatement.period_date <= end
+                IncomeStatement.period_date <= end,
+                IncomeStatement.user_id == current_user.id
             ).order_by(IncomeStatement.period_date.asc())
             res = await db.execute(stmt)
             statements = res.scalars().all()
@@ -176,18 +187,18 @@ async def export_income_statement(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @router.post("/compute")
 async def compute_income_statement(
     year: int = Query(..., ge=2020, le=2100),
     month: int = Query(..., ge=1, le=12),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     """
     Compute income statement for a given month.
     Inter-account transfers are automatically excluded.
     """
-    svc = IncomeStatementService(db)
+    svc = IncomeStatementService(db, current_user.id)
     stmt = await svc.compute(year, month)
     return {
         "period": stmt.period_date.isoformat(),

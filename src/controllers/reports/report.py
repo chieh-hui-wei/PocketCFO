@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.instances.database import get_db
 from src.services.reports.report import ReportService
+from src.middleware.auth import verify_token
+from src.dbs.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -19,12 +21,13 @@ async def generate_pdf_report(
     year: int = Query(..., ge=2020, le=2100),
     month: int = Query(..., ge=1, le=12),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     """
     Generate and download a beautifully styled PDF Financial Report
     containing the Balance Sheet and Income Statement for the given month.
     """
-    svc = ReportService(db)
+    svc = ReportService(db, current_user.id)
     pdf_io = await svc.generate_monthly_pdf(year, month)
     
     filename = f"pocketCFO_Report_{year}_{month:02d}.pdf"

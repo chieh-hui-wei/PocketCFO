@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 last_trade_sync_month = None  # (year, month)
 last_asset_sync_day = None    # date
 
-async def sync_taishin_trades(year: int, month: int) -> None:
+async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
     """
     Sync stock transactions for a specific month from Taishin API.
     """
@@ -33,13 +33,14 @@ async def sync_taishin_trades(year: int, month: int) -> None:
     
     async with AsyncSessionLocal() as db:
         # Get or create Taishin brokerage account
-        account_repo = AccountRepository(db)
+        account_repo = AccountRepository(db, user_id)
         account = await db.execute(
-            select(Account).where(Account.code == "broker_taishin")
+            select(Account).where(Account.code == "broker_taishin", Account.user_id == user_id)
         )
         account = account.scalar_one_or_none()
         if not account:
             account = Account(
+                user_id=user_id,
                 code="broker_taishin",
                 name="台新證券",
                 account_type=AccountType.BROKERAGE,
@@ -76,6 +77,7 @@ async def sync_taishin_trades(year: int, month: int) -> None:
                 
                 # Check for duplicates
                 stmt = select(Transaction).where(
+                    Transaction.user_id == user_id,
                     Transaction.account_id == account_id,
                     Transaction.txn_date == txn_date,
                     Transaction.amount == amount,
@@ -87,6 +89,7 @@ async def sync_taishin_trades(year: int, month: int) -> None:
                     continue
                     
                 txn = Transaction(
+                    user_id=user_id,
                     account_id=account_id,
                     txn_date=txn_date,
                     source=TransactionSource.BROKERAGE,
@@ -107,7 +110,7 @@ async def sync_taishin_trades(year: int, month: int) -> None:
         except Exception as e:
             log.error(f"Failed to auto-sync Taishin trades: {e}")
 
-async def sync_esun_trades(year: int, month: int) -> None:
+async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
     """
     Sync stock transactions for a specific month from E-Sun API.
     """
@@ -122,11 +125,12 @@ async def sync_esun_trades(year: int, month: int) -> None:
     async with AsyncSessionLocal() as db:
         # Get or create E-Sun brokerage account
         account = await db.execute(
-            select(Account).where(Account.code == "broker_esun")
+            select(Account).where(Account.code == "broker_esun", Account.user_id == user_id)
         )
         account = account.scalar_one_or_none()
         if not account:
             account = Account(
+                user_id=user_id,
                 code="broker_esun",
                 name="玉山證券",
                 account_type=AccountType.BROKERAGE,
@@ -174,6 +178,7 @@ async def sync_esun_trades(year: int, month: int) -> None:
                     
                     # Check for duplicates
                     stmt = select(Transaction).where(
+                        Transaction.user_id == user_id,
                         Transaction.account_id == account_id,
                         Transaction.txn_date == txn_date,
                         Transaction.amount == amount,
@@ -185,6 +190,7 @@ async def sync_esun_trades(year: int, month: int) -> None:
                         continue
                         
                     txn = Transaction(
+                        user_id=user_id,
                         account_id=account_id,
                         txn_date=txn_date,
                         source=TransactionSource.BROKERAGE,
@@ -205,7 +211,7 @@ async def sync_esun_trades(year: int, month: int) -> None:
         except Exception as e:
             log.error(f"Failed to auto-sync E-Sun trades: {e}")
 
-async def sync_taishin_assets(year: int, month: int) -> None:
+async def sync_taishin_assets(year: int, month: int, user_id: int = 1) -> None:
     """
     Sync Taishin stock holdings and cash balance, update snapshots, and recalculate balance sheet.
     """
@@ -215,11 +221,12 @@ async def sync_taishin_assets(year: int, month: int) -> None:
     async with AsyncSessionLocal() as db:
         # Get or create Taishin brokerage account
         account = await db.execute(
-            select(Account).where(Account.code == "broker_taishin")
+            select(Account).where(Account.code == "broker_taishin", Account.user_id == user_id)
         )
         account = account.scalar_one_or_none()
         if not account:
             account = Account(
+                user_id=user_id,
                 code="broker_taishin",
                 name="台新證券",
                 account_type=AccountType.BROKERAGE,
@@ -242,13 +249,14 @@ async def sync_taishin_assets(year: int, month: int) -> None:
             total_balance = float(balance.get("cash_balance") or 0.0) + total_mv
             
             snapshot = AccountSnapshot(
+                user_id=user_id,
                 account_id=account_id,
                 period_date=period,
                 balance=total_balance,
                 source="api",
                 raw_data=json.dumps({"cash_balance": balance["cash_balance"], "positions": positions}, ensure_ascii=False)
             )
-            snap_repo = SnapshotRepository(db)
+            snap_repo = SnapshotRepository(db, user_id)
             await snap_repo.upsert(snapshot)
             log.info(f"Upserted account snapshot for Taishin brokerage: balance={total_balance}")
             
@@ -259,6 +267,7 @@ async def sync_taishin_assets(year: int, month: int) -> None:
                 cost = float(p.get("cost") or 0)
                 securities.append(
                     Security(
+                        user_id=user_id,
                         account_id=account_id,
                         period_date=period,
                         ticker=p["ticker"],
@@ -272,12 +281,12 @@ async def sync_taishin_assets(year: int, month: int) -> None:
                 )
                 
             if securities:
-                sec_repo = SecurityRepository(db)
+                sec_repo = SecurityRepository(db, user_id)
                 await sec_repo.upsert_many(securities)
                 log.info(f"Upserted {len(securities)} stock positions for Taishin brokerage.")
                 
             # Recompute balance sheet for the month
-            bs_service = BalanceSheetService(db)
+            bs_service = BalanceSheetService(db, user_id)
             await bs_service.compute(year, month)
             
             await db.commit()
@@ -285,7 +294,7 @@ async def sync_taishin_assets(year: int, month: int) -> None:
         except Exception as e:
             log.error(f"Failed to auto-sync Taishin assets: {e}")
 
-async def sync_esun_assets(year: int, month: int) -> None:
+async def sync_esun_assets(year: int, month: int, user_id: int = 1) -> None:
     """
     Sync E-Sun stock holdings and cash balance, update snapshots, and recalculate balance sheet.
     """
@@ -295,11 +304,12 @@ async def sync_esun_assets(year: int, month: int) -> None:
     async with AsyncSessionLocal() as db:
         # Get or create E-Sun brokerage account
         account = await db.execute(
-            select(Account).where(Account.code == "broker_esun")
+            select(Account).where(Account.code == "broker_esun", Account.user_id == user_id)
         )
         account = account.scalar_one_or_none()
         if not account:
             account = Account(
+                user_id=user_id,
                 code="broker_esun",
                 name="玉山證券",
                 account_type=AccountType.BROKERAGE,
@@ -322,13 +332,14 @@ async def sync_esun_assets(year: int, month: int) -> None:
             total_balance = float(balance.get("cash_balance") or 0.0) + total_mv
             
             snapshot = AccountSnapshot(
+                user_id=user_id,
                 account_id=account_id,
                 period_date=period,
                 balance=total_balance,
                 source="api",
                 raw_data=json.dumps({"cash_balance": balance["cash_balance"], "positions": positions}, ensure_ascii=False)
             )
-            snap_repo = SnapshotRepository(db)
+            snap_repo = SnapshotRepository(db, user_id)
             await snap_repo.upsert(snapshot)
             log.info(f"Upserted account snapshot for E-Sun brokerage: balance={total_balance}")
             
@@ -359,12 +370,13 @@ async def sync_esun_assets(year: int, month: int) -> None:
                     grouped[ticker]["unrealized_pnl"] += pnl
                     if current_price > 0:
                         grouped[ticker]["current_price"] = current_price
-
+ 
             securities = []
             for ticker, data in grouped.items():
                 qty = data["quantity"]
                 securities.append(
                     Security(
+                        user_id=user_id,
                         account_id=account_id,
                         period_date=period,
                         ticker=ticker,
@@ -378,12 +390,12 @@ async def sync_esun_assets(year: int, month: int) -> None:
                 )
                 
             if securities:
-                sec_repo = SecurityRepository(db)
+                sec_repo = SecurityRepository(db, user_id)
                 await sec_repo.upsert_many(securities)
                 log.info(f"Upserted {len(securities)} stock positions for E-Sun brokerage.")
                 
             # Recompute balance sheet for the month
-            bs_service = BalanceSheetService(db)
+            bs_service = BalanceSheetService(db, user_id)
             await bs_service.compute(year, month)
             
             await db.commit()

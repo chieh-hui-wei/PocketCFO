@@ -39,11 +39,12 @@ INVESTMENT_KEYWORDS = ["股息", "配息", "dividend", "DIVIDEND", "利息", "in
 
 
 class IncomeStatementService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
-        self.account_repo = AccountRepository(db)
-        self.txn_repo = TransactionRepository(db)
-        self.is_repo = IncomeStatementRepository(db)
+        self.user_id = user_id
+        self.account_repo = AccountRepository(db, user_id)
+        self.txn_repo = TransactionRepository(db, user_id)
+        self.is_repo = IncomeStatementRepository(db, user_id)
         self.transfer_detector = None
 
     async def compute(self, year: int, month: int) -> IncomeStatement:

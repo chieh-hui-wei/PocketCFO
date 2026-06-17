@@ -29,13 +29,13 @@ log = logging.getLogger(__name__)
 
 
 class BalanceSheetService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
-        self.account_repo = AccountRepository(db)
-        self.snapshot_repo = SnapshotRepository(db)
-        self.security_repo = SecurityRepository(db)
-        self.bs_repo = BalanceSheetRepository(db)
-        self.bs_repo = BalanceSheetRepository(db)
+        self.user_id = user_id
+        self.account_repo = AccountRepository(db, user_id)
+        self.snapshot_repo = SnapshotRepository(db, user_id)
+        self.security_repo = SecurityRepository(db, user_id)
+        self.bs_repo = BalanceSheetRepository(db, user_id)
 
     async def compute(self, year: int, month: int) -> BalanceSheet:
         """
@@ -45,7 +45,7 @@ class BalanceSheetService:
         period = first_of_month(year, month)
         
         from src.services.reports.stock_holding import StockHoldingService
-        holding_service = StockHoldingService(self.db)
+        holding_service = StockHoldingService(self.db, self.user_id)
         snapshots, securities = await holding_service.get_or_compute_portfolio(period)
         
         accounts = {a.id: a for a in await self.account_repo.get_all()}

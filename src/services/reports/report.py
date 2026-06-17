@@ -19,10 +19,11 @@ from src.services.reports.income_statement import IncomeStatementService
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
 class ReportService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
-        self.bs_service = BalanceSheetService(db)
-        self.ist_service = IncomeStatementService(db)
+        self.user_id = user_id
+        self.bs_service = BalanceSheetService(db, user_id)
+        self.ist_service = IncomeStatementService(db, user_id)
         
         # Setup Jinja2 environment
         self.jinja_env = Environment(

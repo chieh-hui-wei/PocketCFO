@@ -46,12 +46,13 @@ settings = get_settings()
 
 
 class StatementService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
-        self.account_repo = AccountRepository(db)
-        self.snapshot_repo = SnapshotRepository(db)
-        self.security_repo = SecurityRepository(db)
-        self.txn_repo = TransactionRepository(db)
+        self.user_id = user_id
+        self.account_repo = AccountRepository(db, user_id)
+        self.snapshot_repo = SnapshotRepository(db, user_id)
+        self.security_repo = SecurityRepository(db, user_id)
+        self.txn_repo = TransactionRepository(db, user_id)
         self.transfer_detector = None
 
     # ── Bank statement ─────────────────────────────────────────────────────

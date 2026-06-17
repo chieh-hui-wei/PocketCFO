@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.instances.database import get_db
 from src.dbs.repository import TransactionRepository
+from src.middleware.auth import verify_token
+from src.dbs.models import User
 from src.utils.date_utils import first_of_month
 from pydantic import BaseModel
 
@@ -26,10 +28,11 @@ CATEGORY_TRANSLATION = {
 async def get_transactions(
     year: int = Query(..., description="Year"),
     month: int | None = Query(None, description="Month (Optional)"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token)
 ) -> dict[str, Any]:
     try:
-        repo = TransactionRepository(db)
+        repo = TransactionRepository(db, current_user.id)
         if month is not None:
             period = first_of_month(year, month)
             txns = await repo.get_by_period(account_id=None, period_date=period)
@@ -42,6 +45,7 @@ async def get_transactions(
             start = date(year, 1, 1)
             end = date(year, 12, 31)
             stmt = select(Transaction).options(joinedload(Transaction.account)).where(
+                Transaction.user_id == current_user.id,
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
             )
@@ -96,7 +100,8 @@ async def get_transactions(
 async def export_transactions(
     year: int = Query(..., description="Year"),
     month: int | None = Query(None, description="Month (Optional)"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     try:
         import csv
@@ -107,7 +112,7 @@ async def export_transactions(
         from sqlalchemy.orm import joinedload
         from src.dbs.models import Transaction
 
-        repo = TransactionRepository(db)
+        repo = TransactionRepository(db, current_user.id)
         if month is not None:
             period = first_of_month(year, month)
             txns = await repo.get_by_period(account_id=None, period_date=period)
@@ -115,6 +120,7 @@ async def export_transactions(
             start = date(year, 1, 1)
             end = date(year, 12, 31)
             stmt = select(Transaction).options(joinedload(Transaction.account)).where(
+                Transaction.user_id == current_user.id,
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
             )
@@ -178,11 +184,12 @@ async def export_transactions(
 async def get_stock_transactions(
     year: int = Query(..., description="Year"),
     month: int = Query(..., description="Month"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ) -> dict[str, Any]:
     try:
         period = first_of_month(year, month)
-        repo = TransactionRepository(db)
+        repo = TransactionRepository(db, current_user.id)
         txns = await repo.get_by_period(account_id=None, period_date=period)
         
         # Sort by date descending
@@ -222,7 +229,8 @@ async def get_stock_transactions(
 @router.get("/stocks/summary")
 async def get_stock_transactions_summary(
     months: int = Query(6, ge=1, le=24),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ) -> dict[str, Any]:
     try:
         from datetime import date
@@ -231,7 +239,7 @@ async def get_stock_transactions_summary(
         current_date = date.today()
         result = []
         
-        repo = TransactionRepository(db)
+        repo = TransactionRepository(db, current_user.id)
         
         # Generate periods
         periods = []
@@ -288,14 +296,15 @@ class UpdateTransactionRequest(BaseModel):
 async def update_transaction(
     txn_id: int,
     body: UpdateTransactionRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ) -> dict[str, Any]:
     try:
         from src.dbs.models import Transaction, TransactionCategory
         from datetime import datetime
         from sqlalchemy import select
         
-        stmt = select(Transaction).where(Transaction.id == txn_id)
+        stmt = select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == current_user.id)
         res = await db.execute(stmt)
         txn = res.scalar_one_or_none()
         if not txn:
@@ -330,8 +339,8 @@ async def update_transaction(
         from src.services.reports.income_statement import IncomeStatementService
         from src.services.reports.balance_sheet import BalanceSheetService
         
-        is_service = IncomeStatementService(db)
-        bs_service = BalanceSheetService(db)
+        is_service = IncomeStatementService(db, current_user.id)
+        bs_service = BalanceSheetService(db, current_user.id)
         
         await is_service.compute(txn.txn_date.year, txn.txn_date.month)
         await bs_service.compute(txn.txn_date.year, txn.txn_date.month)
@@ -349,13 +358,14 @@ async def update_transaction(
 @router.delete("/{txn_id}")
 async def delete_transaction(
     txn_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ) -> dict[str, Any]:
     try:
         from src.dbs.models import Transaction
         from sqlalchemy import select
         
-        stmt = select(Transaction).where(Transaction.id == txn_id)
+        stmt = select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == current_user.id)
         res = await db.execute(stmt)
         txn = res.scalar_one_or_none()
         if not txn:
@@ -370,8 +380,8 @@ async def delete_transaction(
         from src.services.reports.income_statement import IncomeStatementService
         from src.services.reports.balance_sheet import BalanceSheetService
         
-        is_service = IncomeStatementService(db)
-        bs_service = BalanceSheetService(db)
+        is_service = IncomeStatementService(db, current_user.id)
+        bs_service = BalanceSheetService(db, current_user.id)
         
         await is_service.compute(year, month)
         await bs_service.compute(year, month)

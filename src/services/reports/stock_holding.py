@@ -23,11 +23,12 @@ log = logging.getLogger(__name__)
 
 
 class StockHoldingService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
-        self.account_repo = AccountRepository(db)
-        self.snapshot_repo = SnapshotRepository(db)
-        self.security_repo = SecurityRepository(db)
+        self.user_id = user_id
+        self.account_repo = AccountRepository(db, user_id)
+        self.snapshot_repo = SnapshotRepository(db, user_id)
+        self.security_repo = SecurityRepository(db, user_id)
 
     async def get_or_compute_portfolio(self, period_date: date) -> Tuple[List[AccountSnapshot], List[Security]]:
         """
@@ -76,8 +77,8 @@ class StockHoldingService:
 
             # 3. Find the latest month prior to period_date with Security records
             prev_period_stmt = (
-                select(Security.period_date)
-                .where(Security.account_id == acct_id, Security.period_date < period_date)
+                select(func.max(Security.period_date))
+                .where(Security.user_id == self.user_id, Security.account_id == acct_id, Security.period_date < period_date)
                 .order_by(Security.period_date.desc())
                 .limit(1)
             )
@@ -96,7 +97,7 @@ class StockHoldingService:
 
             if m_prev:
                 # Load base positions from m_prev
-                prev_secs_stmt = select(Security).where(Security.account_id == acct_id, Security.period_date == m_prev)
+                prev_secs_stmt = select(Security).where(Security.user_id == self.user_id, Security.account_id == acct_id, Security.period_date == m_prev)
                 prev_secs_res = await self.db.execute(prev_secs_stmt)
                 prev_secs = prev_secs_res.scalars().all()
                 for s in prev_secs:
@@ -111,7 +112,7 @@ class StockHoldingService:
                     }
 
                 # Load base snapshot to compute starting cash
-                prev_snap_stmt = select(AccountSnapshot).where(AccountSnapshot.account_id == acct_id, AccountSnapshot.period_date == m_prev)
+                prev_snap_stmt = select(AccountSnapshot).where(AccountSnapshot.user_id == self.user_id, AccountSnapshot.account_id == acct_id, AccountSnapshot.period_date == m_prev)
                 prev_snap_res = await self.db.execute(prev_snap_stmt)
                 prev_snap = prev_snap_res.scalar_one_or_none()
                 if prev_snap:
@@ -130,6 +131,7 @@ class StockHoldingService:
             txns_stmt = (
                 select(Transaction)
                 .where(
+                    Transaction.user_id == self.user_id,
                     Transaction.account_id == acct_id,
                     Transaction.txn_date >= start_date,
                     Transaction.txn_date <= end_date,
@@ -262,7 +264,7 @@ class StockHoldingService:
                 # Get cash portion
                 prev_snap_stmt = (
                     select(AccountSnapshot)
-                    .where(AccountSnapshot.account_id == acct_id, AccountSnapshot.period_date < period_date)
+                    .where(AccountSnapshot.user_id == self.user_id, AccountSnapshot.account_id == acct_id, AccountSnapshot.period_date < period_date)
                     .order_by(AccountSnapshot.period_date.desc())
                     .limit(1)
                 )
@@ -275,7 +277,7 @@ class StockHoldingService:
 
                 if prev_snap:
                     acct_ex_rate = prev_snap.exchange_rate
-                    prev_secs_stmt = select(Security).where(Security.account_id == acct_id, Security.period_date == m_prev_date)
+                    prev_secs_stmt = select(Security).where(Security.user_id == self.user_id, Security.account_id == acct_id, Security.period_date == m_prev_date)
                     prev_secs_res = await self.db.execute(prev_secs_stmt)
                     prev_secs = prev_secs_res.scalars().all()
                     prev_secs_mv_twd = sum(s.market_value for s in prev_secs)
@@ -285,6 +287,7 @@ class StockHoldingService:
 
                 # Add intermediate transaction amounts
                 txns_stmt = select(Transaction).where(
+                    Transaction.user_id == self.user_id,
                     Transaction.account_id == acct_id,
                     Transaction.txn_date >= (m_prev_date + timedelta(days=1)),
                     Transaction.txn_date <= end_date,

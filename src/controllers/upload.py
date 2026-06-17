@@ -17,6 +17,8 @@ from src.instances.config import get_settings
 from src.instances.database import get_db
 from src.services.statement import StatementService
 from src.dbs.repository import UploadHistoryRepository
+from src.middleware.auth import verify_token
+from src.dbs.models import User
 
 import PyPDF2
 import logging
@@ -84,17 +86,18 @@ class ConfirmStatementRequest(BaseModel):
 
 
 @router.post("/parse")
-async def parse_statement_only(
+async def upload_and_parse_statement(
     file: Annotated[UploadFile, File(description="PDF statement")],
     kind: Annotated[StatementKind, Form(description="bank | credit_card | brokerage | einvoice")],
     account_code: Annotated[str | None, Form()] = None,
     password: Annotated[str | None, Form(description="Password to decrypt PDF if encrypted")] = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     """
     Parse a PDF statement using Gemini, returning the JSON structure without writing to the database.
     """
-    history_repo = UploadHistoryRepository(db)
+    history_repo = UploadHistoryRepository(db, current_user.id)
 
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
@@ -143,7 +146,7 @@ async def parse_statement_only(
         raise HTTPException(status_code=400, detail=f"Invalid or corrupted PDF file: {exc}")
 
     try:
-        service = StatementService(db)
+        service = StatementService(db, current_user.id)
         parsed_data = await service.parse_statement(tmp_path, kind, file.filename)
         # Add account_code to parsed_data if provided
         if account_code:
@@ -165,11 +168,12 @@ async def parse_statement_only(
 async def confirm_statement(
     body: ConfirmStatementRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
 ):
     """
     Save the reviewed and edited statement payload to database and trigger recomputations.
     """
-    history_repo = UploadHistoryRepository(db)
+    history_repo = UploadHistoryRepository(db, current_user.id)
     
     # Double check if duplicate hash exists
     existing = await history_repo.get_by_hash(body.file_hash)
@@ -186,7 +190,7 @@ async def confirm_statement(
     )
     
     try:
-        service = StatementService(db)
+        service = StatementService(db, current_user.id)
         data = body.model_dump()
         result = await service.save_parsed_statement(data, upload_history_id=history.id)
         
@@ -194,8 +198,8 @@ async def confirm_statement(
         from src.services.reports.income_statement import IncomeStatementService
         from src.services.reports.balance_sheet import BalanceSheetService
         
-        is_service = IncomeStatementService(db)
-        bs_service = BalanceSheetService(db)
+        is_service = IncomeStatementService(db, current_user.id)
+        bs_service = BalanceSheetService(db, current_user.id)
         
         await is_service.compute(body.period_year, body.period_month)
         await bs_service.compute(body.period_year, body.period_month)
@@ -212,9 +216,12 @@ async def confirm_statement(
 
 
 @router.get("/history")
-async def get_upload_history(db: AsyncSession = Depends(get_db)):
+async def get_upload_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
     """Get recent upload histories."""
-    repo = UploadHistoryRepository(db)
+    repo = UploadHistoryRepository(db, current_user.id)
     histories = await repo.list_recent(limit=50)
     return [
         {
@@ -229,9 +236,13 @@ async def get_upload_history(db: AsyncSession = Depends(get_db)):
     ]
 
 @router.delete("/history/{history_id}")
-async def delete_upload_history(history_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_upload_history(
+    history_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
     """Delete an upload history record to allow re-upload."""
-    repo = UploadHistoryRepository(db)
+    repo = UploadHistoryRepository(db, current_user.id)
     success = await repo.delete(history_id)
     if not success:
         raise HTTPException(status_code=404, detail="Upload history not found")
