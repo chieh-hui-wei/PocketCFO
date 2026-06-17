@@ -9,9 +9,9 @@ import bcrypt
 
 from src.instances.config import get_settings
 from src.instances.database import get_db
-from src.dbs.models import User, UserInvitation
+from src.dbs.models import User, UserInvitation, PasswordReset
 from src.middleware.auth import verify_token
-from src.services.email_service import send_verification_email
+from src.services.email_service import send_verification_email, send_reset_password_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
@@ -248,4 +248,121 @@ async def update_profile(
             "role": current_user.role
         }
     }
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    pin_code: str
+    new_password: str
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Generate a 6-digit PIN code and send it to the user's email to reset password.
+    """
+    email_clean = body.email.strip().lower()
+    
+    # Check if user exists
+    stmt_user = select(User).where(User.email == email_clean)
+    res_user = await db.execute(stmt_user)
+    user = res_user.scalar_one_or_none()
+    
+    # For security reasons, we do not want to expose whether the email exists or not.
+    # We always return success, but only generate/send PIN if user exists.
+    if user:
+        pin_code = f"{secrets.randbelow(1000000):06d}"
+        expiry = datetime.utcnow() + timedelta(minutes=15)
+        
+        # Invalidate previous unused resets for this email
+        from sqlalchemy import update
+        await db.execute(
+            update(PasswordReset)
+            .where(PasswordReset.email == email_clean, PasswordReset.is_used == False)
+            .values(is_used=True)
+        )
+        
+        # Create new reset token
+        reset_token = PasswordReset(
+            email=email_clean,
+            pin_code=pin_code,
+            expires_at=expiry,
+            is_used=False
+        )
+        db.add(reset_token)
+        await db.commit()
+        
+        # Dispatch email
+        await send_reset_password_email(email_clean, pin_code)
+        
+    return {
+        "status": "success",
+        "message": "若此信箱已註冊，重設驗證碼已寄出"
+    }
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Verify the PIN code and update the user's password.
+    """
+    email_clean = body.email.strip().lower()
+    
+    # Fetch active user
+    stmt_user = select(User).where(User.email == email_clean)
+    res_user = await db.execute(stmt_user)
+    user = res_user.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="無效的請求"
+        )
+        
+    # Fetch latest unused reset request
+    stmt_reset = (
+        select(PasswordReset)
+        .where(
+            PasswordReset.email == email_clean,
+            PasswordReset.pin_code == body.pin_code.strip(),
+            PasswordReset.is_used == False
+        )
+        .order_by(PasswordReset.id.desc())
+        .limit(1)
+    )
+    res_reset = await db.execute(stmt_reset)
+    reset_req = res_reset.scalar_one_or_none()
+    
+    if not reset_req:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證碼錯誤，請重新輸入"
+        )
+        
+    if reset_req.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證碼已過期，請重新申請"
+        )
+        
+    # Validate new password length
+    password_clean = body.new_password.strip()
+    if len(password_clean) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密碼長度必須大於或等於 6 個字元"
+        )
+        
+    # Hash and save password
+    hashed = bcrypt.hashpw(password_clean.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user.hashed_password = hashed
+    reset_req.is_used = True
+    
+    await db.commit()
+    
+    return {
+        "status": "success",
+        "message": "密碼重設成功，請使用新密碼登入"
+    }
+
 
