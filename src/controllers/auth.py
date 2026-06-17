@@ -1,37 +1,65 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import secrets
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
 from jose import jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+import bcrypt
+
 from src.instances.config import get_settings
+from src.instances.database import get_db
+from src.dbs.models import User, UserInvitation
+from src.middleware.auth import verify_token
+from src.services.email_service import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 class LoginRequest(BaseModel):
+    email: str
     password: str
 
+class InviteRequest(BaseModel):
+    email: EmailStr
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    pin_code: str
+
 @router.post("/login")
-async def login(body: LoginRequest):
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
-    Validate password and return a JWT access token valid for 7 days.
+    Authenticate user using email and password, returning a JWT token.
     """
-    if not settings.app_password:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server password is not configured."
-        )
-        
-    if not secrets.compare_digest(body.password, settings.app_password):
+    stmt = select(User).where(User.email == body.email.strip().lower())
+    res = await db.execute(stmt)
+    user = res.scalar_one_or_none()
+    
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="密碼錯誤，請重新輸入"
+            detail="帳號或密碼錯誤"
+        )
+        
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="此帳戶已被停用"
+        )
+        
+    # Verify password hash
+    if not bcrypt.checkpw(body.password.encode('utf-8'), user.hashed_password.encode('utf-8')):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="帳號或密碼錯誤"
         )
         
     # Generate token
-    expiration = datetime.now(timezone.utc) + timedelta(days=7)
+    expiration = datetime.utcnow() + timedelta(days=7)
     payload = {
-        "sub": "user",
+        "sub": str(user.id),
         "exp": expiration
     }
     token = jwt.encode(payload, settings.app_secret_key, algorithm="HS256")
@@ -39,5 +67,185 @@ async def login(body: LoginRequest):
     return {
         "status": "success",
         "token": token,
-        "expires_at": expiration.isoformat()
+        "expires_at": expiration.isoformat(),
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role
+        }
     }
+
+@router.post("/invite")
+async def invite_friend(
+    body: InviteRequest, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token)
+):
+    """
+    Admin only: Generate a registration verification PIN and send an email invitation.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有管理員可以邀請新使用者"
+        )
+        
+    email_clean = body.email.strip().lower()
+    
+    # Check if user already exists
+    stmt_user = select(User).where(User.email == email_clean)
+    res_user = await db.execute(stmt_user)
+    if res_user.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="此信箱已註冊帳戶"
+        )
+        
+    # Generate 6-digit PIN code
+    pin_code = f"{secrets.randbelow(1000000):06d}"
+    expiry = datetime.utcnow() + timedelta(minutes=30)
+    
+    # Check if invitation already exists to update it
+    stmt_inv = select(UserInvitation).where(UserInvitation.email == email_clean)
+    res_inv = await db.execute(stmt_inv)
+    invitation = res_inv.scalar_one_or_none()
+    
+    if invitation:
+        invitation.pin_code = pin_code
+        invitation.expires_at = expiry
+        invitation.is_verified = False
+    else:
+        invitation = UserInvitation(
+            email=email_clean,
+            pin_code=pin_code,
+            expires_at=expiry,
+            is_verified=False
+        )
+        db.add(invitation)
+        
+    await db.commit()
+    
+    # Send email asynchronously (runs inside to_thread in service)
+    await send_verification_email(email_clean, pin_code)
+    
+    return {
+        "status": "success",
+        "message": f"邀請驗證信已寄送至 {email_clean}"
+    }
+
+@router.post("/register")
+async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Verify the invitation PIN code, hash the password, and create the User account.
+    """
+    email_clean = body.email.strip().lower()
+    
+    # Fetch latest invitation
+    stmt = select(UserInvitation).where(
+        UserInvitation.email == email_clean,
+        UserInvitation.is_verified == False
+    )
+    res = await db.execute(stmt)
+    invitation = res.scalar_one_or_none()
+    
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="無此信箱的有效邀請記錄"
+        )
+        
+    if invitation.pin_code != body.pin_code.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證碼錯誤，請重新輸入"
+        )
+        
+    if invitation.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證碼已過期，請管理員重新邀請"
+        )
+        
+    # Check if user already exists (backup check)
+    stmt_user = select(User).where(User.email == email_clean)
+    res_user = await db.execute(stmt_user)
+    if res_user.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="此信箱已註冊帳戶"
+        )
+        
+    # Hash password and create User
+    hashed = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user = User(
+        email=email_clean,
+        hashed_password=hashed,
+        role="user",
+        is_active=True
+    )
+    db.add(user)
+    
+    # Mark invitation as verified
+    invitation.is_verified = True
+    
+    await db.commit()
+    
+    return {
+        "status": "success",
+        "message": "帳戶註冊成功，請使用新帳密登入"
+    }
+
+class ProfileUpdateRequest(BaseModel):
+    email: EmailStr | None = None
+    password: str | None = None
+
+@router.put("/profile")
+async def update_profile(
+    body: ProfileUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token)
+):
+    """
+    Update active user's profile (email and/or password).
+    """
+    if not body.email and not body.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="請提供欲修改的信箱或密碼"
+        )
+        
+    if body.email:
+        email_clean = body.email.strip().lower()
+        if email_clean != current_user.email:
+            # Check if email already taken
+            stmt = select(User).where(User.email == email_clean)
+            res = await db.execute(stmt)
+            if res.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="此信箱已被其他帳戶使用"
+                )
+            current_user.email = email_clean
+            
+    if body.password:
+        password_clean = body.password.strip()
+        if len(password_clean) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="密碼長度必須大於或等於 6 個字元"
+            )
+        hashed = bcrypt.hashpw(password_clean.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        current_user.hashed_password = hashed
+        
+    await db.commit()
+    
+    return {
+        "status": "success",
+        "message": "個人帳戶設定更新成功",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "role": current_user.role
+        }
+    }
+
