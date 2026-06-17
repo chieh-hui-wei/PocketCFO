@@ -434,12 +434,38 @@ export async function uploadCertificate(file: File, broker: "taishin" | "sinopac
   return data;
 }
 
-export async function login(password: string) {
-  const { data } = await api.post("/auth/login", { password });
+export async function login(email: string, password: string) {
+  const { data } = await api.post("/auth/login", { email, password });
   if (data.token) {
     localStorage.setItem("pocketcfo_token", data.token);
+    if (data.user) {
+      localStorage.setItem("pocketcfo_user", JSON.stringify(data.user));
+    }
   }
   return data;
 }
+
+export async function inviteFriend(email: string) {
+  const { data } = await api.post("/auth/invite", { email });
+  return data;
+}
+
+export async function registerUser(email: string, password: string, pinCode: string) {
+  const { data } = await api.post("/auth/register", {
+    email,
+    password,
+    pin_code: pinCode,
+  });
+  return data;
+}
+
+export async function updateProfile(email?: string, password?: string) {
+  const { data } = await api.put("/auth/profile", { email, password });
+  if (data.user) {
+    localStorage.setItem("pocketcfo_user", JSON.stringify(data.user));
+  }
+  return data;
+}
+
 
 

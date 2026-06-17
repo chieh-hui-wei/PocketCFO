@@ -11,6 +11,7 @@ import StockHoldingsPage from "./pages/StockHoldingsPage";
 import AccountsPage from "./pages/AccountsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
 const NAV = [
   { to: "/", label: "總覽", end: true },
@@ -20,9 +21,6 @@ const NAV = [
   { to: "/transactions", label: "交易明細" },
   { to: "/stock-transactions", label: "股票交易明細" },
   { to: "/accounts", label: "帳戶管理" },
-  // Hide these for now as per user request
-  // { to: "/budget", label: "預算與目標" },
-  // { to: "/subscriptions", label: "訂閱與固定支出" },
   { to: "/upload", label: "上傳對帳單" },
   { to: "/upload-history", label: "上傳紀錄" },
   { to: "/settings", label: "設定" },
@@ -33,9 +31,14 @@ export default function App() {
     !!localStorage.getItem("pocketcfo_token")
   );
 
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
+
   useEffect(() => {
     const handleUnauthorized = () => {
       setIsAuthenticated(false);
+      localStorage.removeItem("pocketcfo_token");
+      localStorage.removeItem("pocketcfo_user");
     };
     window.addEventListener("pocketcfo_unauthorized", handleUnauthorized);
     return () => {
@@ -43,9 +46,45 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        const userStr = localStorage.getItem("pocketcfo_user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          if (user) {
+            setUserEmail(user.email || "");
+            setUserRole(user.role || "");
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    } else {
+      setUserEmail("");
+      setUserRole("");
+    }
+  }, [isAuthenticated]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("pocketcfo_token");
+    localStorage.removeItem("pocketcfo_user");
+    setIsAuthenticated(false);
+  };
+
   if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="*" element={<LoginPage onLogin={() => setIsAuthenticated(true)} />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
+
+  // Display name: email prefix capitalized or email itself
+  const displayName = userEmail ? userEmail.split("@")[0] : "Sarah";
 
   return (
     <BrowserRouter>
@@ -56,14 +95,19 @@ export default function App() {
           
           {/* User Profile */}
           <div className="p-6 border-b border-slate-100 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-lg font-bold text-slate-700 border-2 border-white shadow-sm">
-              S
+            <div className="w-12 h-12 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-lg font-bold text-blue-600 border-2 border-white shadow-sm uppercase">
+              {displayName.slice(0, 1) || "U"}
             </div>
-            <div>
-              <div className="font-bold text-slate-800 text-lg leading-tight">Hi, Sarah</div>
-              <div className="text-xs text-yellow-600 font-medium mt-0.5 flex items-center gap-1">
-                理財讓生活更自由
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-slate-800 text-base leading-tight truncate">Hi, {displayName}</div>
+              <div className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
+                {userEmail || "理財讓生活更自由"}
               </div>
+              {userRole === "admin" && (
+                <span className="inline-block bg-amber-50 text-amber-700 text-[8px] font-bold px-1.5 py-0.5 rounded border border-amber-200 mt-1 uppercase">
+                  Admin
+                </span>
+              )}
             </div>
           </div>
 
@@ -85,6 +129,13 @@ export default function App() {
                 {n.label}
               </NavLink>
             ))}
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200 mt-4"
+            >
+              登出系統
+            </button>
           </nav>
 
           {/* Bottom Widget: Monthly Goal */}

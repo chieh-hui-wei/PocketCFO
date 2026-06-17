@@ -1,10 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, uploadCertificate, CredentialsSettings } from "../services/api";
+import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile } from "../services/api";
 
 export default function SettingsPage() {
   const [settingsData, setSettingsData] = useState<CredentialsSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "taishin" | "sinopac" | "esun">("general");
+  const [activeTab, setActiveTab] = useState<"profile" | "general" | "taishin" | "sinopac" | "esun" | "invite">("profile");
+  const [userRole, setUserRole] = useState<string>("");
+
+  // Profile update states
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePassword, setProfilePassword] = useState("");
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  // Invite Friend states
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
+
 
   // Form states
   const [geminiKey, setGeminiKey] = useState("");
@@ -61,7 +77,91 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSettings();
+    try {
+      const userStr = localStorage.getItem("pocketcfo_user");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user) {
+          if (user.role) {
+            setUserRole(user.role);
+          }
+          if (user.email) {
+            setProfileEmail(user.email);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse user role in SettingsPage", e);
+    }
   }, []);
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileError("");
+    setProfileSuccess("");
+
+    if (!profileEmail.trim()) {
+      setProfileError("電子信箱不能為空");
+      return;
+    }
+
+    if (profilePassword && profilePassword !== profileConfirmPassword) {
+      setProfileError("兩次輸入的密碼不一致");
+      return;
+    }
+
+    if (profilePassword && profilePassword.length < 6) {
+      setProfileError("密碼長度必須大於或等於 6 個字元");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      // Get current email from settings or storage
+      let currentEmail = "";
+      const userStr = localStorage.getItem("pocketcfo_user");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        currentEmail = user.email || "";
+      }
+
+      await updateProfile(
+        profileEmail.trim() !== currentEmail ? profileEmail.trim() : undefined,
+        profilePassword ? profilePassword : undefined
+      );
+      setProfileSuccess("個人帳戶設定已成功更新！");
+      setProfilePassword("");
+      setProfileConfirmPassword("");
+    } catch (err: any) {
+      console.error(err);
+      const detail = err.response?.data?.detail || "更新帳戶設定失敗，請確認信箱格式或是否已被使用。";
+      setProfileError(detail);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+
+    setIsSendingInvite(true);
+    setInviteError("");
+    setInviteSuccess("");
+
+    try {
+      const res = await inviteFriend(inviteEmail.trim());
+      setInviteSuccess(res.message || "邀請碼寄送成功！");
+      setInviteEmail("");
+    } catch (err: any) {
+      console.error(err);
+      const detail = err.response?.data?.detail || "邀請失敗，請確認該信箱是否已註冊，且 SMTP 伺服器配置正確。";
+      setInviteError(detail);
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,10 +256,12 @@ export default function SettingsPage() {
         {/* Navigation Sidebar */}
         <div className="col-span-1 space-y-2">
           {[
+            { id: "profile", label: "個人帳戶設定" },
             { id: "general", label: "核心設定 & AI" },
             { id: "taishin", label: "台新證券設定" },
             { id: "sinopac", label: "永豐金證券設定" },
             { id: "esun", label: "玉山證券設定" },
+            ...(userRole === "admin" ? [{ id: "invite", label: "邀請好友" }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -179,8 +281,82 @@ export default function SettingsPage() {
         <div className="col-span-3">
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-8">
             
+            {/* Profile Tab */}
+            {activeTab === "profile" && (
+              <form onSubmit={handleProfileSubmit} className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">個人帳戶設定</h3>
+                  <p className="text-xs text-slate-500">更新您的電子信箱與登入密碼</p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">電子信箱 (帳號)</label>
+                    <input
+                      type="email"
+                      required
+                      value={profileEmail}
+                      onChange={e => setProfileEmail(e.target.value)}
+                      placeholder="請輸入電子信箱..."
+                      disabled={isSavingProfile}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">新登入密碼 (若不修改請留空)</label>
+                    <input
+                      type="password"
+                      value={profilePassword}
+                      onChange={e => setProfilePassword(e.target.value)}
+                      placeholder="請輸入新密碼 (至少 6 個字元)..."
+                      disabled={isSavingProfile}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">確認新登入密碼</label>
+                    <input
+                      type="password"
+                      value={profileConfirmPassword}
+                      onChange={e => setProfileConfirmPassword(e.target.value)}
+                      placeholder="請再次輸入新密碼..."
+                      disabled={isSavingProfile}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                {profileError && (
+                  <div className="text-xs font-semibold text-rose-500 flex items-center gap-1.5 animate-in fade-in">
+                    <span>⚠️</span>
+                    <span>{profileError}</span>
+                  </div>
+                )}
+
+                {profileSuccess && (
+                  <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
+                    <span>✅</span>
+                    <span>{profileSuccess}</span>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {isSavingProfile ? "更新中..." : "儲存設定"}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {/* General Tab */}
             {activeTab === "general" && (
+
               <form onSubmit={handleSave} className="space-y-6">
                 <div>
                   <h3 className="text-lg font-bold text-slate-800 mb-1">Google Gemini AI</h3>
@@ -515,6 +691,55 @@ export default function SettingsPage() {
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
                     >
                       儲存變更
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Invite Friend Tab */}
+            {activeTab === "invite" && userRole === "admin" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">邀請好友加入 pocketCFO</h3>
+                  <p className="text-xs text-slate-400">請輸入您想邀請之好友的電子信箱，系統將會產生 6 位數驗證碼並寄送邀請信。</p>
+                </div>
+                
+                <form onSubmit={handleInviteSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">好友電子信箱</label>
+                    <input
+                      type="email"
+                      required
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      placeholder="friend@example.com"
+                      disabled={isSendingInvite}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+                  
+                  {inviteError && (
+                    <div className="text-xs font-semibold text-rose-500 flex items-center gap-1.5 animate-in fade-in">
+                      <span>⚠️</span>
+                      <span>{inviteError}</span>
+                    </div>
+                  )}
+
+                  {inviteSuccess && (
+                    <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
+                      <span>✅</span>
+                      <span>{inviteSuccess}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSendingInvite || !inviteEmail.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      {isSendingInvite ? "寄送中..." : "寄送邀請函"}
                     </button>
                   </div>
                 </form>
