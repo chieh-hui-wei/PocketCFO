@@ -69,6 +69,30 @@ class TransactionSource(str, enum.Enum):
     BROKERAGE = "brokerage"
 
 
+# ── User & Auth ────────────────────────────────────────────────────────────────
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="user", nullable=False)  # "admin" | "user"
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class UserInvitation(Base):
+    __tablename__ = "user_invitations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    pin_code: Mapped[str] = mapped_column(String(6), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 # ── Account ────────────────────────────────────────────────────────────────────
 
 
@@ -76,6 +100,7 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     code: Mapped[str] = mapped_column(
         String(64), unique=True, nullable=False
     )  # e.g. "sinopac_stock"
@@ -109,6 +134,7 @@ class AccountSnapshot(Base):
     __table_args__ = (UniqueConstraint("account_id", "period_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
     period_date: Mapped[date] = mapped_column(
         Date, nullable=False, index=True
@@ -135,6 +161,7 @@ class Security(Base):
     __table_args__ = (UniqueConstraint("account_id", "period_date", "ticker"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
     period_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     ticker: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -165,6 +192,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"), index=True)
     txn_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     source: Mapped[TransactionSource] = mapped_column(
@@ -203,9 +231,10 @@ class BalanceSheet(Base):
     """Computed monthly balance sheet (assets = liabilities + equity)."""
 
     __tablename__ = "balance_sheets"
-    __table_args__ = (UniqueConstraint("period_date"),)
+    __table_args__ = (UniqueConstraint("user_id", "period_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     period_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     total_cash: Mapped[float] = mapped_column(Float, default=0.0)
     total_securities_market_value: Mapped[float] = mapped_column(Float, default=0.0)
@@ -221,9 +250,10 @@ class IncomeStatement(Base):
     """Computed monthly income statement."""
 
     __tablename__ = "income_statements"
-    __table_args__ = (UniqueConstraint("period_date"),)
+    __table_args__ = (UniqueConstraint("user_id", "period_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     period_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     total_income: Mapped[float] = mapped_column(Float, default=0.0)
     salary_income: Mapped[float] = mapped_column(Float, default=0.0)
@@ -242,6 +272,7 @@ class UploadHistory(Base):
     __tablename__ = "upload_histories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)  # 'success' or 'error'

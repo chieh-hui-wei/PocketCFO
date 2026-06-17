@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     app_host: str
     app_port: int
     app_debug: bool
+    app_website_url: str = "http://localhost:5173"
+
+
+    # ── SMTP (Email) ──────────────────────────────────────────────────────
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_sender: str = ""
 
     # ── Database ──────────────────────────────────────────────────────────
     database_url: str
