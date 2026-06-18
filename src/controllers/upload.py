@@ -56,6 +56,14 @@ class ConfirmTransaction(BaseModel):
     invoice_number: str | None = None
 
 
+class ConfirmAccountData(BaseModel):
+    account_number: str | None = None
+    currency: str = "TWD"
+    exchange_rate: float = 1.0
+    closing_balance: float | None = None
+    transactions: list[ConfirmTransaction] | None = None
+
+
 class ConfirmStatementRequest(BaseModel):
     kind: str
     filename: str
@@ -83,6 +91,10 @@ class ConfirmStatementRequest(BaseModel):
     
     # Shared lists
     transactions: list[ConfirmTransaction] | None = None
+
+    # Multi-account support
+    accounts: list[ConfirmAccountData] | None = None
+
 
 
 @router.post("/parse")

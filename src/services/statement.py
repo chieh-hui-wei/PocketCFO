@@ -74,48 +74,19 @@ class StatementService:
     ) -> dict[str, Any]:
         import re
         period = first_of_month(data["period_year"], data["period_month"])
-        account_code = data.get("account_code")
-        acc_num = data.get("account_number")
-        if not account_code:
-            inst = data.get("institution", "unknown").strip()
-            if acc_num:
-                acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
-                account_code = f"bank_{inst}_{acc_num_clean}"
-            else:
-                account_code = f"bank_{inst}"
 
-        display_name = data.get("institution", "Unknown Bank")
-        if acc_num:
-            display_name = f"{display_name} ({acc_num})"
+        # Resolve accounts. If not present in nested form, construct using top-level flat fields for backward compatibility.
+        accounts_data = data.get("accounts", [])
+        if not accounts_data:
+            accounts_data = [{
+                "account_number": data.get("account_number"),
+                "currency": data.get("currency", "TWD"),
+                "exchange_rate": data.get("exchange_rate", 1.0),
+                "closing_balance": data.get("closing_balance"),
+                "transactions": data.get("transactions", [])
+            }]
 
-        account = await self._resolve_or_create_account(
-            code=account_code,
-            name=display_name,
-            account_type=AccountType.BANK,
-            institution=data.get("institution", ""),
-        )
-
-        # Fallback to last transaction's balance if closing_balance is missing
-        closing_balance = float(data.get("closing_balance") or 0)
-        raw_txns = data.get("transactions", [])
-        if closing_balance == 0 and raw_txns:
-            # Try to get balance from the last transaction
-            last_txn_balance = raw_txns[-1].get("balance")
-            if last_txn_balance is not None:
-                closing_balance = float(last_txn_balance)
-
-        # Save snapshot
-        snapshot = AccountSnapshot(
-            account_id=account.id,
-            period_date=period,
-            balance=closing_balance,
-            source="pdf",
-            raw_data=json.dumps(data, ensure_ascii=False),
-            upload_history_id=upload_history_id,
-        )
-        await self.snapshot_repo.upsert(snapshot)
-
-        # Dynamically build internal accounts transfer detector from database
+        # Dynamically build internal accounts transfer detector from database once
         db_accounts = await self.account_repo.get_all()
         internal_aids = []
         for a in db_accounts:
@@ -127,85 +98,146 @@ class StatementService:
                     internal_aids.append(a.notes)
         self.transfer_detector = TransferDetector(list(set(internal_aids)))
 
-        # Save transactions with transfer detection
-        txns = []
-        for raw in raw_txns:
-            if "amount" in raw:
-                amount = float(raw["amount"])
-            else:
-                amount = float(raw.get("credit") or 0) - float(raw.get("debit") or 0)
-            is_transfer = self.transfer_detector.is_internal_transfer(raw.get("description", ""))
-            is_taishin = "台新" in (account.institution or "")
-            is_salary = is_taishin and amount >= 60000
-            
-            cat_str = raw.get("category")
-            if cat_str:
-                reverse_cat = {
-                    "薪資": "salary",
-                    "投資": "investment",
-                    "轉入": "transfer_in",
-                    "轉出": "transfer_out",
-                    "支出": "expense",
-                    "股利": "dividend",
-                    "利息": "interest",
-                    "其他": "other",
-                    "帳內互轉": "transfer_in"
-                }
-                cat_val = reverse_cat.get(cat_str, cat_str)
-                try:
-                    category = TransactionCategory(cat_val)
-                except ValueError:
-                    category = TransactionCategory.OTHER
-            else:
-                category = (
-                    TransactionCategory.TRANSFER_IN
-                    if is_transfer and amount > 0
-                    else TransactionCategory.TRANSFER_OUT
-                    if is_transfer and amount < 0
-                    else TransactionCategory.SALARY
-                    if amount > 0 and is_salary
-                    else TransactionCategory.OTHER
-                )
-            
-            txn_date = raw.get("date")
-            if isinstance(txn_date, str):
-                from datetime import datetime
-                try:
-                    actual_date = datetime.strptime(txn_date, "%Y-%m-%d").date()
-                except ValueError:
-                    actual_date = parse_tw_date_robust(txn_date) or period
-            else:
-                actual_date = parse_tw_date_robust(raw.get("date")) or period
+        results = []
 
-            txns.append(
-                Transaction(
-                    account_id=account.id,
-                    txn_date=actual_date,
-                    source=TransactionSource.BANK,
-                    category=category,
-                    description=raw.get("description", ""),
-                    amount=amount,
-                    balance_after=float(raw.get("balance") or 0) if raw.get("balance") else None,
-                    is_internal_transfer=is_transfer,
-                    upload_history_id=upload_history_id,
-                )
+        for acc_data in accounts_data:
+            acc_num = acc_data.get("account_number")
+            currency = acc_data.get("currency") or "TWD"
+            exchange_rate = float(acc_data.get("exchange_rate") or data.get("exchange_rate") or 1.0)
+
+            # Generate unique code for this specific account
+            account_code = data.get("account_code") if len(accounts_data) == 1 else None
+            if not account_code:
+                inst = data.get("institution", "unknown").strip()
+                if acc_num:
+                    acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
+                    account_code = f"bank_{inst}_{acc_num_clean}"
+                else:
+                    account_code = f"bank_{inst}"
+
+            display_name = data.get("institution", "Unknown Bank")
+            if acc_num:
+                display_name = f"{display_name} ({acc_num})"
+
+            account = await self._resolve_or_create_account(
+                code=account_code,
+                name=display_name,
+                account_type=AccountType.BANK,
+                institution=data.get("institution", ""),
+                currency=currency,
             )
-        await self.txn_repo.bulk_insert(txns)
 
-        log.info(f"save.bank_statement.done txns={len(txns)} period={period}")
-        return {
-            "account_id": account.id,
-            "period": str(period),
-            "transactions": [
-                {
-                    "date": str(t.txn_date),
-                    "description": t.description,
-                    "amount": t.amount,
-                    "balance": t.balance_after,
-                    "category": t.category.value if hasattr(t.category, "value") else str(t.category),
-                } for t in txns
-            ]
-        }
+            # Fallback to last transaction's balance if closing_balance is missing
+            closing_balance_orig = float(acc_data.get("closing_balance") or 0)
+            raw_txns = acc_data.get("transactions", [])
+            if closing_balance_orig == 0 and raw_txns:
+                last_txn_balance = raw_txns[-1].get("balance")
+                if last_txn_balance is not None:
+                    closing_balance_orig = float(last_txn_balance)
+
+            closing_balance_twd = round(closing_balance_orig * exchange_rate)
+
+            # Save snapshot
+            snapshot = AccountSnapshot(
+                account_id=account.id,
+                period_date=period,
+                balance=closing_balance_twd,
+                original_balance=closing_balance_orig if currency != "TWD" else None,
+                currency=currency,
+                exchange_rate=exchange_rate,
+                source="pdf",
+                raw_data=json.dumps(data, ensure_ascii=False),
+                upload_history_id=upload_history_id,
+            )
+            await self.snapshot_repo.upsert(snapshot)
+
+            # Save transactions with transfer detection
+            txns = []
+            for raw in raw_txns:
+                if "amount" in raw:
+                    amount_orig = float(raw["amount"])
+                else:
+                    amount_orig = float(raw.get("credit") or 0) - float(raw.get("debit") or 0)
+
+                amount_twd = round(amount_orig * exchange_rate)
+                is_transfer = self.transfer_detector.is_internal_transfer(raw.get("description", ""))
+                is_taishin = "台新" in (account.institution or "")
+                is_salary = is_taishin and amount_twd >= 60000
+                
+                cat_str = raw.get("category")
+                if cat_str:
+                    reverse_cat = {
+                        "薪資": "salary",
+                        "投資": "investment",
+                        "轉入": "transfer_in",
+                        "轉出": "transfer_out",
+                        "支出": "expense",
+                        "股利": "dividend",
+                        "利息": "interest",
+                        "其他": "other",
+                        "帳內互轉": "transfer_in"
+                    }
+                    cat_val = reverse_cat.get(cat_str, cat_str)
+                    try:
+                        category = TransactionCategory(cat_val)
+                    except ValueError:
+                        category = TransactionCategory.OTHER
+                else:
+                    category = (
+                        TransactionCategory.TRANSFER_IN
+                        if is_transfer and amount_twd > 0
+                        else TransactionCategory.TRANSFER_OUT
+                        if is_transfer and amount_twd < 0
+                        else TransactionCategory.SALARY
+                        if amount_twd > 0 and is_salary
+                        else TransactionCategory.OTHER
+                    )
+                
+                txn_date = raw.get("date")
+                if isinstance(txn_date, str):
+                    from datetime import datetime
+                    try:
+                        actual_date = datetime.strptime(txn_date, "%Y-%m-%d").date()
+                    except ValueError:
+                        actual_date = parse_tw_date_robust(txn_date) or period
+                else:
+                    actual_date = parse_tw_date_robust(raw.get("date")) or period
+
+                txns.append(
+                    Transaction(
+                        account_id=account.id,
+                        txn_date=actual_date,
+                        source=TransactionSource.BANK,
+                        category=category,
+                        description=raw.get("description", ""),
+                        amount=amount_twd,
+                        original_amount=amount_orig if currency != "TWD" else None,
+                        currency=currency,
+                        exchange_rate=exchange_rate,
+                        balance_after=float(raw.get("balance") or 0) if raw.get("balance") else None,
+                        is_internal_transfer=is_transfer,
+                        upload_history_id=upload_history_id,
+                    )
+                )
+            if txns:
+                await self.txn_repo.bulk_insert(txns)
+
+            log.info(f"save.bank_statement.done account_code={account_code} txns={len(txns)} period={period}")
+            results.append({
+                "account_id": account.id,
+                "period": str(period),
+                "transactions": [
+                    {
+                        "date": str(t.txn_date),
+                        "description": t.description,
+                        "amount": t.amount,
+                        "balance": t.balance_after,
+                        "category": t.category.value if hasattr(t.category, "value") else str(t.category),
+                    } for t in txns
+                ]
+            })
+
+        return results[0] if results else {"status": "empty"}
 
     # ── Credit card statement ──────────────────────────────────────────────
 
