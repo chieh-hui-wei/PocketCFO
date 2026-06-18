@@ -11,7 +11,7 @@ import asyncio
 import calendar
 from datetime import date, datetime, timedelta
 from typing import Tuple, List, Dict
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dbs.models import Account, AccountSnapshot, Security, AccountType, Transaction, TransactionSource
