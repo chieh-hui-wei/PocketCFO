@@ -17,6 +17,7 @@ export default function IncomeStatementPage() {
   });
 
   const [recentTxns, setRecentTxns] = useState<TransactionRecord[]>([]);
+  const [txnType, setTxnType] = useState<"all" | "income" | "expense">("all");
 
   useEffect(() => {
     getIncomeStatementHistory().then(setHistory).catch(console.error);
@@ -25,7 +26,7 @@ export default function IncomeStatementPage() {
   useEffect(() => {
     const month = viewMode === "year" ? undefined : currentDate.getMonth() + 1;
     getTransactions(currentDate.getFullYear(), month)
-      .then(txns => setRecentTxns(txns.slice(0, 5)))
+      .then(txns => setRecentTxns(txns))
       .catch(console.error);
   }, [currentDate, viewMode]);
 
@@ -275,8 +276,36 @@ export default function IncomeStatementPage() {
       {/* Transaction List */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-slate-800">支出明細 (依日期)</h3>
-          <Link to={`/transactions?year=${currentDate.getFullYear()}&month=${currentDate.getMonth() + 1}`} className="text-blue-600 text-sm font-bold hover:text-blue-700 transition-colors">查看全部交易 ➔</Link>
+          <div className="flex items-center gap-6">
+            <h3 className="font-bold text-slate-800">收支明細 (依日期)</h3>
+            <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs">
+              <button 
+                onClick={() => setTxnType("all")}
+                className={`rounded px-2.5 py-1 font-bold transition-colors cursor-pointer ${
+                  txnType === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                全部
+              </button>
+              <button 
+                onClick={() => setTxnType("income")}
+                className={`rounded px-2.5 py-1 font-bold transition-colors cursor-pointer ${
+                  txnType === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                收入
+              </button>
+              <button 
+                onClick={() => setTxnType("expense")}
+                className={`rounded px-2.5 py-1 font-bold transition-colors cursor-pointer ${
+                  txnType === "expense" ? "bg-white text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                支出
+              </button>
+            </div>
+          </div>
+          <Link to={`/transactions?year=${currentDate.getFullYear()}&month=${currentDate.getMonth() + 1}${txnType !== "all" ? `&type=${txnType}` : ""}`} className="text-blue-600 text-sm font-bold hover:text-blue-700 transition-colors">查看全部交易 ➔</Link>
         </div>
         <div className="border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-left text-sm">
@@ -289,22 +318,31 @@ export default function IncomeStatementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {recentTxns.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-500">暫無交易紀錄</td>
-                </tr>
-              ) : (
-                recentTxns.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-slate-500">{t.date}</td>
-                    <td className="px-6 py-4 font-medium text-slate-800">{t.description || t.merchant || "-"}</td>
-                    <td className="px-6 py-4 text-slate-500">{t.raw_category || t.category || "-"}</td>
-                    <td className={`px-6 py-4 text-right font-bold ${t.amount < 0 ? "text-slate-800" : "text-green-600"}`}>
-                      {t.amount < 0 ? `$${Math.abs(t.amount).toLocaleString()}` : `+ $${t.amount.toLocaleString()}`}
-                    </td>
+              {(() => {
+                const filtered = recentTxns
+                  .filter(t => {
+                    if (txnType === "income") return t.amount > 0;
+                    if (txnType === "expense") return t.amount < 0;
+                    return true;
+                  })
+                  .slice(0, 5);
+                return filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-slate-500">暫無交易紀錄</td>
                   </tr>
-                ))
-              )}
+                ) : (
+                  filtered.map((t) => (
+                    <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 text-slate-500">{t.date}</td>
+                      <td className="px-6 py-4 font-medium text-slate-800">{t.description || t.merchant || "-"}</td>
+                      <td className="px-6 py-4 text-slate-500">{t.raw_category || t.category || "-"}</td>
+                      <td className={`px-6 py-4 text-right font-bold ${t.amount < 0 ? "text-slate-800" : "text-green-600"}`}>
+                        {t.amount < 0 ? `$${Math.abs(t.amount).toLocaleString()}` : `+ $${t.amount.toLocaleString()}`}
+                      </td>
+                    </tr>
+                  ))
+                );
+              })()}
             </tbody>
           </table>
         </div>

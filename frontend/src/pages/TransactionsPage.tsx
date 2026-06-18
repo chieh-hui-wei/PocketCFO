@@ -21,6 +21,12 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paramType = params.get("type");
+    if (paramType === "income" || paramType === "expense") return paramType;
+    return "all";
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -28,6 +34,12 @@ export default function TransactionsPage() {
     const paramMonth = params.get("month");
     if (paramYear && paramMonth) {
       setCurrentDate(new Date(parseInt(paramYear), parseInt(paramMonth) - 1, 1));
+    }
+    const paramType = params.get("type");
+    if (paramType === "income" || paramType === "expense") {
+      setTypeFilter(paramType);
+    } else {
+      setTypeFilter("all");
     }
   }, [window.location.search]);
 
@@ -126,6 +138,33 @@ export default function TransactionsPage() {
           <p className="text-sm text-slate-500 mt-1">完整檢視您每個月的所有收支紀錄，並可自由修改或刪除資料</p>
         </div>
         <div className="flex gap-3">
+          <div className="flex bg-slate-100 p-1 rounded-xl shadow-sm border border-slate-200">
+            <button 
+              onClick={() => setTypeFilter("all")}
+              className={`rounded px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                typeFilter === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              全部
+            </button>
+            <button 
+              onClick={() => setTypeFilter("income")}
+              className={`rounded px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                typeFilter === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              僅看收入
+            </button>
+            <button 
+              onClick={() => setTypeFilter("expense")}
+              className={`rounded px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                typeFilter === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              僅看支出
+            </button>
+          </div>
+          
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm cursor-pointer hover:bg-slate-50 select-none">
             <input 
               type="checkbox"
@@ -152,7 +191,13 @@ export default function TransactionsPage() {
       {/* Main Content */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {(() => {
-          const filteredTxns = transactions.filter(t => !excludeTransfers || t.category !== "帳內互轉");
+          const filteredTxns = transactions
+            .filter(t => !excludeTransfers || t.category !== "帳內互轉")
+            .filter(t => {
+              if (typeFilter === "income") return t.amount > 0;
+              if (typeFilter === "expense") return t.amount < 0;
+              return true;
+            });
           return isLoading ? (
             <div className="py-20 text-center text-slate-500 font-bold">載入中...</div>
           ) : filteredTxns.length === 0 ? (
