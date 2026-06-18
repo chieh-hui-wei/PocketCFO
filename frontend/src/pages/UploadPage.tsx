@@ -26,6 +26,17 @@ export default function UploadPage() {
 
   // States for the two-step verification flow
   const [editData, setEditData] = useState<any | null>(null);
+  const [activeAccountTab, setActiveAccountTab] = useState(0);
+
+  const updateAccountField = (tabIdx: number, field: string, value: any) => {
+    setEditData((prev: any) => {
+      const copy = { ...prev };
+      copy.accounts = [...copy.accounts];
+      copy.accounts[tabIdx] = { ...copy.accounts[tabIdx], [field]: value };
+      return copy;
+    });
+  };
+
 
   const handleFileDrop = (e: React.DragEvent, kindId: string) => {
     e.preventDefault();
@@ -71,9 +82,60 @@ export default function UploadPage() {
 
       // Normalise response into editable state
       const rawData = res.parsed_data || {};
+      const kind = rawData.kind || activeKind;
       
+      let accountsList = null;
+      if (kind === "bank") {
+        if (rawData.accounts) {
+          accountsList = rawData.accounts.map((acc: any) => ({
+            account_number: acc.account_number || "",
+            currency: acc.currency || "TWD",
+            exchange_rate: acc.exchange_rate || 1.0,
+            closing_balance: acc.closing_balance != null ? acc.closing_balance : 0,
+            transactions: (acc.transactions || []).map((t: any) => ({
+              date: t.date || "",
+              description: t.description || t.merchant || "",
+              merchant: t.merchant || t.description || "",
+              amount: t.amount != null ? t.amount : (parseFloat(t.credit || 0) - parseFloat(t.debit || 0)),
+              category: t.category || "其他",
+              is_refund: !!t.is_refund,
+              payment_method: t.payment_method || "",
+              invoice_number: t.invoice_number || "",
+              action: t.action || "",
+              ticker: t.ticker || "",
+              quantity: t.quantity != null ? t.quantity : 0,
+              price: t.price != null ? t.price : 0,
+              fee: t.fee != null ? t.fee : 0
+            }))
+          }));
+        } else {
+          accountsList = [{
+            account_number: rawData.account_number || "",
+            currency: rawData.currency || "TWD",
+            exchange_rate: rawData.exchange_rate || 1.0,
+            closing_balance: rawData.closing_balance != null ? rawData.closing_balance : 0,
+            transactions: (rawData.transactions || []).map((t: any) => ({
+              date: t.date || "",
+              description: t.description || t.merchant || "",
+              merchant: t.merchant || t.description || "",
+              amount: t.amount != null ? t.amount : (parseFloat(t.credit || 0) - parseFloat(t.debit || 0)),
+              category: t.category || "其他",
+              is_refund: !!t.is_refund,
+              payment_method: t.payment_method || "",
+              invoice_number: t.invoice_number || "",
+              action: t.action || "",
+              ticker: t.ticker || "",
+              quantity: t.quantity != null ? t.quantity : 0,
+              price: t.price != null ? t.price : 0,
+              fee: t.fee != null ? t.fee : 0
+            }))
+          }];
+        }
+      }
+
+      setActiveAccountTab(0);
       setEditData({
-        kind: rawData.kind || activeKind,
+        kind,
         filename: res.filename,
         file_hash: res.file_hash,
         period_year: rawData.period_year || new Date().getFullYear(),
@@ -110,7 +172,8 @@ export default function UploadPage() {
           quantity: t.quantity != null ? t.quantity : 0,
           price: t.price != null ? t.price : 0,
           fee: t.fee != null ? t.fee : 0
-        }))
+        })),
+        accounts: accountsList
       });
 
       setSuccess(true);
@@ -180,25 +243,52 @@ export default function UploadPage() {
   const updateTransactionRow = (index: number, field: string, value: any) => {
     setEditData((prev: any) => {
       const copy = { ...prev };
-      copy.transactions = [...copy.transactions];
-      copy.transactions[index] = { ...copy.transactions[index], [field]: value };
+      if (copy.accounts) {
+        copy.accounts = [...copy.accounts];
+        const accCopy = { ...copy.accounts[activeAccountTab] };
+        accCopy.transactions = [...accCopy.transactions];
+        accCopy.transactions[index] = { ...accCopy.transactions[index], [field]: value };
+        copy.accounts[activeAccountTab] = accCopy;
+      } else {
+        copy.transactions = [...copy.transactions];
+        copy.transactions[index] = { ...copy.transactions[index], [field]: value };
+      }
       return copy;
     });
   };
 
   const addTransactionRow = () => {
-    setEditData((prev: any) => ({
-      ...prev,
-      transactions: [...(prev.transactions || []), { date: new Date().toISOString().split('T')[0], description: "", amount: 0, category: "其他" }]
-    }));
+    setEditData((prev: any) => {
+      const copy = { ...prev };
+      const newRow = { date: new Date().toISOString().split('T')[0], description: "", amount: 0, category: "其他" };
+      if (copy.accounts) {
+        copy.accounts = [...copy.accounts];
+        const accCopy = { ...copy.accounts[activeAccountTab] };
+        accCopy.transactions = [...(accCopy.transactions || []), newRow];
+        copy.accounts[activeAccountTab] = accCopy;
+      } else {
+        copy.transactions = [...(copy.transactions || []), newRow];
+      }
+      return copy;
+    });
   };
 
   const removeTransactionRow = (index: number) => {
-    setEditData((prev: any) => ({
-      ...prev,
-      transactions: prev.transactions.filter((_: any, i: number) => i !== index)
-    }));
+    setEditData((prev: any) => {
+      const copy = { ...prev };
+      if (copy.accounts) {
+        copy.accounts = [...copy.accounts];
+        const accCopy = { ...copy.accounts[activeAccountTab] };
+        accCopy.transactions = accCopy.transactions.filter((_: any, i: number) => i !== index);
+        copy.accounts[activeAccountTab] = accCopy;
+      } else {
+        copy.transactions = copy.transactions.filter((_: any, i: number) => i !== index);
+      }
+      return copy;
+    });
   };
+
+  const activeAcc = editData ? (editData.accounts ? editData.accounts[activeAccountTab] : null) : null;
 
   return (
     <div className="max-w-[1600px] mx-auto min-h-screen bg-[#f8fafc] text-slate-800 p-6 flex gap-6 animate-in fade-in duration-500">
@@ -314,6 +404,26 @@ export default function UploadPage() {
               </div>
             </div>
 
+            {/* Tab selector for multiple bank accounts */}
+            {editData.accounts && editData.accounts.length > 1 && (
+              <div className="flex gap-2 pb-2 overflow-x-auto border-b border-slate-100">
+                {editData.accounts.map((acc: any, idx: number) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveAccountTab(idx)}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                      activeAccountTab === idx
+                        ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/25"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300"
+                    }`}
+                  >
+                    帳戶 {idx + 1}: {acc.currency} {acc.account_number ? `(${acc.account_number})` : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Basic Config Card */}
             <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
               <h3 className="font-bold text-slate-800 text-sm">基本資訊</h3>
@@ -349,22 +459,37 @@ export default function UploadPage() {
                   <label className="block text-xs font-bold text-slate-500 mb-1">幣別</label>
                   <input 
                     type="text"
-                    value={editData.currency}
-                    onChange={e => updateField("currency", e.target.value)}
+                    value={activeAcc ? activeAcc.currency : editData.currency}
+                    onChange={e => {
+                      if (activeAcc) {
+                        updateAccountField(activeAccountTab, "currency", e.target.value);
+                      } else {
+                        updateField("currency", e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-4 gap-4">
-                {editData.currency === "USD" && (
+                {((activeAcc ? activeAcc.currency : editData.currency) !== "TWD") && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">USD/TWD 匯率</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      {(activeAcc ? activeAcc.currency : editData.currency)}/TWD 匯率
+                    </label>
                     <input 
                       type="number"
                       step="0.0001"
-                      value={editData.exchange_rate}
-                      onChange={e => updateField("exchange_rate", parseFloat(e.target.value) || 1.0)}
+                      value={activeAcc ? activeAcc.exchange_rate : editData.exchange_rate}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value) || 1.0;
+                        if (activeAcc) {
+                          updateAccountField(activeAccountTab, "exchange_rate", val);
+                        } else {
+                          updateField("exchange_rate", val);
+                        }
+                      }}
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500"
                     />
                   </div>
@@ -374,8 +499,14 @@ export default function UploadPage() {
                     <label className="block text-xs font-bold text-slate-500 mb-1">帳戶號碼 / 帳號 (可留空/修改)</label>
                     <input 
                       type="text"
-                      value={editData.account_number || ""}
-                      onChange={e => updateField("account_number", e.target.value)}
+                      value={activeAcc ? activeAcc.account_number : (editData.account_number || "")}
+                      onChange={e => {
+                        if (activeAcc) {
+                          updateAccountField(activeAccountTab, "account_number", e.target.value);
+                        } else {
+                          updateField("account_number", e.target.value);
+                        }
+                      }}
                       placeholder="留空使用預設帳戶"
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                     />
@@ -383,11 +514,20 @@ export default function UploadPage() {
                 )}
                 {editData.kind === "bank" && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">結餘金額 (TWD)</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      結餘金額 ({activeAcc ? activeAcc.currency : "TWD"})
+                    </label>
                     <input 
                       type="number"
-                      value={editData.closing_balance}
-                      onChange={e => updateField("closing_balance", parseFloat(e.target.value) || 0)}
+                      value={activeAcc ? activeAcc.closing_balance : editData.closing_balance}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value) || 0;
+                        if (activeAcc) {
+                          updateAccountField(activeAccountTab, "closing_balance", val);
+                        } else {
+                          updateField("closing_balance", val);
+                        }
+                      }}
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500"
                     />
                   </div>
@@ -699,7 +839,6 @@ export default function UploadPage() {
                     </tbody>
                   </table>
                 ) : (
-                  /* Standard bank/CC transaction table */
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                       <tr>
@@ -711,12 +850,12 @@ export default function UploadPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {editData.transactions?.length === 0 ? (
+                      {((activeAcc ? activeAcc.transactions : editData.transactions) || []).length === 0 ? (
                         <tr>
                           <td colSpan={5} className="text-center py-8 text-slate-400">尚無交易明細，可點擊右上角手動新增。</td>
                         </tr>
                       ) : (
-                        editData.transactions.map((t: any, idx: number) => (
+                        (activeAcc ? activeAcc.transactions : editData.transactions).map((t: any, idx: number) => (
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-3 py-1.5">
                               <input 
