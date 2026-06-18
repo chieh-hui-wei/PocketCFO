@@ -49,6 +49,7 @@ async def list_accounts(
             "is_internal": a.is_internal,
         }
         for a in accounts
+        if a.account_type not in (AccountType.CREDIT_CARD, AccountType.LIABILITY)
     ]
 
 

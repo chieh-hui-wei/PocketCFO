@@ -75,12 +75,9 @@ class StockHoldingService:
                 continue
 
 
-            # 3. Find the latest month prior to period_date with Security records
             prev_period_stmt = (
                 select(func.max(Security.period_date))
                 .where(Security.user_id == self.user_id, Security.account_id == acct_id, Security.period_date < period_date)
-                .order_by(Security.period_date.desc())
-                .limit(1)
             )
             prev_period_res = await self.db.execute(prev_period_stmt)
             m_prev = prev_period_res.scalar_one_or_none()

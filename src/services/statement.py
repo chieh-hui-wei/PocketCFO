@@ -107,17 +107,25 @@ class StatementService:
 
             # Generate unique code for this specific account
             account_code = data.get("account_code") if len(accounts_data) == 1 else None
+            display_name = None
             if not account_code:
+                # Attempt to fuzzy match against existing accounts
                 inst = data.get("institution", "unknown").strip()
-                if acc_num:
-                    acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
-                    account_code = f"bank_{inst}_{acc_num_clean}"
+                matching_acc = self._find_matching_db_account(inst, acc_num, AccountType.BANK, db_accounts)
+                if matching_acc:
+                    account_code = matching_acc.code
+                    display_name = matching_acc.name
                 else:
-                    account_code = f"bank_{inst}"
+                    if acc_num:
+                        acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
+                        account_code = f"bank_{inst}_{acc_num_clean}"
+                    else:
+                        account_code = f"bank_{inst}"
 
-            display_name = data.get("institution", "Unknown Bank")
-            if acc_num:
-                display_name = f"{display_name} ({acc_num})"
+            if not display_name:
+                display_name = data.get("institution", "Unknown Bank")
+                if acc_num:
+                    display_name = f"{display_name} ({acc_num})"
 
             account = await self._resolve_or_create_account(
                 code=account_code,
@@ -255,10 +263,24 @@ class StatementService:
         self, data: dict[str, Any], upload_history_id: int | None = None
     ) -> dict[str, Any]:
         period = first_of_month(data["period_year"], data["period_month"])
-        card_name = f"{data.get('institution', 'Card')} ****{data.get('card_last_four', '0000')}"
+        db_accounts = await self.account_repo.get_all()
+        card_last_four = data.get("card_last_four")
         account_code = data.get("account_code")
+        card_name = None
+        if not account_code:
+            inst = data.get("institution", "").strip()
+            matching_acc = self._find_matching_db_account(inst, card_last_four, AccountType.CREDIT_CARD, db_accounts)
+            if matching_acc:
+                account_code = matching_acc.code
+                card_name = matching_acc.name
+            else:
+                account_code = f"cc_{card_last_four or 'xxxx'}"
+
+        if not card_name:
+            card_name = f"{data.get('institution', 'Card')} ****{card_last_four or '0000'}"
+
         account = await self._resolve_or_create_account(
-            code=account_code or f"cc_{data.get('card_last_four', 'xxxx')}",
+            code=account_code,
             name=card_name,
             account_type=AccountType.CREDIT_CARD,
             institution=data.get("institution", ""),
@@ -370,17 +392,25 @@ class StatementService:
         period = first_of_month(data["period_year"], data["period_month"])
         account_code = data.get("account_code")
         acc_num = data.get("account_number")
+        db_accounts = await self.account_repo.get_all()
+        display_name = None
         if not account_code:
             inst = data.get("institution", "unknown").strip()
-            if acc_num:
-                acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
-                account_code = f"broker_{inst}_{acc_num_clean}"
+            matching_acc = self._find_matching_db_account(inst, acc_num, AccountType.BROKERAGE, db_accounts)
+            if matching_acc:
+                account_code = matching_acc.code
+                display_name = matching_acc.name
             else:
-                account_code = f"broker_{inst}"
+                if acc_num:
+                    acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
+                    account_code = f"broker_{inst}_{acc_num_clean}"
+                else:
+                    account_code = f"broker_{inst}"
 
-        display_name = data.get("institution", "Unknown Broker")
-        if acc_num:
-            display_name = f"{display_name} ({acc_num})"
+        if not display_name:
+            display_name = data.get("institution", "Unknown Broker")
+            if acc_num:
+                display_name = f"{display_name} ({acc_num})"
 
         account = await self._resolve_or_create_account(
             code=account_code,
@@ -712,4 +742,146 @@ class StatementService:
             await self.db.flush()
             log.info(f"account.updated id={account.id} code={code} set currency={currency}")
         return account
+
+    def _institutions_match(self, inst1: str, inst2: str) -> bool:
+        if not inst1 or not inst2:
+            return False
+        
+        def clean(s: str) -> str:
+            s = s.lower()
+            for suffix in ["銀行", "證券", "commercial", "bank", "securities", "co", "ltd"]:
+                s = s.replace(suffix, "")
+            import re
+            s = re.sub(r'[^a-zA-Z0-9\u4e00-\u9fa5]', '', s)
+            return s.strip()
+        
+        c1, c2 = clean(inst1), clean(inst2)
+        if not c1 or not c2:
+            return False
+            
+        if c1 in c2 or c2 in c1:
+            return True
+            
+        synonyms = [
+            {"台新", "taishin", "richart"},
+            {"玉山", "esun"},
+            {"永豐", "sinopac"},
+            {"國泰", "cathay", "國泰世華"},
+            {"中信", "ctbc", "中國信託"},
+            {"第一", "first"},
+            {"富邦", "fubon"},
+            {"華南", "huanan", "sny"},
+            {"星展", "dbs"},
+            {"聯邦", "union"},
+        ]
+        for syn in synonyms:
+            has_c1 = any(item in c1 or c1 in item for item in syn)
+            has_c2 = any(item in c2 or c2 in item for item in syn)
+            if has_c1 and has_c2:
+                return True
+                
+        return False
+
+    def _get_db_account_numbers(self, db_acc: Account) -> list[str]:
+        candidates = []
+        code = db_acc.code
+        if "_" in code:
+            parts = code.split("_")
+            candidates.append(parts[-1])
+        else:
+            candidates.append(code)
+            
+        import re
+        name_candidates = re.findall(r'[0-9*xX\-]+', db_acc.name)
+        for cand in name_candidates:
+            clean = re.sub(r'[^0-9]', '', cand)
+            if len(clean) >= 4 or '*' in cand or 'x' in cand.lower():
+                candidates.append(cand)
+                
+        if db_acc.notes:
+            notes_candidates = re.findall(r'[0-9*xX\-]+', db_acc.notes)
+            for cand in notes_candidates:
+                clean = re.sub(r'[^0-9]', '', cand)
+                if len(clean) >= 4 or '*' in cand or 'x' in cand.lower():
+                    candidates.append(cand)
+                    
+        return list(set(candidates))
+
+    def fuzzy_match_acc_nums(self, db_num: str, parsed_num: str) -> bool:
+        import re
+        clean_db = re.sub(r'[^0-9*xX]', '', db_num)
+        clean_parsed = re.sub(r'[^0-9*xX]', '', parsed_num)
+        
+        if not clean_db or not clean_parsed:
+            return False
+            
+        if clean_db == clean_parsed:
+            return True
+            
+        db_digits = re.sub(r'[*xX]', '', clean_db)
+        parsed_digits = re.sub(r'[*xX]', '', clean_parsed)
+        
+        if not db_digits or not parsed_digits:
+            return False
+            
+        if len(parsed_digits) >= 4 and clean_db.endswith(parsed_digits):
+            return True
+        if len(db_digits) >= 4 and clean_parsed.endswith(db_digits):
+            return True
+
+        parts = [p for p in re.split(r'[*xX]+', clean_parsed) if p]
+        if len(parts) >= 2:
+            prefix = parts[0]
+            suffix = parts[-1]
+            if len(prefix) >= 3 and len(suffix) >= 3:
+                if clean_db.startswith(prefix) and clean_db.endswith(suffix):
+                    return True
+
+        def match_equal_len(s1: str, s2: str) -> bool:
+            match_count = 0
+            for c1, c2 in zip(s1, s2):
+                if c1 != c2 and c1 not in '*xX' and c2 not in '*xX':
+                    return False
+                if c1 == c2 and c1 not in '*xX':
+                    match_count += 1
+            return match_count >= 4
+            
+        len_db = len(clean_db)
+        len_parsed = len(clean_parsed)
+        
+        if len_parsed == len_db:
+            return match_equal_len(clean_parsed, clean_db)
+        elif len_parsed < len_db:
+            for start in range(len_db - len_parsed + 1):
+                if match_equal_len(clean_db[start : start + len_parsed], clean_parsed):
+                    return True
+        else:
+            for start in range(len_parsed - len_db + 1):
+                if match_equal_len(clean_parsed[start : start + len_db], clean_db):
+                    return True
+                    
+        return False
+
+    def _find_matching_db_account(
+        self,
+        institution: str,
+        parsed_acc_num: str,
+        account_type: AccountType,
+        db_accounts: list[Account],
+    ) -> Account | None:
+        if not parsed_acc_num:
+            return None
+            
+        for db_acc in db_accounts:
+            if db_acc.account_type != account_type:
+                continue
+            if not self._institutions_match(db_acc.institution, institution):
+                continue
+                
+            db_nums = self._get_db_account_numbers(db_acc)
+            for db_num in db_nums:
+                if self.fuzzy_match_acc_nums(db_num, parsed_acc_num):
+                    return db_acc
+                    
+        return None
 
