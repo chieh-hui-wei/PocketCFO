@@ -284,12 +284,123 @@ async def get_stock_transactions_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class CreateTransactionRequest(BaseModel):
+    date: str
+    description: str
+    amount: float
+    category: str
+    source: str = "bank"
+    merchant: str | None = None
+    account_id: int | None = None
+
+
 class UpdateTransactionRequest(BaseModel):
     date: str | None = None
     merchant: str | None = None
     description: str | None = None
     amount: float | None = None
     category: str | None = None
+
+
+@router.post("/")
+async def create_transaction(
+    body: CreateTransactionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+) -> dict[str, Any]:
+    try:
+        from src.dbs.models import Transaction, TransactionCategory, TransactionSource, Account
+        from datetime import datetime
+        from sqlalchemy import select
+        
+        try:
+            txn_date = datetime.strptime(body.date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format, must be YYYY-MM-DD")
+            
+        if body.account_id is not None:
+            stmt = select(Account).where(Account.id == body.account_id, Account.user_id == current_user.id)
+            res = await db.execute(stmt)
+            account = res.scalar_one_or_none()
+            if not account:
+                raise HTTPException(status_code=400, detail="Account not found or access denied")
+                
+        source_str = body.source
+        if source_str == "einvoice":
+            source_str = "e_invoice"
+        try:
+            source = TransactionSource(source_str)
+        except ValueError:
+            source = TransactionSource.BANK
+
+        # Category mapping
+        reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
+        reverse_cat["帳內互轉"] = "transfer_in"
+        cat_val = reverse_cat.get(body.category, body.category)
+        try:
+            category = TransactionCategory(cat_val)
+        except ValueError:
+            category = TransactionCategory.OTHER
+            
+        # Check transfer status
+        is_transfer = False
+        if body.category == "帳內互轉" or cat_val in ("transfer_in", "transfer_out"):
+            is_transfer = True
+        else:
+            # Query active accounts to build TransferDetector
+            from src.dbs.repository import AccountRepository
+            from src.utils.transfer_detector import TransferDetector
+            acct_repo = AccountRepository(db, current_user.id)
+            accounts = await acct_repo.get_all()
+            internal_aids = []
+            for a in accounts:
+                if a.is_internal:
+                    internal_aids.append(a.code)
+                    if "_" in a.code:
+                        internal_aids.append(a.code.split("_")[-1])
+                    if a.notes:
+                        internal_aids.append(a.notes)
+            detector = TransferDetector(list(set(internal_aids)))
+            is_transfer = detector.is_internal_transfer(body.description)
+
+        if is_transfer:
+            category = TransactionCategory.TRANSFER_IN if body.amount > 0 else TransactionCategory.TRANSFER_OUT
+
+        txn = Transaction(
+            user_id=current_user.id,
+            account_id=body.account_id,
+            txn_date=txn_date,
+            source=source,
+            merchant=body.merchant,
+            description=body.description,
+            amount=body.amount,
+            category=category,
+            is_internal_transfer=is_transfer,
+        )
+        
+        # Save to database using TransactionRepository
+        repo = TransactionRepository(db, current_user.id)
+        await repo.create(txn)
+        await db.flush()
+        
+        # Recompute reports
+        from src.services.reports.income_statement import IncomeStatementService
+        from src.services.reports.balance_sheet import BalanceSheetService
+        
+        is_service = IncomeStatementService(db, current_user.id)
+        bs_service = BalanceSheetService(db, current_user.id)
+        
+        await is_service.compute(txn_date.year, txn_date.month)
+        await bs_service.compute(txn_date.year, txn_date.month)
+        await db.commit()
+        
+        return {"status": "ok", "id": txn.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error creating transaction: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/{txn_id}")

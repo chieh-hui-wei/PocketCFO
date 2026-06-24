@@ -33,6 +33,7 @@ class SaveSnapshotRequest(BaseModel):
 
 @router.get("/")
 async def list_accounts(
+    include_all: bool = Query(False, description="Include credit cards and liabilities"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_token),
 ):
@@ -49,7 +50,7 @@ async def list_accounts(
             "is_internal": a.is_internal,
         }
         for a in accounts
-        if a.account_type not in (AccountType.CREDIT_CARD, AccountType.LIABILITY)
+        if include_all or a.account_type not in (AccountType.CREDIT_CARD, AccountType.LIABILITY)
     ]
 
 

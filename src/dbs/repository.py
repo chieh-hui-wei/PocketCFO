@@ -205,6 +205,12 @@ class TransactionRepository:
         self.db.add_all(txns)
         await self.db.flush()
 
+    async def create(self, txn: Transaction) -> Transaction:
+        txn.user_id = self.user_id
+        self.db.add(txn)
+        await self.db.flush()
+        return txn
+
     async def get_by_period(self, account_id: int | None, period_date: date) -> Sequence[Transaction]:
         start = period_date.replace(day=1)
         import calendar
