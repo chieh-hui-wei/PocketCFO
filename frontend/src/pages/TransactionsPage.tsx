@@ -3,7 +3,10 @@ import {
   getTransactions, 
   updateTransaction, 
   deleteTransaction, 
-  TransactionRecord 
+  TransactionRecord,
+  getAccounts,
+  createTransaction,
+  Account
 } from "../services/api";
 
 export default function TransactionsPage() {
@@ -49,6 +52,91 @@ export default function TransactionsPage() {
   const [editCategory, setEditCategory] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState<number>(0);
+
+  // Manual Transaction Adding States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formDate, setFormDate] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formMerchant, setFormMerchant] = useState("");
+  const [formAmount, setFormAmount] = useState<number>(0);
+  const [formType, setFormType] = useState<"income" | "expense">("expense");
+  const [formCategory, setFormCategory] = useState("支出");
+  const [formSource, setFormSource] = useState("bank");
+  const [formAccountId, setFormAccountId] = useState<number | "">("");
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  const handleOpenAdd = async () => {
+    const today = new Date();
+    let defaultDate = today.toISOString().split("T")[0];
+    
+    if (currentDate.getFullYear() !== today.getFullYear() || currentDate.getMonth() !== today.getMonth()) {
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+      defaultDate = `${currentDate.getFullYear()}-${month}-01`;
+    }
+    
+    setFormDate(defaultDate);
+    setFormDescription("");
+    setFormMerchant("");
+    setFormAmount(0);
+    setFormType("expense");
+    setFormCategory("支出");
+    setFormSource("bank");
+    setFormAccountId("");
+    setShowAddModal(true);
+    
+    try {
+      const accList = await getAccounts(true);
+      setAccounts(accList);
+    } catch (e) {
+      console.error("Failed to fetch accounts", e);
+    }
+  };
+
+  const handleCategoryChange = (cat: string) => {
+    setFormCategory(cat);
+    if (["薪資", "轉入", "股利", "利息"].includes(cat)) {
+      setFormType("income");
+    } else if (["支出", "轉出"].includes(cat)) {
+      setFormType("expense");
+    }
+  };
+
+  const handleTypeChange = (type: "income" | "expense") => {
+    setFormType(type);
+    if (type === "income" && ["支出", "轉出"].includes(formCategory)) {
+      setFormCategory("其他");
+    } else if (type === "expense" && ["薪資", "轉入", "股利", "利息"].includes(formCategory)) {
+      setFormCategory("支出");
+    }
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formDate || !formDescription || formAmount <= 0) {
+      alert("請填寫交易日期、說明，且金額必須大於 0");
+      return;
+    }
+    
+    const amountVal = formType === "expense" ? -Math.abs(formAmount) : Math.abs(formAmount);
+    
+    try {
+      await createTransaction({
+        date: formDate,
+        description: formDescription,
+        merchant: formMerchant || undefined,
+        amount: amountVal,
+        category: formCategory,
+        source: formSource,
+        account_id: formAccountId === "" ? null : formAccountId,
+      });
+      
+      setShowAddModal(false);
+      fetchTxns();
+    } catch (e) {
+      console.error(e);
+      alert("手動新增交易失敗");
+    }
+  };
 
   const fetchTxns = async () => {
     setIsLoading(true);
@@ -181,9 +269,15 @@ export default function TransactionsPage() {
           </div>
           <button 
             onClick={handleExport}
-            className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             匯出 Excel
+          </button>
+          <button 
+            onClick={handleOpenAdd}
+            className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+          >
+            + 手動新增
           </button>
         </div>
       </div>
@@ -340,6 +434,154 @@ export default function TransactionsPage() {
         );
       })()}
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 w-[450px] shadow-xl border border-slate-100 animate-in zoom-in-95 duration-200">
+            <h3 className="font-bold text-lg text-slate-800 mb-4">手動新增交易</h3>
+            <form onSubmit={handleAddSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">交易日期</label>
+                <input 
+                  type="date" 
+                  value={formDate}
+                  onChange={e => setFormDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">交易類型</label>
+                  <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange("expense")}
+                      className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                        formType === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      支出
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange("income")}
+                      className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                        formType === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      收入
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">金額</label>
+                  <input 
+                    type="number" 
+                    value={formAmount || ""}
+                    onChange={e => setFormAmount(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                    placeholder="請輸入金額"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">交易說明 / 摘要</label>
+                <input 
+                  type="text" 
+                  value={formDescription}
+                  onChange={e => setFormDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                  placeholder="如：午餐、薪資轉入、轉帳給朋友"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">交易商家 / 對象 (選填)</label>
+                <input 
+                  type="text" 
+                  value={formMerchant}
+                  onChange={e => setFormMerchant(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                  placeholder="如：7-11、全家、房東"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">收支分類</label>
+                  <select 
+                    value={formCategory}
+                    onChange={e => handleCategoryChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                  >
+                    <option value="支出">支出</option>
+                    <option value="薪資">薪資</option>
+                    <option value="投資">投資</option>
+                    <option value="轉入">轉入</option>
+                    <option value="轉出">轉出</option>
+                    <option value="股利">股利</option>
+                    <option value="利息">利息</option>
+                    <option value="帳內互轉">帳內互轉</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">交易來源</label>
+                  <select 
+                    value={formSource}
+                    onChange={e => setFormSource(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                  >
+                    <option value="bank">銀行</option>
+                    <option value="credit_card">信用卡</option>
+                    <option value="brokerage">證券</option>
+                    <option value="einvoice">發票</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">關聯帳戶 (選填)</label>
+                <select 
+                  value={formAccountId}
+                  onChange={e => setFormAccountId(e.target.value ? parseInt(e.target.value) : "")}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                >
+                  <option value="">無 (不指定)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.institution} - {acc.name} ({acc.currency})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors cursor-pointer"
+                >
+                  取消
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer"
+                >
+                  確認新增
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

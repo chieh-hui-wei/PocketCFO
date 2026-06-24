@@ -139,8 +139,8 @@ export async function computeIncomeStatement(year: number, month: number) {
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
-export async function getAccounts() {
-  const data = await fetchWithCache("/accounts/");
+export async function getAccounts(includeAll?: boolean) {
+  const data = await fetchWithCache("/accounts/", { include_all: includeAll });
   return data as Account[];
 }
 
@@ -353,6 +353,19 @@ export async function updateTransaction(
 
 export async function deleteTransaction(txnId: number) {
   const { data } = await api.delete(`/transactions/${txnId}`);
+  return data;
+}
+
+export async function createTransaction(payload: {
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  source: string;
+  merchant?: string;
+  account_id?: number | null;
+}) {
+  const { data } = await api.post("/transactions/", payload);
   return data;
 }
 
