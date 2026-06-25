@@ -54,6 +54,7 @@ class ConfirmTransaction(BaseModel):
     is_refund: bool = False
     payment_method: str | None = None
     invoice_number: str | None = None
+    is_duplicate: bool = False
 
 
 class ConfirmAccountData(BaseModel):
@@ -111,8 +112,9 @@ async def upload_and_parse_statement(
     """
     history_repo = UploadHistoryRepository(db, current_user.id)
 
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+    valid_exts = (".pdf", ".csv") if kind == "einvoice" else (".pdf",)
+    if not file.filename or not file.filename.lower().endswith(valid_exts):
+        raise HTTPException(status_code=400, detail=f"Only {', '.join(valid_exts)} files are accepted")
 
     contents = await file.read()
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
@@ -128,34 +130,36 @@ async def upload_and_parse_statement(
     # Save to temp path
     upload_dir = Path(settings.upload_dir) / "statements"
     upload_dir.mkdir(parents=True, exist_ok=True)
-    tmp_path = upload_dir / f"{uuid.uuid4()}.pdf"
+    suffix = Path(file.filename).suffix.lower()
+    tmp_path = upload_dir / f"{uuid.uuid4()}{suffix}"
 
     async with aiofiles.open(tmp_path, "wb") as f:
         await f.write(contents)
 
-    # Handle decryption
-    try:
-        reader = PyPDF2.PdfReader(str(tmp_path))
-        if reader.is_encrypted:
-            if not password:
-                raise HTTPException(status_code=400, detail="This PDF file is encrypted. Password is required.")
-            reader.decrypt(password)
-            try:
-                _ = reader.pages[0]
-            except Exception:
-                raise HTTPException(status_code=400, detail="Failed to decrypt PDF. Incorrect password.")
+    # Handle decryption (PDF only)
+    if suffix == ".pdf":
+        try:
+            reader = PyPDF2.PdfReader(str(tmp_path))
+            if reader.is_encrypted:
+                if not password:
+                    raise HTTPException(status_code=400, detail="This PDF file is encrypted. Password is required.")
+                reader.decrypt(password)
+                try:
+                    _ = reader.pages[0]
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Failed to decrypt PDF. Incorrect password.")
 
-            writer = PyPDF2.PdfWriter()
-            for page in reader.pages:
-                writer.add_page(page)
-            with open(tmp_path, "wb") as f:
-                writer.write(f)
-    except HTTPException:
-        tmp_path.unlink(missing_ok=True)
-        raise
-    except Exception as exc:
-        tmp_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail=f"Invalid or corrupted PDF file: {exc}")
+                writer = PyPDF2.PdfWriter()
+                for page in reader.pages:
+                    writer.add_page(page)
+                with open(tmp_path, "wb") as f:
+                    writer.write(f)
+        except HTTPException:
+            tmp_path.unlink(missing_ok=True)
+            raise
+        except Exception as exc:
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail=f"Invalid or corrupted PDF file: {exc}")
 
     try:
         service = StatementService(db, current_user.id)

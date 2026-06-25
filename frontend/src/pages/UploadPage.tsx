@@ -9,7 +9,7 @@ const KINDS = [
   { id: "bank", num: 1, title: "銀行對帳單", sub: "請上傳您的銀行對帳單", ext: "僅限 PDF 檔案" },
   { id: "credit_card", num: 2, title: "信用卡對帳單", sub: "請上傳您的信用卡帳單", ext: "僅限 PDF 檔案" },
   { id: "brokerage", num: 3, title: "證券對帳單", sub: "請上傳您的證券對帳單", ext: "僅限 PDF 檔案" },
-  { id: "einvoice", num: 4, title: "電子發票載具清單", sub: "請上傳您的電子發票清單", ext: "僅限 PDF 檔案" },
+  { id: "einvoice", num: 4, title: "電子發票載具清單", sub: "請上傳您的電子發票清單", ext: "PDF 或 CSV 檔案" },
 ];
 
 export default function UploadPage() {
@@ -171,7 +171,8 @@ export default function UploadPage() {
           ticker: t.ticker || "",
           quantity: t.quantity != null ? t.quantity : 0,
           price: t.price != null ? t.price : 0,
-          fee: t.fee != null ? t.fee : 0
+          fee: t.fee != null ? t.fee : 0,
+          is_duplicate: !!t.is_duplicate
         })),
         accounts: accountsList
       });
@@ -335,7 +336,7 @@ export default function UploadPage() {
                   {files[k.id].length > 0 ? <span className="text-blue-700 font-bold">已選 {files[k.id].length} 檔</span> : '拖曳檔案或'}
                 </span>
                 {files[k.id].length === 0 && <button className="mt-1 bg-blue-600 text-white px-3 py-1 rounded text-[10px] shadow-sm">瀏覽</button>}
-                <input type="file" id={`file-${k.id}`} className="hidden" accept=".pdf" onChange={(e) => handleFileSelect(e, k.id)} />
+                <input type="file" id={`file-${k.id}`} className="hidden" accept={k.id === "einvoice" ? ".pdf,.csv" : ".pdf"} onChange={(e) => handleFileSelect(e, k.id)} />
               </div>
             </div>
           ))}
@@ -883,15 +884,39 @@ export default function UploadPage() {
                               </select>
                             </td>
                             <td className="px-3 py-1.5">
-                              <input 
-                                type="text"
-                                value={t.description || t.merchant || ""}
-                                onChange={e => {
-                                  updateTransactionRow(idx, "description", e.target.value);
-                                  updateTransactionRow(idx, "merchant", e.target.value);
-                                }}
-                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
-                              />
+                              <div className="flex flex-col gap-1">
+                                <input 
+                                  type="text"
+                                  value={t.description || t.merchant || ""}
+                                  onChange={e => {
+                                    updateTransactionRow(idx, "description", e.target.value);
+                                    updateTransactionRow(idx, "merchant", e.target.value);
+                                  }}
+                                  className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
+                                />
+                                {editData.kind === "einvoice" && (
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {t.is_duplicate ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
+                                        ⚠️ 重複 (已在信用卡/帳單記錄)
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200/60">
+                                        ✨ 獨特 (將寫入資料庫)
+                                      </span>
+                                    )}
+                                    <label className="inline-flex items-center text-[10px] text-slate-500 font-semibold cursor-pointer hover:text-slate-700 select-none">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={!!t.is_duplicate} 
+                                        onChange={e => updateTransactionRow(idx, "is_duplicate", e.target.checked)}
+                                        className="mr-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                      標記為重複交易 (重複者不寫入資料庫)
+                                    </label>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-1.5">
                               <input 

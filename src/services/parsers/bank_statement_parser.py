@@ -183,3 +183,79 @@ async def parse_einvoice_statement(pdf_path: Path) -> dict[str, Any]:
     """Parse an electronic invoice PDF and return structured data."""
     return await extract_structured(pdf_path, EINVOICE_PROMPT)
 
+
+async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
+    """Parse an electronic invoice carrier CSV file and return aggregated structured data."""
+    import pandas as pd
+    from datetime import datetime
+
+    rows = []
+    header = None
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        # Read the header
+        header_line = f.readline().strip()
+        if header_line.startswith('\ufeff'):
+            header_line = header_line[1:]
+        header = header_line.split(',')
+        
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if "注意" in line or "捐贈" in line or "字軌" in line:
+                continue
+            parts = line.split(',')
+            if len(parts) < 14:
+                continue
+            row = parts[:13]
+            product_name = ",".join(parts[13:])
+            row.append(product_name)
+            rows.append(row)
+            
+    df = pd.DataFrame(rows, columns=header)
+    df['發票日期'] = df['發票日期'].astype(str)
+    df['消費明細_金額'] = pd.to_numeric(df['消費明細_金額'], errors='coerce').fillna(0)
+    
+    period_year = None
+    period_month = None
+    
+    grouped = df.groupby('發票號碼').agg({
+        '發票日期': 'first',
+        '賣方名稱': 'first',
+        '載具自訂名稱': 'first',
+        '消費明細_金額': 'sum',
+        '消費明細_品名': lambda x: ", ".join(str(i) for i in x if pd.notna(i))
+    }).reset_index()
+    
+    items = []
+    for _, row in grouped.iterrows():
+        date_str = str(row['發票日期'])
+        try:
+            dt = datetime.strptime(date_str, "%Y%m%d")
+            formatted_date = dt.strftime("%Y-%m-%d")
+            if period_year is None:
+                period_year = dt.year
+                period_month = dt.month
+        except Exception:
+            formatted_date = date_str
+            
+        items.append({
+            "date": formatted_date,
+            "merchant": row['賣方名稱'],
+            "description": row['消費明細_品名'],
+            "amount": float(row['消費明細_金額']),
+            "payment_method": row['載具自訂名稱'] or "電子載具",
+            "invoice_number": row['發票號碼']
+        })
+        
+    if period_year is None:
+        period_year = datetime.now().year
+        period_month = datetime.now().month
+        
+    return {
+        "period_year": int(period_year),
+        "period_month": int(period_month),
+        "items": items
+    }
+
+

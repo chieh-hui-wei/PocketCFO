@@ -34,6 +34,7 @@ from src.services.parsers.bank_statement_parser import (
     parse_brokerage_statement,
     parse_credit_card_statement,
     parse_einvoice_statement,
+    parse_einvoice_csv,
 )
 from src.services.parsers.firstrade_statement_parser import parse_firstrade_statement
 from src.services.exchange_rate import get_usd_twd_rate
@@ -43,6 +44,48 @@ from src.utils.transfer_detector import TransferDetector
 
 log = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def is_merchant_overlap(m1: str, m2: str) -> bool:
+    if not m1 or not m2:
+        return False
+    import unicodedata
+    m1_norm = unicodedata.normalize('NFKC', m1)
+    m2_norm = unicodedata.normalize('NFKC', m2)
+    # Clean names
+    m1_clean = m1_norm.lower().replace(" ", "").replace("股份有限公司", "").replace("分公司", "").replace("門市", "").replace("營業所", "")
+    m2_clean = m2_norm.lower().replace(" ", "").replace("股份有限公司", "").replace("分公司", "").replace("門市", "").replace("營業所", "")
+    
+    aliases = {
+        "全聯": ["pxpay", "px pay", "全聯"],
+        "統一超商": ["7-11", "7-eleven", "統一超商", "ibon"],
+        "全家": ["fami", "全家"],
+        "中油": ["中油", "cpc"],
+        "寶雅": ["poya", "寶雅"],
+        "家樂福": ["carrefour", "家樂福", "統康"],
+        "宜得利": ["nitori", "宜得利"],
+        "蝦皮": ["shopee", "蝦皮"],
+        "日月亭": ["日月亭"],
+    }
+    
+    for key, vals in aliases.items():
+        m1_has = any(val in m1_clean for val in vals) or (key in m1_clean)
+        m2_has = any(val in m2_clean for val in vals) or (key in m2_clean)
+        if m1_has and m2_has:
+            return True
+            
+    # Substring check
+    import re
+    words1 = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', m1_clean)
+    words2 = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', m2_clean)
+    w1_str = "".join(words1)
+    w2_str = "".join(words2)
+    
+    if len(w1_str) >= 2 and len(w2_str) >= 2:
+        if w1_str in w2_str or w2_str in w1_str:
+            return True
+            
+    return False
 
 
 class StatementService:
@@ -589,6 +632,11 @@ class StatementService:
         txns = []
         raw_items = data.get("items") or data.get("transactions") or []
         for item in raw_items:
+            # Skip database writes for duplicate transactions
+            if item.get("is_duplicate", False):
+                log.info(f"Skipping duplicate e-invoice transaction from database insertion: {item.get('merchant')}, {item.get('amount')}")
+                continue
+
             txn_date = item.get("date")
             if isinstance(txn_date, str):
                 from datetime import datetime
@@ -599,6 +647,25 @@ class StatementService:
             else:
                 actual_date = parse_tw_date_robust(item.get("date")) or period
 
+            cat_str = item.get("category")
+            category = TransactionCategory.EXPENSE
+            if cat_str:
+                reverse_cat = {
+                    "薪資": "salary",
+                    "投資": "investment",
+                    "轉入": "transfer_in",
+                    "轉出": "transfer_out",
+                    "支出": "expense",
+                    "股利": "dividend",
+                    "利息": "interest",
+                    "其他": "other",
+                }
+                cat_val = reverse_cat.get(cat_str, cat_str)
+                try:
+                    category = TransactionCategory(cat_val)
+                except ValueError:
+                    category = TransactionCategory.EXPENSE
+
             txns.append(
                 Transaction(
                     account_id=None,
@@ -607,20 +674,21 @@ class StatementService:
                     description=item.get("description", ""),
                     amount=-float(item.get("amount") or 0),
                     balance_after=None,
-                    category=TransactionCategory.EXPENSE,
+                    category=category,
                     is_internal_transfer=False,
                     is_refund=False,
                     raw_data=json.dumps(item, ensure_ascii=False),
                     source=TransactionSource.E_INVOICE,
                     payment_method=item.get("payment_method", "其他"),
                     invoice_number=item.get("invoice_number"),
-                    is_duplicate=False,
+                    is_duplicate=False,  # They are saved, so they are not duplicates
                     upload_history_id=upload_history_id,
                 )
             )
 
-        await self.txn_repo.bulk_insert(txns)
-        await self.deduplicate_period(period)
+        if txns:
+            await self.txn_repo.bulk_insert(txns)
+        # Note: deduplicate_period is skipped here because duplicates are already excluded before insertion.
 
         log.info(f"save.einvoice.done items={len(txns)} period={period}")
         return {
@@ -692,8 +760,43 @@ class StatementService:
             data["exchange_rate"] = exchange_rate
             data["currency"] = currency
         elif kind == "einvoice":
-            data = await parse_einvoice_statement(pdf_path)
+            if filename.lower().endswith(".csv") or str(pdf_path).lower().endswith(".csv"):
+                data = await parse_einvoice_csv(pdf_path)
+            else:
+                data = await parse_einvoice_statement(pdf_path)
             data["kind"] = "einvoice"
+            
+            # Dry-run duplicate check against existing credit card transactions
+            try:
+                from datetime import datetime
+                period_date = date(data["period_year"], data["period_month"], 1)
+                cc_txns = await self.txn_repo.get_by_period_and_source(period_date, TransactionSource.CREDIT_CARD)
+                
+                matched_cc_ids = set()
+                for item in data.get("items", []):
+                    item_date_str = item.get("date")
+                    try:
+                        item_date = datetime.strptime(item_date_str, "%Y-%m-%d").date()
+                    except Exception:
+                        item_date = period_date
+                    item_amt = float(item.get("amount") or 0)
+                    item_merchant = item.get("merchant") or ""
+                    
+                    is_dup = False
+                    for c in cc_txns:
+                        if c.id in matched_cc_ids:
+                            continue
+                        day_diff = abs((c.txn_date - item_date).days)
+                        amt_diff = abs(abs(c.amount) - abs(item_amt))
+                        if day_diff <= 1 and amt_diff < 0.01:
+                            c_merchant = c.merchant or c.description or ""
+                            if is_merchant_overlap(item_merchant, c_merchant):
+                                matched_cc_ids.add(c.id)
+                                is_dup = True
+                                break
+                    item["is_duplicate"] = is_dup
+            except Exception as e:
+                log.warning(f"Dry-run duplicate check failed: {e}")
         else:
             raise ValueError(f"Unknown kind: {kind}")
             
