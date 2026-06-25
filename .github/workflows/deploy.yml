@@ -51,6 +51,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.prod.yml via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml"
+          target: ${{ secrets.DEPLOY_PATH }}
+
       - name: Deploy to VM via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -61,9 +73,6 @@ jobs:
           command_timeout: 10m
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Pull latest git changes for updated docker-compose.prod.yml
-            git pull origin main
             
             # Log in to GHCR on VM using GH_PAT secret
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
