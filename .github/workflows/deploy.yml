@@ -62,6 +62,17 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             
+            # Run diagnostics to identify connection issues
+            echo "=== Network Diagnostics ==="
+            echo "DNS lookup for ghcr.io:"
+            nslookup ghcr.io || echo "nslookup failed"
+            echo "Test curl to github.com:"
+            curl -I --connect-timeout 5 https://github.com || echo "curl github.com failed"
+            echo "Test curl to ghcr.io:"
+            curl -I --connect-timeout 5 https://ghcr.io || echo "curl ghcr.io failed"
+            echo "Check MTU and interfaces:"
+            ip addr || ifconfig
+            
             # Write production docker-compose file directly to avoid SCP/SFTP connection issues
             cat << 'EOF' > docker-compose.prod.yml
             version: "3.9"
