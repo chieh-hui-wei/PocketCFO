@@ -24,6 +24,7 @@ from src.dbs.models import (
 )
 from src.dbs.repository import (
     AccountRepository,
+    CategoryRuleRepository,
     SecurityRepository,
     SnapshotRepository,
     TransactionRepository,
@@ -389,6 +390,20 @@ class StatementService:
                 )
             )
         await self.txn_repo.bulk_insert(txns)
+
+        # Classify merchants with Gemini + user override rules
+        try:
+            from src.utils.category_classifier import classify_merchants_batch
+            rule_repo = CategoryRuleRepository(self.db, self.user_id)
+            rules = list(await rule_repo.list_all())
+            unique_merchants = list({t.merchant for t in txns if t.merchant})
+            classification = await classify_merchants_batch(unique_merchants, rules)
+            for t in txns:
+                t.expense_category = classification.get(t.merchant or "", "other")
+            await self.db.flush()
+        except Exception as e:
+            log.warning(f"Credit card merchant classification failed: {e}")
+
         await self.deduplicate_period(period)
 
         log.info(f"save.credit_card.done txns={len(txns)} period={period}")
@@ -688,6 +703,20 @@ class StatementService:
 
         if txns:
             await self.txn_repo.bulk_insert(txns)
+
+        # Classify merchants with Gemini + user override rules
+        try:
+            from src.utils.category_classifier import classify_merchants_batch
+            rule_repo = CategoryRuleRepository(self.db, self.user_id)
+            rules = list(await rule_repo.list_all())
+            unique_merchants = list({t.merchant for t in txns if t.merchant})
+            if unique_merchants:
+                classification = await classify_merchants_batch(unique_merchants, rules)
+                for t in txns:
+                    t.expense_category = classification.get(t.merchant or "", "other")
+                await self.db.flush()
+        except Exception as e:
+            log.warning(f"E-invoice merchant classification failed: {e}")
         # Note: deduplicate_period is skipped here because duplicates are already excluded before insertion.
 
         log.info(f"save.einvoice.done items={len(txns)} period={period}")

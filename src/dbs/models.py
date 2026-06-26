@@ -222,6 +222,9 @@ class Transaction(Base):
     category: Mapped[TransactionCategory] = mapped_column(
         Enum(TransactionCategory), default=TransactionCategory.OTHER
     )
+    expense_category: Mapped[str | None] = mapped_column(
+        String(32), nullable=True
+    )  # fine-grained sub-category: food/transport/medical/entertainment/salary/other
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, default=False)
     is_refund: Mapped[bool] = mapped_column(Boolean, default=False)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -290,4 +293,20 @@ class UploadHistory(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)  # 'success' or 'error'
     message: Mapped[str | None] = mapped_column(Text)
     file_hash: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ── Category Rules ─────────────────────────────────────────────────────────────
+
+
+class CategoryRule(Base):
+    """Per-user keyword → expense_category mapping used for auto-classification."""
+
+    __tablename__ = "category_rules"
+    __table_args__ = (UniqueConstraint("user_id", "keyword"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    keyword: Mapped[str] = mapped_column(String(128), nullable=False)  # e.g. "全聯", "uber"
+    category: Mapped[str] = mapped_column(String(32), nullable=False)  # food/transport/medical/entertainment/salary/other
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

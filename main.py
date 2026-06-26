@@ -17,6 +17,7 @@ from src.controllers.upload import router as upload_router
 from src.controllers.reports.report import router as report_router
 from src.controllers.transactions import router as txns_router
 from src.controllers.settings import router as settings_router
+from src.controllers.category_rules import router as category_rules_router
 from src.instances.config import get_settings
 from src.instances.database import create_all_tables
 from src.middleware.error_middleware import (
@@ -65,6 +66,7 @@ app.include_router(account_router, prefix="/api/v1", dependencies=[Depends(verif
 app.include_router(report_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
 app.include_router(settings_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
 app.include_router(txns_router, dependencies=[Depends(verify_token)])
+app.include_router(category_rules_router, dependencies=[Depends(verify_token)])
 
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────

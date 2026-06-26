@@ -16,6 +16,7 @@ from src.dbs.models import (
     Account,
     AccountSnapshot,
     BalanceSheet,
+    CategoryRule,
     IncomeStatement,
     Security,
     Transaction,
@@ -394,3 +395,55 @@ class UploadHistoryRepository:
             .limit(limit)
         )
         return result.scalars().all()
+
+
+# ── CategoryRule ──────────────────────────────────────────────────────────────────
+
+
+class CategoryRuleRepository:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
+        self.db = db
+        self.user_id = user_id
+
+    async def list_all(self) -> Sequence[CategoryRule]:
+        result = await self.db.execute(
+            select(CategoryRule)
+            .where(CategoryRule.user_id == self.user_id)
+            .order_by(CategoryRule.created_at.asc())
+        )
+        return result.scalars().all()
+
+    async def create(self, keyword: str, category: str) -> CategoryRule:
+        rule = CategoryRule(user_id=self.user_id, keyword=keyword.strip(), category=category.strip())
+        self.db.add(rule)
+        await self.db.flush()
+        return rule
+
+    async def update(self, rule_id: int, keyword: str | None = None, category: str | None = None) -> CategoryRule | None:
+        result = await self.db.execute(
+            select(CategoryRule).where(CategoryRule.id == rule_id, CategoryRule.user_id == self.user_id)
+        )
+        rule = result.scalar_one_or_none()
+        if not rule:
+            return None
+        if keyword is not None:
+            rule.keyword = keyword.strip()
+        if category is not None:
+            rule.category = category.strip()
+        await self.db.flush()
+        return rule
+
+    async def delete(self, rule_id: int) -> bool:
+        result = await self.db.execute(
+            select(CategoryRule).where(CategoryRule.id == rule_id, CategoryRule.user_id == self.user_id)
+        )
+        rule = result.scalar_one_or_none()
+        if not rule:
+            return False
+        await self.db.delete(rule)
+        await self.db.flush()
+        return True
+
+    async def seed_defaults(self) -> int:
+        """No-op: Gemini handles classification. User rules are manual overrides only."""
+        return 0

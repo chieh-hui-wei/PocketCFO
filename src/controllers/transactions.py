@@ -7,6 +7,7 @@ from src.dbs.repository import TransactionRepository
 from src.middleware.auth import verify_token
 from src.dbs.models import User
 from src.utils.date_utils import first_of_month
+from src.utils.category_classifier import CATEGORY_LABELS
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
@@ -85,8 +86,10 @@ async def get_transactions(
                 "description": t.description or "",
                 "amount": t.amount,
                 "category": display_category,
+                "expense_category": t.expense_category or "other",
+                "expense_category_label": CATEGORY_LABELS.get(t.expense_category or "other", "其他"),
                 "is_refund": t.is_refund,
-                "raw_category": raw_data.get("category", None), # try to get more specific category from AI extraction
+                "raw_category": raw_data.get("category", None),
                 "institution": t.account.institution if t.account else ""
             })
             
