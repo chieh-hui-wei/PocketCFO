@@ -24,3 +24,4 @@ pyOpenSSL
 asyncpg>=0.29.0
 email-validator>=2.0.0
 bcrypt>=4.0.0
+pandas
