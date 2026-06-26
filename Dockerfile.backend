@@ -25,4 +25,4 @@ RUN uv pip install --system --no-cache esun_trade-2.2.0-cp37-abi3-manylinux_2_17
 
 COPY . .
 
-CMD ["sh", "-c", "if [ \"$APP_DEBUG\" = \"true\" ]; then uvicorn main:app --host 0.0.0.0 --port 8888 --reload; else uvicorn main:app --host 0.0.0.0 --port 8888; fi"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8888"]

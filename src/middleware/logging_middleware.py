@@ -16,17 +16,21 @@ log = logging.getLogger(__name__)
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Skip noisy health-check logs
+        if request.url.path == "/health":
+            return await call_next(request)
+
         request_id = str(uuid.uuid4())[:8]
         start = time.perf_counter()
 
-        log.info(
+        log.debug(
             f"request.start request_id={request_id} method={request.method} path={request.url.path}"
         )
 
         response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        log.info(
+        log.debug(
             f"request.end request_id={request_id} status_code={response.status_code} elapsed_ms={elapsed_ms:.2f}"
         )
         response.headers["X-Request-ID"] = request_id

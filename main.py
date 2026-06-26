@@ -93,7 +93,5 @@ if __name__ == "__main__":
         "main:app",
         host=settings.app_host,
         port=settings.app_port,
-        reload=settings.app_debug,
-        reload_dirs=["src"] if settings.app_debug else None,
-        reload_includes=["main.py"] if settings.app_debug else None,
+        workers=1,
     )
