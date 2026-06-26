@@ -224,7 +224,6 @@ async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
         '賣方名稱': 'first',
         '載具自訂名稱': 'first',
         '消費明細_金額': 'sum',
-        '消費明細_品名': lambda x: ", ".join(str(i) for i in x if pd.notna(i))
     }).reset_index()
     
     items = []
@@ -239,12 +238,13 @@ async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
         except Exception:
             formatted_date = date_str
             
+        merchant = str(row['賣方名稱']).strip()
         items.append({
             "date": formatted_date,
-            "merchant": row['賣方名稱'],
-            "description": row['消費明細_品名'],
+            "merchant": merchant,
+            "description": merchant,
             "amount": float(row['消費明細_金額']),
-            "payment_method": row['載具自訂名稱'] or "電子載具",
+            "payment_method": str(row['載具自訂名稱']).strip() if pd.notna(row['載具自訂名稱']) and str(row['載具自訂名稱']).strip() else "電子載具",
             "invoice_number": row['發票號碼']
         })
         
