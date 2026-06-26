@@ -1,7 +1,8 @@
 """
 src/utils/category_classifier.py
-Classify merchant names into expense categories using Gemini AI.
-User-defined CategoryRule overrides are checked first; Gemini handles everything else.
+Classify transactions into expense categories using Gemini AI.
+Accepts both merchant name and description for richer context.
+User-defined CategoryRule overrides are checked first; Gemini handles the rest.
 """
 from __future__ import annotations
 
@@ -15,37 +16,44 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# Supported categories
+# Unified categories — these match TransactionCategory enum values exactly
 CATEGORY_LABELS: dict[str, str] = {
     "food": "食物",
     "transport": "交通",
     "medical": "醫療",
     "salary": "薪資",
     "entertainment": "娛樂",
+    "expense": "支出",
+    "investment": "投資",
+    "dividend": "股利",
+    "interest": "利息",
+    "transfer_in": "轉入",
+    "transfer_out": "轉出",
     "other": "其他",
 }
 
-VALID_CATEGORIES = list(CATEGORY_LABELS.keys())
+VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "other"]
 
 _CLASSIFY_PROMPT = """\
 You are a financial transaction classifier for Taiwan.
-Classify each merchant name into exactly ONE of these categories:
-  food         – restaurants, supermarkets, convenience stores, grocery, food delivery
-  transport    – gas stations, ride-hailing (Uber/Bolt/Lyft), taxis, MRT, buses, trains, parking, toll
-  medical      – hospitals, clinics, pharmacies, health insurance, dental, vision, skincare clinics
-  salary       – salary / payroll deposits, employer remittances
-  entertainment – streaming services (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
-  other        – anything that doesn't clearly fit the above
+Classify each transaction into exactly ONE of these categories:
+  food          – restaurants, supermarkets (全聯/全家/7-11), grocery, food delivery, drinks
+  transport     – gas stations, ride-hailing (Uber/Bolt), taxis, MRT, buses, trains, parking, toll
+  medical       – hospitals, clinics, pharmacies, health insurance, dental, vision, skincare
+  salary        – salary / payroll / employer remittance deposits
+  entertainment – streaming (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
+  other         – anything that doesn't clearly fit the above
 
-Return ONLY valid JSON with this exact schema (no markdown, no explanation):
+Each item has an "id", "merchant", and "description". Use all available fields to make the best decision.
+Return ONLY valid JSON (no markdown, no explanation) in this exact schema:
 {
   "results": [
-    {"merchant": "<original merchant name>", "category": "<category key>"},
+    {"id": <same id as input>, "category": "<category key>"},
     ...
   ]
 }
 
-Merchants to classify:
+Transactions to classify:
 """
 
 
@@ -53,42 +61,48 @@ def _normalize(text: str) -> str:
     return unicodedata.normalize("NFKC", text).lower().strip()
 
 
-def _apply_overrides(merchant: str, rules: "list[CategoryRule]") -> str | None:
-    """Check user-defined rules first (substring match). Returns category key or None."""
-    name = _normalize(merchant)
+def _apply_override(merchant: str, description: str, rules: "list[CategoryRule]") -> str | None:
+    """Check user-defined rules first (substring match on merchant+description). Returns category or None."""
+    combined = _normalize(f"{merchant} {description}")
     for rule in rules:
-        if _normalize(rule.keyword) in name:
+        if _normalize(rule.keyword) in combined:
             return rule.category
     return None
 
 
-async def classify_merchants_batch(
-    merchants: list[str],
+async def classify_transactions_batch(
+    items: list[dict],
     rules: "list[CategoryRule]",
 ) -> dict[str, str]:
     """
-    Classify a list of merchant names → category keys.
+    Classify a list of transaction dicts → category keys.
+
+    Each item must have:
+        - "id":          unique key to match results back (usually merchant name or invoice number)
+        - "merchant":    store/payee name
+        - "description": additional context (items purchased, payment note, etc.)
+
+    Returns a dict mapping each item's "id" → category key.
 
     Strategy:
     1. Apply user-defined override rules first (instant, no API call).
-    2. Send remaining unresolved merchants to Gemini in a single batch call.
-
-    Returns a dict mapping each merchant name → category key.
+    2. Send remaining to Gemini in a single batch call with full context.
     """
     from src.instances.gemini import get_gemini_client
     from src.instances.config import get_settings
     from google.genai import types
 
     result: dict[str, str] = {}
-    need_gemini: list[str] = []
+    need_gemini: list[dict] = []
 
-    # Step 1: override rules
-    for m in merchants:
-        override = _apply_overrides(m, rules)
+    # Step 1: user override rules
+    for item in items:
+        item_id = item["id"]
+        override = _apply_override(item.get("merchant", ""), item.get("description", ""), rules)
         if override:
-            result[m] = override
+            result[item_id] = override
         else:
-            need_gemini.append(m)
+            need_gemini.append(item)
 
     if not need_gemini:
         return result
@@ -96,9 +110,7 @@ async def classify_merchants_batch(
     # Step 2: Gemini batch classification
     settings = get_settings()
     client = get_gemini_client()
-
-    merchant_list_str = "\n".join(f"- {m}" for m in need_gemini)
-    prompt = _CLASSIFY_PROMPT + merchant_list_str
+    prompt = _CLASSIFY_PROMPT + json.dumps(need_gemini, ensure_ascii=False, indent=2)
 
     try:
         response = await client.aio.models.generate_content(
@@ -111,32 +123,41 @@ async def classify_merchants_batch(
         )
         raw = response.text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         parsed = json.loads(raw)
-        for item in parsed.get("results", []):
-            merchant_name = item.get("merchant", "")
-            category = item.get("category", "other")
+        for entry in parsed.get("results", []):
+            item_id = entry.get("id")
+            category = entry.get("category", "other")
             if category not in VALID_CATEGORIES:
                 category = "other"
-            result[merchant_name] = category
+            if item_id is not None:
+                result[item_id] = category
     except Exception as e:
-        log.warning(f"Gemini batch classification failed: {e}. Defaulting all to 'other'.")
+        log.warning(f"Gemini batch classification failed: {e}. Defaulting to 'other'.")
 
-    # Fallback for any merchants Gemini missed
-    for m in need_gemini:
-        if m not in result:
-            result[m] = "other"
+    # Fallback for anything Gemini missed
+    for item in need_gemini:
+        if item["id"] not in result:
+            result[item["id"]] = "other"
 
     return result
-
-
-def classify_merchant_sync_with_rules(merchant: str, rules: "list[CategoryRule]") -> str:
-    """
-    Synchronous classification using only user-defined rules (no Gemini).
-    Useful as a quick fallback when async context is not available.
-    """
-    override = _apply_overrides(merchant, rules)
-    return override if override else "other"
 
 
 def label(category: str) -> str:
     """Return the Chinese display label for a category key."""
     return CATEGORY_LABELS.get(category, category)
+
+
+def _category_to_enum(category: str):
+    """Convert a classifier category string to the TransactionCategory enum member."""
+    from src.dbs.models import TransactionCategory
+    _map = {
+        "food": TransactionCategory.FOOD,
+        "transport": TransactionCategory.TRANSPORT,
+        "medical": TransactionCategory.MEDICAL,
+        "entertainment": TransactionCategory.ENTERTAINMENT,
+        "salary": TransactionCategory.SALARY,
+        "investment": TransactionCategory.INVESTMENT,
+        "dividend": TransactionCategory.DIVIDEND,
+        "interest": TransactionCategory.INTEREST,
+        "other": TransactionCategory.OTHER,
+    }
+    return _map.get(category, TransactionCategory.OTHER)

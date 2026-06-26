@@ -7,7 +7,6 @@ from src.dbs.repository import TransactionRepository
 from src.middleware.auth import verify_token
 from src.dbs.models import User
 from src.utils.date_utils import first_of_month
-from src.utils.category_classifier import CATEGORY_LABELS
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
@@ -20,6 +19,10 @@ CATEGORY_TRANSLATION = {
     "transfer_in": "轉入",
     "transfer_out": "轉出",
     "expense": "支出",
+    "food": "食物",
+    "transport": "交通",
+    "medical": "醫療",
+    "entertainment": "娛樂",
     "dividend": "股利",
     "interest": "利息",
     "other": "其他"
@@ -86,8 +89,6 @@ async def get_transactions(
                 "description": t.description or "",
                 "amount": t.amount,
                 "category": display_category,
-                "expense_category": t.expense_category or "other",
-                "expense_category_label": CATEGORY_LABELS.get(t.expense_category or "other", "其他"),
                 "is_refund": t.is_refund,
                 "raw_category": raw_data.get("category", None),
                 "institution": t.account.institution if t.account else ""
@@ -509,3 +510,66 @@ async def delete_transaction(
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/reclassify")
+async def reclassify_transactions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+) -> dict[str, Any]:
+    """
+    Re-classify all existing transactions whose category is 'expense' or 'other'
+    using Gemini AI. Writes the proper category (food/transport/medical/etc.) back.
+    """
+    try:
+        from sqlalchemy import select, update
+        from src.dbs.models import Transaction, TransactionCategory
+        from src.dbs.repository import CategoryRuleRepository
+        from src.utils.category_classifier import classify_transactions_batch, _category_to_enum
+
+        # Fetch expense/other transactions that have a merchant (credit card + einvoice)
+        stmt = select(Transaction).where(
+            Transaction.user_id == current_user.id,
+            Transaction.category.in_([
+                TransactionCategory.EXPENSE,
+                TransactionCategory.OTHER,
+            ]),
+            Transaction.merchant.isnot(None),
+            Transaction.merchant != "",
+        )
+        result = await db.execute(stmt)
+        txns = list(result.scalars().all())
+
+        if not txns:
+            return {"status": "ok", "updated": 0, "message": "No transactions to reclassify"}
+
+        rule_repo = CategoryRuleRepository(db, current_user.id)
+        rules = list(await rule_repo.list_all())
+
+        # Process in batches of 50 to keep Gemini prompt size manageable
+        BATCH = 50
+        updated = 0
+        for i in range(0, len(txns), BATCH):
+            batch = txns[i : i + BATCH]
+            classify_items = [
+                {
+                    "id": str(t.id),
+                    "merchant": t.merchant or "",
+                    "description": t.description or "",
+                }
+                for t in batch
+            ]
+            classification = await classify_transactions_batch(classify_items, rules)
+            for t in batch:
+                cat_str = classification.get(str(t.id))
+                if cat_str and cat_str not in ("expense", "other"):
+                    t.category = _category_to_enum(cat_str)
+                    updated += 1
+
+        await db.flush()
+        await db.commit()
+        log.info(f"reclassify.done user={current_user.id} updated={updated}/{len(txns)}")
+        return {"status": "ok", "total": len(txns), "updated": updated}
+    except Exception as e:
+        await db.rollback()
+        log.error(f"Error reclassifying transactions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

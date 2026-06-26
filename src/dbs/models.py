@@ -56,7 +56,11 @@ class TransactionCategory(str, enum.Enum):
     INVESTMENT = "investment"
     TRANSFER_IN = "transfer_in"
     TRANSFER_OUT = "transfer_out"
-    EXPENSE = "expense"
+    EXPENSE = "expense"       # generic expense (bank transfers, etc.)
+    FOOD = "food"             # restaurants, supermarkets, convenience stores
+    TRANSPORT = "transport"   # gas stations, ride-hailing, MRT, trains
+    MEDICAL = "medical"       # hospitals, clinics, pharmacies
+    ENTERTAINMENT = "entertainment"  # streaming, cinemas, KTV, gaming
     DIVIDEND = "dividend"
     INTEREST = "interest"
     OTHER = "other"
@@ -222,9 +226,6 @@ class Transaction(Base):
     category: Mapped[TransactionCategory] = mapped_column(
         Enum(TransactionCategory), default=TransactionCategory.OTHER
     )
-    expense_category: Mapped[str | None] = mapped_column(
-        String(32), nullable=True
-    )  # fine-grained sub-category: food/transport/medical/entertainment/salary/other
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, default=False)
     is_refund: Mapped[bool] = mapped_column(Boolean, default=False)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -69,7 +69,47 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+async def run_migrations() -> None:
+    """
+    Apply incremental schema changes to existing tables.
+    Uses ADD COLUMN IF NOT EXISTS so it is safe to run on every startup.
+    """
+    import logging
+    log = logging.getLogger(__name__)
+
+    migrations: list[str] = [
+        # 2026-06-26: extend TransactionCategory enum with expense sub-categories
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'food'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'transport'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'medical'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'entertainment'",
+        # 2026-06-26: drop orphaned expense_category column (superseded by category enum)
+        "ALTER TABLE transactions DROP COLUMN IF EXISTS expense_category",
+        # 2026-06-26: per-user keyword → category override rules
+        """
+        CREATE TABLE IF NOT EXISTS category_rules (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            keyword VARCHAR(128) NOT NULL,
+            category VARCHAR(32) NOT NULL,
+            created_at TIMESTAMP DEFAULT now(),
+            UNIQUE (user_id, keyword)
+        )
+        """,
+    ]
+
+    async with engine.begin() as conn:
+        for stmt in migrations:
+            try:
+                await conn.execute(__import__("sqlalchemy").text(stmt))
+                log.info(f"migration.ok: {stmt}")
+            except Exception as e:
+                log.warning(f"migration.skip: {stmt} — {e}")
+
+
 async def create_all_tables() -> None:
-    """Create all tables on startup (dev only; use Alembic in prod)."""
+    """Create all tables on startup, then apply incremental column migrations."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await run_migrations()
+

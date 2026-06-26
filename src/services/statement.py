@@ -391,18 +391,23 @@ class StatementService:
             )
         await self.txn_repo.bulk_insert(txns)
 
-        # Classify merchants with Gemini + user override rules
+        # Classify with Gemini (merchant + description for full context)
         try:
-            from src.utils.category_classifier import classify_merchants_batch
+            from src.utils.category_classifier import classify_transactions_batch, _category_to_enum
             rule_repo = CategoryRuleRepository(self.db, self.user_id)
             rules = list(await rule_repo.list_all())
-            unique_merchants = list({t.merchant for t in txns if t.merchant})
-            classification = await classify_merchants_batch(unique_merchants, rules)
+            classify_items = [
+                {"id": str(t.id), "merchant": t.merchant or "", "description": t.description or ""}
+                for t in txns
+            ]
+            classification = await classify_transactions_batch(classify_items, rules)
             for t in txns:
-                t.expense_category = classification.get(t.merchant or "", "other")
+                cat = classification.get(str(t.id))
+                if cat:
+                    t.category = _category_to_enum(cat)
             await self.db.flush()
         except Exception as e:
-            log.warning(f"Credit card merchant classification failed: {e}")
+            log.warning(f"Credit card classification failed: {e}")
 
         await self.deduplicate_period(period)
 
@@ -704,19 +709,24 @@ class StatementService:
         if txns:
             await self.txn_repo.bulk_insert(txns)
 
-        # Classify merchants with Gemini + user override rules
+        # Classify with Gemini (merchant + description for full context)
         try:
-            from src.utils.category_classifier import classify_merchants_batch
+            from src.utils.category_classifier import classify_transactions_batch, _category_to_enum
             rule_repo = CategoryRuleRepository(self.db, self.user_id)
             rules = list(await rule_repo.list_all())
-            unique_merchants = list({t.merchant for t in txns if t.merchant})
-            if unique_merchants:
-                classification = await classify_merchants_batch(unique_merchants, rules)
+            classify_items = [
+                {"id": str(t.id), "merchant": t.merchant or "", "description": t.description or ""}
+                for t in txns
+            ]
+            if classify_items:
+                classification = await classify_transactions_batch(classify_items, rules)
                 for t in txns:
-                    t.expense_category = classification.get(t.merchant or "", "other")
+                    cat = classification.get(str(t.id))
+                    if cat:
+                        t.category = _category_to_enum(cat)
                 await self.db.flush()
         except Exception as e:
-            log.warning(f"E-invoice merchant classification failed: {e}")
+            log.warning(f"E-invoice classification failed: {e}")
         # Note: deduplicate_period is skipped here because duplicates are already excluded before insertion.
 
         log.info(f"save.einvoice.done items={len(txns)} period={period}")
