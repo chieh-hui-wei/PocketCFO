@@ -6,18 +6,65 @@ import json
 
 from sqlalchemy import select
 from src.instances.database import AsyncSessionLocal
-from src.dbs.models import Account, AccountType, Transaction, TransactionSource, TransactionCategory, AccountSnapshot, Security
+from src.dbs.models import Account, AccountType, Transaction, TransactionSource, TransactionCategory, AccountSnapshot, Security, User
 from src.dbs.repository import AccountRepository, TransactionRepository, SnapshotRepository, SecurityRepository
 from src.services.brokers.taishin_client import get_taishin_client
 from src.services.brokers.esun_client import get_esun_client
 from src.services.reports.balance_sheet import BalanceSheetService
 from src.utils.date_utils import first_of_month
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-# Keep track of last run periods in memory to avoid duplicate executions
-last_trade_sync_month = None  # (year, month)
-last_asset_sync_day = None    # date
+STATE_FILE = Path("data/scheduler_state.json")
+
+def load_scheduler_state() -> dict:
+    try:
+        if STATE_FILE.exists():
+            with open(STATE_FILE, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        log.warning(f"Failed to load scheduler state: {e}")
+    return {}
+
+def save_scheduler_state(state: dict) -> None:
+    try:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(STATE_FILE, "w") as f:
+            json.dump(state, f, indent=2)
+    except Exception as e:
+        log.error(f"Failed to save scheduler state: {e}")
+
+def get_last_trade_sync_month() -> tuple[int, int] | None:
+    state = load_scheduler_state()
+    val = state.get("last_trade_sync_month")  # format: "YYYY-MM"
+    if val:
+        try:
+            parts = val.split("-")
+            return (int(parts[0]), int(parts[1]))
+        except Exception:
+            pass
+    return None
+
+def set_last_trade_sync_month(year: int, month: int) -> None:
+    state = load_scheduler_state()
+    state["last_trade_sync_month"] = f"{year}-{month:02d}"
+    save_scheduler_state(state)
+
+def get_last_asset_sync_day() -> date | None:
+    state = load_scheduler_state()
+    val = state.get("last_asset_sync_day")  # format: "YYYY-MM-DD"
+    if val:
+        try:
+            return date.fromisoformat(val)
+        except Exception:
+            pass
+    return None
+
+def set_last_asset_sync_day(d: date) -> None:
+    state = load_scheduler_state()
+    state["last_asset_sync_day"] = d.isoformat()
+    save_scheduler_state(state)
 
 async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
     """
@@ -407,37 +454,49 @@ async def check_and_run_tasks(now: datetime) -> None:
     """
     Check if current time matches scheduled sync times and run them.
     """
-    global last_trade_sync_month, last_asset_sync_day
-    
     # 1. Trade sync: Run on the 1st day of the month
-    # Checks if day is 1, and we haven't synced previous month's trades yet for this month
     if now.day == 1:
         current_month = (now.year, now.month)
-        if last_trade_sync_month != current_month:
+        last_trade_sync = get_last_trade_sync_month()
+        if last_trade_sync != current_month:
             # Determine previous month
             first_this_month = now.replace(day=1)
             last_day_prev_month = first_this_month - timedelta(days=1)
             prev_year = last_day_prev_month.year
             prev_month = last_day_prev_month.month
             
-            # Sync trades in background tasks so they don't block the main loop
-            asyncio.create_task(sync_taishin_trades(prev_year, prev_month))
-            asyncio.create_task(sync_esun_trades(prev_year, prev_month))
-            last_trade_sync_month = current_month
+            # Query all active users
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(User).where(User.is_active == True))
+                users = result.scalars().all()
             
-    # 2. Asset value sync: Run on the last day of the month (e.g. at 23:30 or later)
-    # Checks if it's the last day, hour is >= 23, and we haven't run it today yet
+            for u in users:
+                # Sync trades in background tasks so they don't block the main loop
+                asyncio.create_task(sync_taishin_trades(prev_year, prev_month, user_id=u.id))
+                asyncio.create_task(sync_esun_trades(prev_year, prev_month, user_id=u.id))
+            
+            set_last_trade_sync_month(now.year, now.month)
+            
+    # 2. Asset value sync: Run on the last day of the month (starting at 22:00 or later)
     last_day_of_month = calendar.monthrange(now.year, now.month)[1]
-    if now.day == last_day_of_month and now.hour >= 23:
+    if now.day == last_day_of_month and now.hour >= 22:
         current_day = now.date()
-        if last_asset_sync_day != current_day:
-            asyncio.create_task(sync_taishin_assets(now.year, now.month))
-            asyncio.create_task(sync_esun_assets(now.year, now.month))
-            last_asset_sync_day = current_day
+        last_asset_sync = get_last_asset_sync_day()
+        if last_asset_sync != current_day:
+            # Query all active users
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(User).where(User.is_active == True))
+                users = result.scalars().all()
+                
+            for u in users:
+                asyncio.create_task(sync_taishin_assets(now.year, now.month, user_id=u.id))
+                asyncio.create_task(sync_esun_assets(now.year, now.month, user_id=u.id))
+                
+            set_last_asset_sync_day(current_day)
 
 async def start_scheduler() -> None:
     """
-    Background loop running hourly to verify scheduled tasks.
+    Background loop running frequently to verify scheduled tasks.
     """
     log.info("Background scheduler starting...")
     # Wait 10 seconds for Fast API initialization to settle
@@ -450,5 +509,5 @@ async def start_scheduler() -> None:
             await check_and_run_tasks(now)
         except Exception as e:
             log.error(f"Exception in scheduler tick: {e}")
-        # Sleep for 1 hour
-        await asyncio.sleep(3600)
+        # Sleep for 10 minutes (600 seconds) to ensure we don't miss the 1-hour window
+        await asyncio.sleep(600)

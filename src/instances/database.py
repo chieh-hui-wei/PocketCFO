@@ -18,9 +18,7 @@ from src.instances.config import get_settings
 settings = get_settings()
 
 connect_args = {}
-if "sqlite" in settings.database_url:
-    connect_args["check_same_thread"] = False
-elif "postgresql" in settings.database_url:
+if "postgresql" in settings.database_url:
     # Enforce SSL and set search_path to public schema for PostgreSQL
     connect_args["ssl"] = "require"
     connect_args["server_settings"] = {"search_path": "public"}
