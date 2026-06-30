@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAccounts, createAccount, updateAccount, deleteAccount, Account } from "../services/api";
+import { toast } from "../store/useToastStore";
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -58,7 +59,7 @@ export default function AccountsPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formInstitution) {
-      alert("請填寫帳戶名稱與金融機構");
+      toast.warning("請填寫帳戶名稱與金融機構");
       return;
     }
     try {
@@ -81,7 +82,7 @@ export default function AccountsPage() {
       fetchAccounts();
     } catch (e) {
       console.error(e);
-      alert("建立帳戶失敗");
+      toast.error("建立帳戶失敗");
     }
   };
 
@@ -101,7 +102,7 @@ export default function AccountsPage() {
       fetchAccounts();
     } catch (e) {
       console.error(e);
-      alert("儲存帳戶修改失敗");
+      toast.error("儲存帳戶修改失敗");
     }
   };
 
@@ -114,7 +115,7 @@ export default function AccountsPage() {
       fetchAccounts();
     } catch (e) {
       console.error(e);
-      alert("刪除帳戶失敗");
+      toast.error("刪除帳戶失敗");
     }
   };
 

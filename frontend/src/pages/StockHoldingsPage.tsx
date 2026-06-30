@@ -9,6 +9,7 @@ import {
   getSecuritiesHistory
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { toast } from "../store/useToastStore";
 
 interface EditableSecurity {
   ticker: string;
@@ -154,7 +155,7 @@ export default function StockHoldingsPage() {
       });
     } catch (err) {
       console.error(err);
-      alert("新增證券帳戶失敗");
+      toast.error("新增證券帳戶失敗");
     }
   };
 
@@ -173,7 +174,7 @@ export default function StockHoldingsPage() {
         }));
       
       await saveSecuritiesForAccount(selectedAccountId, targetPeriod, list);
-      alert("庫存儲存成功，資產負債表已自動重新計算！");
+      toast.success("庫存儲存成功，資產負債表已自動重新計算！");
       
       // Reload everything
       const year = currentDate.getFullYear();
@@ -184,7 +185,7 @@ export default function StockHoldingsPage() {
       setIsEditing(false);
     } catch (err) {
       console.error(err);
-      alert("儲存失敗");
+      toast.error("儲存失敗");
     } finally {
       setIsSaving(false);
     }

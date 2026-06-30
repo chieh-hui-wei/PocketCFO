@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ToastContainer from "./components/ToastContainer";
 
 const NAV = [
   { to: "/", label: "總覽", end: true },
@@ -76,6 +77,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <BrowserRouter>
+        <ToastContainer />
         <Routes>
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -90,6 +92,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ToastContainer />
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex">
         
         {/* Left Sidebar */}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getUploadHistory, deleteUploadHistory, UploadHistoryRecord } from "../services/api";
+import { toast } from "../store/useToastStore";
 
 export default function UploadHistoryPage() {
   const [history, setHistory] = useState<UploadHistoryRecord[]>([]);
@@ -29,7 +30,7 @@ export default function UploadHistoryPage() {
       await fetchHistory(); // reload
     } catch (e) {
       console.error(e);
-      alert("刪除失敗");
+      toast.error("刪除失敗");
     }
   };
 

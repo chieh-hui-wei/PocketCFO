@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile } from "../services/api";
+import { toast } from "../store/useToastStore";
 
 export default function SettingsPage() {
   const [settingsData, setSettingsData] = useState<CredentialsSettings | null>(null);
@@ -193,17 +194,17 @@ export default function SettingsPage() {
       }
 
       if (Object.keys(payload).length === 0) {
-        alert("未輸入任何修改資訊");
+        toast.warning("未輸入任何修改資訊");
         setIsSaving(false);
         return;
       }
 
       const res = await saveSettings(payload);
-      alert(res.message || "設定儲存成功！");
+      toast.success(res.message || "設定儲存成功！");
       fetchSettings();
     } catch (e) {
       console.error(e);
-      alert("儲存設定失敗");
+      toast.error("儲存設定失敗");
     } finally {
       setIsSaving(false);
     }
@@ -216,20 +217,20 @@ export default function SettingsPage() {
     if (broker === "esun") file = esunCertFile;
 
     if (!file) {
-      alert("請先選擇憑證檔案");
+      toast.warning("請先選擇憑證檔案");
       return;
     }
 
     try {
       await uploadCertificate(file, broker);
-      alert(`${broker === "taishin" ? "台新證券" : broker === "sinopac" ? "永豐金證券" : "玉山證券"} 憑證上傳成功！`);
+      toast.success(`${broker === "taishin" ? "台新證券" : broker === "sinopac" ? "永豐金證券" : "玉山證券"} 憑證上傳成功！`);
       if (broker === "taishin") setTaishinCertFile(null);
       if (broker === "sinopac") setSinopacCertFile(null);
       if (broker === "esun") setEsunCertFile(null);
       fetchSettings();
     } catch (e) {
       console.error(e);
-      alert("上傳憑證失敗");
+      toast.error("上傳憑證失敗");
     }
   };
 

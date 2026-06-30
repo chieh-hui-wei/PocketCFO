@@ -9,6 +9,7 @@ import {
   deleteAccountSnapshot
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, BarChart, Bar, Cell, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { toast } from "../store/useToastStore";
 
 
 
@@ -149,7 +150,7 @@ export default function BalanceSheetPage() {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
-      alert("儲存失敗");
+      toast.error("儲存失敗");
     }
   };
 
@@ -164,7 +165,7 @@ export default function BalanceSheetPage() {
       fetchSnapshots();
     } catch (err) {
       console.error(err);
-      alert("新增帳戶失敗");
+      toast.error("新增帳戶失敗");
     }
   };
 

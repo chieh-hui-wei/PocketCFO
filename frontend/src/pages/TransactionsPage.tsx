@@ -8,6 +8,7 @@ import {
   createTransaction,
   Account
 } from "../services/api";
+import { toast } from "../store/useToastStore";
 
 export default function TransactionsPage() {
   const [currentDate, setCurrentDate] = useState(() => {
@@ -113,7 +114,7 @@ export default function TransactionsPage() {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formDate || !formDescription || formAmount <= 0) {
-      alert("請填寫交易日期、說明，且金額必須大於 0");
+      toast.warning("請填寫交易日期、說明，且金額必須大於 0");
       return;
     }
     
@@ -134,7 +135,7 @@ export default function TransactionsPage() {
       fetchTxns();
     } catch (e) {
       console.error(e);
-      alert("手動新增交易失敗");
+      toast.error("手動新增交易失敗");
     }
   };
 
@@ -193,7 +194,7 @@ export default function TransactionsPage() {
       fetchTxns();
     } catch (e) {
       console.error(e);
-      alert("儲存交易失敗");
+      toast.error("儲存交易失敗");
     }
   };
 
@@ -206,7 +207,7 @@ export default function TransactionsPage() {
       fetchTxns();
     } catch (e) {
       console.error(e);
-      alert("刪除交易失敗");
+      toast.error("刪除交易失敗");
     }
   };
   const handleExport = () => {
