@@ -4,6 +4,7 @@ import {
   confirmStatement,
   StatementKind,
 } from "../services/api";
+import { toast } from "../store/useToastStore";
 
 const KINDS = [
   { id: "bank", num: 1, title: "銀行對帳單", sub: "請上傳您的銀行對帳單", ext: "僅限 PDF 檔案" },
@@ -21,8 +22,7 @@ export default function UploadPage() {
   });
   const [password, setPassword] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [parseStep, setParseStep] = useState<number>(0);
 
   // States for the two-step verification flow
   const [editData, setEditData] = useState<any | null>(null);
@@ -56,9 +56,11 @@ export default function UploadPage() {
   // STEP 1: Upload and Parse Statement
   const handleParse = async () => {
     setIsProcessing(true);
-    setSuccess(false);
     setEditData(null);
-    setStatusMsg("正在傳送至伺服器並解析對帳單...");
+    setParseStep(1); // Step 1: Uploading
+
+    const t1 = setTimeout(() => setParseStep(2), 600);   // Step 2 after 600ms
+    const t2 = setTimeout(() => setParseStep(3), 1500);  // Step 3 after 1500ms
 
     try {
       let activeKind: StatementKind | null = null;
@@ -77,8 +79,11 @@ export default function UploadPage() {
         throw new Error("請先選擇對帳單檔案");
       }
 
-      setStatusMsg(`正在透過 Gemini AI 解析 ${activeFile.name}...`);
       const res = await parseStatement(activeFile, activeKind, undefined, password);
+
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setParseStep(4); // Step 4: Mapping structures
 
       // Normalise response into editable state
       const rawData = res.parsed_data || {};
@@ -134,6 +139,10 @@ export default function UploadPage() {
       }
 
       setActiveAccountTab(0);
+      
+      // Short delay for fluid UI rendering transitions
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       setEditData({
         kind,
         filename: res.filename,
@@ -177,11 +186,15 @@ export default function UploadPage() {
         accounts: accountsList
       });
 
-      setSuccess(true);
-      setStatusMsg("解析成功！請在右側核對並調整資料。");
+      setParseStep(5); // Complete
+      toast.success("對帳單解析成功！請在右側核對並調整資料。");
     } catch (e: any) {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setParseStep(0);
       console.error(e);
-      setStatusMsg(`解析錯誤：${e.response?.data?.detail || e.message || "請檢查看控制台日誌。"}`);
+      const errorMsg = e.response?.data?.detail || e.message || "發生未知錯誤。";
+      toast.error(`解析錯誤：${errorMsg}`);
     } finally {
       setIsProcessing(false);
     }
@@ -191,19 +204,17 @@ export default function UploadPage() {
   const handleConfirm = async () => {
     if (!editData) return;
     setIsProcessing(true);
-    setSuccess(false);
-    setStatusMsg("正在寫入資料庫並重新計算財報，請稍候...");
 
     try {
       await confirmStatement(editData);
-      setSuccess(true);
-      setStatusMsg("資料已成功寫入資料庫並完成結算！");
+      toast.success("資料已成功寫入資料庫並完成結算！");
       setEditData(null);
       setFiles({ bank: [], credit_card: [], brokerage: [], einvoice: [] });
       setPassword("");
+      setParseStep(0);
     } catch (e: any) {
       console.error(e);
-      setStatusMsg(`確認儲存失敗：${e.response?.data?.detail || e.message || "發生未知錯誤。"}`);
+      toast.error(`確認儲存失敗：${e.response?.data?.detail || e.message || "發生未知錯誤。"}`);
     } finally {
       setIsProcessing(false);
     }
@@ -211,7 +222,7 @@ export default function UploadPage() {
 
   const handleCancelReview = () => {
     setEditData(null);
-    setStatusMsg("");
+    setParseStep(0);
   };
 
   const updateField = (field: string, value: any) => {
@@ -364,9 +375,44 @@ export default function UploadPage() {
             {isProcessing ? '處理中請稍候...' : '開始 AI 解析檔案'}
           </button>
         </div>
-        {statusMsg && (
-          <div className={`mt-3 text-center text-sm font-bold ${success ? 'text-green-600' : 'text-blue-600'}`}>
-            {statusMsg}
+        {isProcessing && parseStep > 0 && (
+          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 animate-in fade-in duration-300">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">AI 解析進度</div>
+            <div className="space-y-2.5">
+              {[
+                { step: 1, label: "傳送檔案至伺服器" },
+                { step: 2, label: "讀取內容與解密檢查" },
+                { step: 3, label: "Gemini AI 智慧識別與結構化" },
+                { step: 4, label: "資料欄位整合與對帳單比對" },
+              ].map((s) => {
+                const isActive = parseStep === s.step;
+                const isCompleted = parseStep > s.step;
+                return (
+                  <div key={s.step} className="flex items-center gap-3 text-xs font-semibold">
+                    <div className="shrink-0">
+                      {isCompleted ? (
+                        <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      ) : isActive ? (
+                        <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center bg-white">
+                          {s.step}
+                        </div>
+                      )}
+                    </div>
+                    <span className={isCompleted ? "text-slate-400 line-through" : isActive ? "text-blue-600 font-bold" : "text-slate-500"}>
+                      {s.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
