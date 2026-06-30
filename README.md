@@ -10,9 +10,10 @@
 | 🏦 資產負債表 | 每月現金 + 證券市值 + 信用卡負債 → 淨資產（股票代號與資產佔比圖表整合） |
 | 📊 收支表 | 薪資/投資收入 vs 刷卡/提現支出，**自動排除帳戶間互轉** |
 | 🔌 券商 API | 支援台新證券與玉山證券 API，永豐金證券則可進行**手動持股與餘額登錄** |
+| 📅 自動排程同步 | **背景排程器**自動於每月最後一天 22:00 同步所有券商持股/資產，並重算資產負債表 |
 | 📈 股票庫存管理 | 支援手動新增/編輯股票明細（代號、股數、均價、收盤價自動取得）與調整現金餘額 |
+| 🔔 非阻塞式通知 | 採用 **Zustand 全域狀態**管理，以精美 non-blocking Toast 彈窗取代原生的 blocking browser `alert()` |
 | 🖨️ PDF 報表 | 自動生成精美排版的企業級 PDF 財務報表 |
-| 💾 資料庫移轉 | 內建 SQLite 至 PostgreSQL 遷移工具，方便將資料庫部署至 Supabase / Neon 等雲端服務 |
  
 ---
  
@@ -29,25 +30,6 @@
      ```
    - 密碼驗證在後端使用時序安全比較，防止旁路洩漏。
 3. **JWT 簽章**：系統將自動使用 `.env` 中的 `APP_SECRET_KEY` 對登入 Token 進行安全簽章。
-
----
-
-## 💾 資料庫轉移工具 (SQLite ➔ PostgreSQL)
-
-如果您想要將本機資料庫同步至免費的雲端 PostgreSQL（例如 Supabase 或 Neon），我們提供了一個非常方便的轉移腳本：
-
-1. **準備雲端資料庫連結**：取得您的 Postgres URL，例如 `postgresql://user:password@host:port/dbname` (支援開啟 SSL 憑證連線的雲端服務)。
-2. **執行移轉腳本**：
-   ```bash
-   docker compose exec backend python scratch/migrate_to_postgres.py
-   ```
-   *此腳本會將本機 `pocketCFO.db` 中的所有帳戶、餘額快照、歷史交易與股票持股完整同步到 Postgres，並自動校正 PK 序號。*
-3. **更改 `.env` 檔案設定**：
-   將 `DATABASE_URL` 改為非同步的 Postgres 驅動連結：
-   ```env
-   DATABASE_URL=postgresql+asyncpg://user:password@host:port/dbname
-   ```
-4. **重新啟動專案** 即可完全接軌雲端資料庫。
 
 ---
 
@@ -73,8 +55,6 @@ pocketCFO/
 ├── main.py                          # FastAPI 進入點
 ├── pyproject.toml
 ├── .env.example
-├── scratch/
-│   └── migrate_to_postgres.py       # ⭐ SQLite to PostgreSQL 遷移工具
 ├── src/
 │   ├── controllers/                 # FastAPI routers (HTTP 層)
 │   │   ├── upload_controller.py     #   PDF 上傳與 Gemini 解析
@@ -92,6 +72,7 @@ pocketCFO/
 │   │   ├── statement_service.py     #   對帳單解析調度
 │   │   ├── balance_sheet_service.py #   資產負債表運算
 │   │   ├── income_statement_service.py # 損益表運算（含跨行轉帳過濾）
+│   │   ├── scheduler.py             #   ⭐ 自動排程同步 (每月最後一天 22:00)
 │   │   └── parsers/
 │   │       └── bank_statement_parser.py # Gemini 銀行對帳單 Prompt 定義
 │   └── utils/
@@ -99,6 +80,10 @@ pocketCFO/
 │       └── transfer_detector.py     #   ⭐ 帳內互轉智慧偵測
 └── frontend/                        # React + Vite + Tailwind
     └── src/
+        ├── components/
+        │   └── ToastContainer.tsx   #   全域 Toast 視窗元件
+        ├── store/
+        │   └── useToastStore.ts     #   Zustand 狀態管理 (Toast)
         ├── pages/
         │   ├── DashboardPage.tsx    #   儀表板
         │   ├── BalanceSheetPage.tsx #   資產負債表及餘額調整
