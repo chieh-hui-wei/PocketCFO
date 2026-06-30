@@ -446,8 +446,26 @@ export default function StockHoldingsPage() {
                   tickFormatter={(val) => val >= 10000 ? `${(val / 10000).toFixed(0)}萬` : val}
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                  formatter={(value: any, name: any) => [formatCurrency(Number(value)), name]}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-md space-y-1.5 animate-in fade-in duration-100">
+                          <div className="text-[11px] font-bold text-slate-400">{label}</div>
+                          {payload.map((p: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-4 text-xs">
+                              <span className="font-semibold" style={{ color: p.color }}>{p.name}:</span>
+                              <span className="font-bold text-slate-800">{formatCurrency(Number(p.value))}</span>
+                            </div>
+                          ))}
+                          <div className="pt-1.5 border-t border-slate-100 text-[10px] text-blue-500 font-bold flex items-center gap-1">
+                            <span>💡</span>
+                            <span>點擊可切換至該月庫存明細</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
                 />
                 <Line 
                   type="monotone" 
@@ -455,7 +473,7 @@ export default function StockHoldingsPage() {
                   stroke="#3b82f6" 
                   strokeWidth={3} 
                   dot={{ r: 4, strokeWidth: 2, fill: "#ffffff" }} 
-                  activeDot={{ r: 6 }} 
+                  activeDot={{ r: 7, stroke: "#3b82f6", strokeWidth: 3, fill: "#ffffff" }} 
                 />
                 <Line 
                   type="monotone" 
@@ -464,6 +482,7 @@ export default function StockHoldingsPage() {
                   strokeWidth={2} 
                   strokeDasharray="4 4"
                   dot={{ r: 3, strokeWidth: 1, fill: "#ffffff" }} 
+                  activeDot={{ r: 5, stroke: "#10b981", strokeWidth: 2, fill: "#ffffff" }}
                 />
               </LineChart>
             </ResponsiveContainer>
