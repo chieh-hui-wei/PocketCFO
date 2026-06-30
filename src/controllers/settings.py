@@ -211,3 +211,60 @@ async def upload_certificate(
         f.write(contents)
         
     return {"status": "success", "filename": file.filename, "broker": broker}
+
+
+class TestConnectionRequest(BaseModel):
+    broker: str  # "taishin" | "sinopac" | "esun" | "gemini"
+
+
+@router.post("/test-connection")
+async def test_connection(body: TestConnectionRequest):
+    if body.broker == "gemini":
+        import google.generativeai as genai
+        try:
+            if not settings.gemini_api_key:
+                raise ValueError("Gemini API 金鑰尚未設定。")
+            genai.configure(api_key=settings.gemini_api_key)
+            model = genai.GenerativeModel(settings.gemini_model or "gemini-1.5-flash")
+            response = model.generate_content("Ping")
+            if response.text:
+                return {"status": "success", "message": "Gemini API 連線成功！"}
+            raise Exception("Gemini 回傳內容為空。")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Gemini API 連線失敗：{str(e)}")
+
+    elif body.broker == "taishin":
+        try:
+            # Check if cert exists
+            if not os.path.exists("secrets/Taishin.pfx"):
+                raise FileNotFoundError("找不到 secrets/Taishin.pfx 憑證檔案，請先上傳憑證。")
+            from src.services.brokers.taishin_client import TaishinClient
+            client = TaishinClient()
+            return {"status": "success", "message": "台新證券 API 連線與憑證驗證成功！"}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"台新證券連線失敗：{str(e)}")
+
+    elif body.broker == "sinopac":
+        try:
+            # Check if cert exists
+            if not os.path.exists("secrets/Sinopac.pfx"):
+                raise FileNotFoundError("找不到 secrets/Sinopac.pfx 憑證檔案，請先上傳憑證。")
+            from src.services.brokers.sinopac_client import SinopacClient
+            client = SinopacClient()
+            return {"status": "success", "message": "永豐金證券 API 連線與憑證驗證成功！"}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"永豐金證券連線失敗：{str(e)}")
+
+    elif body.broker == "esun":
+        try:
+            # Check if cert exists
+            if not os.path.exists("secrets/esun_cert_20270611.p12"):
+                raise FileNotFoundError("找不到 secrets/esun_cert_20270611.p12 憑證檔案，請先上傳憑證。")
+            from src.services.brokers.esun_client import EsunClient
+            client = EsunClient()
+            return {"status": "success", "message": "玉山證券 API 連線與憑證驗證成功！"}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"玉山證券連線失敗：{str(e)}")
+
+    else:
+        raise HTTPException(status_code=400, detail="未知的券商選擇")

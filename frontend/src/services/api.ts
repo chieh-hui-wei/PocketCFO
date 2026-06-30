@@ -447,6 +447,11 @@ export async function uploadCertificate(file: File, broker: "taishin" | "sinopac
   return data;
 }
 
+export async function testConnection(broker: "taishin" | "sinopac" | "esun" | "gemini") {
+  const { data } = await api.post("/settings/test-connection", { broker });
+  return data;
+}
+
 export async function login(email: string, password: string) {
   const { data } = await api.post("/auth/login", { email, password });
   if (data.token) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile } from "../services/api";
+import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile, testConnection } from "../services/api";
 import { toast } from "../store/useToastStore";
 
 export default function SettingsPage() {
@@ -21,6 +21,26 @@ export default function SettingsPage() {
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+
+  const [testingBroker, setTestingBroker] = useState<string | null>(null);
+
+  const handleTestConnection = async (broker: "taishin" | "sinopac" | "esun" | "gemini") => {
+    setTestingBroker(broker);
+    try {
+      const res = await testConnection(broker);
+      if (res && res.status === "success") {
+        toast.success(res.message || "連線測試成功！");
+      } else {
+        toast.error("連線測試失敗。");
+      }
+    } catch (e: any) {
+      console.error(e);
+      const err = e.response?.data?.detail || e.message || "發生未知錯誤。";
+      toast.error(`測試失敗：${err}`);
+    } finally {
+      setTestingBroker(null);
+    }
+  };
 
 
   // Form states
@@ -383,13 +403,21 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-slate-100 bg-slate-50 rounded-lg text-sm text-slate-500"
                   />
                 </div>
-                <div className="pt-4 border-t border-slate-100">
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
                   <button
                     type="submit"
                     disabled={isSaving}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
                   >
                     儲存變更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTestConnection("gemini")}
+                    disabled={testingBroker === "gemini"}
+                    className="border border-blue-600 hover:bg-blue-50 text-blue-600 font-bold px-6 py-2 rounded-xl text-sm transition-all duration-200 disabled:opacity-50"
+                  >
+                    {testingBroker === "gemini" ? "測試中..." : "測試 API 連線"}
                   </button>
                 </div>
               </form>
@@ -479,13 +507,21 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100">
+                  <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
                     <button
                       type="submit"
                       disabled={isSaving}
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
                     >
                       儲存變更
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestConnection("taishin")}
+                      disabled={testingBroker === "taishin"}
+                      className="border border-blue-600 hover:bg-blue-50 text-blue-600 font-bold px-6 py-2 rounded-xl text-sm transition-all duration-200 disabled:opacity-50"
+                    >
+                      {testingBroker === "taishin" ? "測試中..." : "測試 API 連線"}
                     </button>
                   </div>
                 </form>
@@ -576,13 +612,21 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100">
+                  <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
                     <button
                       type="submit"
                       disabled={isSaving}
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
                     >
                       儲存變更
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestConnection("sinopac")}
+                      disabled={testingBroker === "sinopac"}
+                      className="border border-blue-600 hover:bg-blue-50 text-blue-600 font-bold px-6 py-2 rounded-xl text-sm transition-all duration-200 disabled:opacity-50"
+                    >
+                      {testingBroker === "sinopac" ? "測試中..." : "測試 API 連線"}
                     </button>
                   </div>
                 </form>
@@ -685,13 +729,21 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100">
+                  <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
                     <button
                       type="submit"
                       disabled={isSaving}
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
                     >
                       儲存變更
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestConnection("esun")}
+                      disabled={testingBroker === "esun"}
+                      className="border border-blue-600 hover:bg-blue-50 text-blue-600 font-bold px-6 py-2 rounded-xl text-sm transition-all duration-200 disabled:opacity-50"
+                    >
+                      {testingBroker === "esun" ? "測試中..." : "測試 API 連線"}
                     </button>
                   </div>
                 </form>
