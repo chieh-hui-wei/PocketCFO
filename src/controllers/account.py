@@ -119,6 +119,7 @@ async def list_securities_history(
             "original_unrealized_pnl": s.original_unrealized_pnl,
             "currency": s.currency,
             "exchange_rate": s.exchange_rate,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
         }
         for s in securities
     ]
@@ -406,6 +407,7 @@ async def list_securities_for_period(
             "original_unrealized_pnl": s.original_unrealized_pnl,
             "currency": s.currency,
             "exchange_rate": s.exchange_rate,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
         }
         for s in securities
     ]

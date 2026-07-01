@@ -24,6 +24,22 @@ export default function StockHoldingsPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | "overview">("overview");
   const [isEditing, setIsEditing] = useState(false);
   
+  const formatUpdateTimestamp = (isoString?: string) => {
+    if (!isoString) return "";
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const h = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+      return `${y}年${m}月${day}日 ${h}:${min}`;
+    } catch {
+      return "";
+    }
+  };
+  
   // Date State
   const [currentDate, setCurrentDate] = useState(() => {
     const d = new Date();
@@ -291,6 +307,20 @@ export default function StockHoldingsPage() {
   const selectedBrokerPnl = brokerSecurities.reduce((acc, s) => acc + s.unrealized_pnl, 0);
   const selectedBrokerRoi = selectedBrokerCost > 0 ? (selectedBrokerPnl / selectedBrokerCost) * 100 : 0;
   const selectedBrokerTickerCount = brokerSecurities.length;
+
+  // Get latest created_at for allSecurities (overview)
+  const overviewLastUpdated = allSecurities.reduce<string | undefined>((latest, s) => {
+    if (!s.created_at) return latest;
+    if (!latest) return s.created_at;
+    return new Date(s.created_at) > new Date(latest) ? s.created_at : latest;
+  }, undefined);
+
+  // Get latest created_at for selected broker
+  const brokerLastUpdated = brokerSecurities.reduce<string | undefined>((latest, s) => {
+    if (!s.created_at) return latest;
+    if (!latest) return s.created_at;
+    return new Date(s.created_at) > new Date(latest) ? s.created_at : latest;
+  }, undefined);
 
   const selectedBrokerList = brokerSecurities.map(s => {
     const cost = s.avg_cost * s.quantity;
@@ -781,7 +811,14 @@ export default function StockHoldingsPage() {
               <div className="space-y-6">
                 {/* Aggregated Tickers Table */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-fit">
-                  <h3 className="font-bold text-slate-800 mb-4 text-sm">跨券商股票持股彙總</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 text-sm">跨券商股票持股彙總</h3>
+                    {overviewLastUpdated && (
+                      <span className="text-xxs text-slate-400 font-normal">
+                        更新時間：{formatUpdateTimestamp(overviewLastUpdated)}
+                      </span>
+                    )}
+                  </div>
                   <div className="border border-slate-200 rounded-xl overflow-x-auto">
                     <table className="w-full text-left text-sm min-w-[900px]">
                       <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
@@ -918,7 +955,10 @@ export default function StockHoldingsPage() {
                       <div className="flex justify-between items-center mb-6">
                         <div>
                           <h3 className="font-bold text-slate-800 text-lg">{selectedAccount.name} 持股庫存</h3>
-                          <p className="text-xs text-slate-400 mt-0.5">顯示 {formatMonth(currentDate)} 底的持股狀況</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            顯示 {formatMonth(currentDate)} 底的持股狀況
+                            {brokerLastUpdated && `（更新時間：${formatUpdateTimestamp(brokerLastUpdated)}）`}
+                          </p>
                         </div>
                         <button
                           onClick={() => setIsEditing(true)}

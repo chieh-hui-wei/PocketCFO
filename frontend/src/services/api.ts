@@ -272,6 +272,7 @@ export interface SecurityRecord {
   original_unrealized_pnl?: number;
   currency?: string;
   exchange_rate?: number;
+  created_at?: string;
 }
 
 export async function getSecuritiesForPeriod(year: number, month: number) {
