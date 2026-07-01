@@ -275,9 +275,18 @@ export interface SecurityRecord {
   created_at?: string;
 }
 
-export async function getSecuritiesForPeriod(year: number, month: number) {
-  const data = await fetchWithCache("/accounts/securities", { year, month });
+export async function getSecuritiesForPeriod(year: number, month: number, dateStr?: string) {
+  const params: any = { year, month };
+  if (dateStr) {
+    params.date = dateStr;
+  }
+  const data = await fetchWithCache("/accounts/securities", params);
   return data as SecurityRecord[];
+}
+
+export async function getSecurityUpdateDates(year: number, month: number): Promise<string[]> {
+  const data = await api.get("/accounts/securities/dates", { params: { year, month } }).then(res => res.data);
+  return data as string[];
 }
 
 export async function saveSecuritiesForAccount(

@@ -6,7 +6,8 @@ import {
   saveSecuritiesForAccount,
   Account,
   SecurityRecord,
-  getSecuritiesHistory
+  getSecuritiesHistory,
+  getSecurityUpdateDates
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "../store/useToastStore";
@@ -59,6 +60,8 @@ export default function StockHoldingsPage() {
 
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
   const [securitiesHistory, setSecuritiesHistory] = useState<SecurityRecord[]>([]);
+  const [versionDates, setVersionDates] = useState<string[]>([]);
+  const [selectedVersionDate, setSelectedVersionDate] = useState<string>("");
 
   const handlePrevMonth = () => setCurrentDate(d => { 
     const nd = new Date(d); 
@@ -105,13 +108,31 @@ export default function StockHoldingsPage() {
     loadHistory();
   }, []);
 
-  // Fetch securities when date or selection changes
+  // Fetch update dates when month changes
+  useEffect(() => {
+    if (viewMode === "year") return;
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    
+    getSecurityUpdateDates(year, month)
+      .then(dates => {
+        setVersionDates(dates);
+        if (dates.length > 0) {
+          setSelectedVersionDate(dates[0]);
+        } else {
+          setSelectedVersionDate("");
+        }
+      })
+      .catch(console.error);
+  }, [currentDate, viewMode]);
+
+  // Fetch securities when date, selection or version changes
   useEffect(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     setIsLoading(true);
     
-    getSecuritiesForPeriod(year, month)
+    getSecuritiesForPeriod(year, month, selectedVersionDate || undefined)
       .then(all => {
         setAllSecurities(all);
         
@@ -130,7 +151,7 @@ export default function StockHoldingsPage() {
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [currentDate, selectedAccountId]);
+  }, [currentDate, selectedAccountId, selectedVersionDate]);
 
   const handleAddRow = () => {
     setSecurities(prev => [
@@ -639,6 +660,27 @@ export default function StockHoldingsPage() {
             {formatMonth(currentDate)}
             <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handleNextMonth}>{">"}</span>
           </div>
+
+          {viewMode === "month" && versionDates.length > 0 && (
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+              <span className="text-xxs text-slate-400 font-sans font-normal">更新版本：</span>
+              <select
+                value={selectedVersionDate}
+                onChange={e => setSelectedVersionDate(e.target.value)}
+                className="bg-transparent border-none text-slate-700 font-bold text-xs focus:outline-none cursor-pointer pr-1"
+              >
+                {versionDates.map(d => {
+                  const parts = d.split("-");
+                  const label = `${parts[1]}月${parts[2]}日`;
+                  return (
+                    <option key={d} value={d}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

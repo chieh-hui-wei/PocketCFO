@@ -42,8 +42,46 @@ class StockHoldingService:
         brokerage_accounts = [a for a in all_accounts if a.account_type == AccountType.BROKERAGE]
 
         # 2. Fetch existing snapshots and securities for this period
-        existing_snapshots = {s.account_id: s for s in await self.snapshot_repo.get_by_period(period_date)}
-        existing_securities = await self.security_repo.get_by_period(period_date)
+        is_first_of_month = (period_date.day == 1)
+        existing_snapshots = {}
+        existing_securities = []
+        
+        if is_first_of_month:
+            import calendar
+            start_date = period_date
+            last_day = calendar.monthrange(period_date.year, period_date.month)[1]
+            end_date = period_date.replace(day=last_day)
+            
+            for acct in all_accounts:
+                latest_snap_stmt = (
+                    select(AccountSnapshot)
+                    .where(
+                        AccountSnapshot.user_id == self.user_id,
+                        AccountSnapshot.account_id == acct.id,
+                        AccountSnapshot.period_date >= start_date,
+                        AccountSnapshot.period_date <= end_date
+                    )
+                    .order_by(AccountSnapshot.period_date.desc())
+                    .limit(1)
+                )
+                res = await self.db.execute(latest_snap_stmt)
+                snap = res.scalar_one_or_none()
+                if snap:
+                    existing_snapshots[acct.id] = snap
+                    
+                    sec_stmt = (
+                        select(Security)
+                        .where(
+                            Security.user_id == self.user_id,
+                            Security.account_id == acct.id,
+                            Security.period_date == snap.period_date
+                        )
+                    )
+                    sec_res = await self.db.execute(sec_stmt)
+                    existing_securities.extend(sec_res.scalars().all())
+        else:
+            existing_snapshots = {s.account_id: s for s in await self.snapshot_repo.get_by_period(period_date)}
+            existing_securities = list(await self.security_repo.get_by_period(period_date))
 
         # Group existing securities by account_id
         existing_sec_by_acct: Dict[int, List[Security]] = {}

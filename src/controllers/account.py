@@ -302,7 +302,7 @@ async def save_snapshot(
     except ValueError:
         return {"error": "Invalid date format, must be YYYY-MM-DD"}, 400
         
-    period = first_of_month(dt.year, dt.month)
+    period = dt
     
     # Store credit card and liability snapshots as negative balances to be consistent
     balance = body.balance
@@ -379,15 +379,41 @@ class SaveSecuritiesForAccountRequest(BaseModel):
 async def list_securities_for_period(
     year: int = Query(..., ge=2020, le=2100),
     month: int = Query(..., ge=1, le=12),
+    date_str: str | None = Query(None, alias="date"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_token),
 ):
     from src.utils.date_utils import first_of_month
     from src.services.reports.stock_holding import StockHoldingService
+    from datetime import datetime
     
-    period = first_of_month(year, month)
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = first_of_month(year, month)
+    else:
+        from sqlalchemy import select, func
+        from src.dbs.models import Security
+        import calendar
+        start_date = first_of_month(year, month)
+        last_day = calendar.monthrange(year, month)[1]
+        end_date = start_date.replace(day=last_day)
+        
+        stmt = (
+            select(func.max(Security.period_date))
+            .where(
+                Security.user_id == current_user.id,
+                Security.period_date >= start_date,
+                Security.period_date <= end_date
+            )
+        )
+        res = await db.execute(stmt)
+        latest_date = res.scalar_one_or_none()
+        target_date = latest_date if latest_date else start_date
+        
     holding_service = StockHoldingService(db, current_user.id)
-    _, securities = await holding_service.get_or_compute_portfolio(period)
+    _, securities = await holding_service.get_or_compute_portfolio(target_date)
     
     return [
         {
@@ -411,6 +437,37 @@ async def list_securities_for_period(
         }
         for s in securities
     ]
+
+
+@router.get("/securities/dates")
+async def list_security_dates_for_month(
+    year: int = Query(..., ge=2020, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    from sqlalchemy import select
+    from src.dbs.models import Security
+    from src.utils.date_utils import first_of_month
+    import calendar
+    
+    start_date = first_of_month(year, month)
+    last_day = calendar.monthrange(year, month)[1]
+    end_date = start_date.replace(day=last_day)
+    
+    stmt = (
+        select(Security.period_date)
+        .where(
+            Security.user_id == current_user.id,
+            Security.period_date >= start_date,
+            Security.period_date <= end_date
+        )
+        .distinct()
+        .order_by(Security.period_date.desc())
+    )
+    res = await db.execute(stmt)
+    dates = res.scalars().all()
+    return [d.isoformat() for d in dates]
 
 
 @router.post("/{account_id}/securities")
@@ -440,7 +497,7 @@ async def save_securities_for_account(
     except ValueError:
         return {"error": "Invalid date format, must be YYYY-MM-DD"}, 400
         
-    period = first_of_month(dt.year, dt.month)
+    period = dt
     
     # Query existing securities to calculate old market value in TWD
     old_secs_stmt = select(Security).where(

@@ -263,7 +263,7 @@ async def sync_taishin_assets(year: int, month: int, user_id: int = 1) -> None:
     Sync Taishin stock holdings and cash balance, update snapshots, and recalculate balance sheet.
     """
     log.info(f"sync.taishin.assets.start period={year}-{month:02d}")
-    period = first_of_month(year, month)
+    period = date(year, month, calendar.monthrange(year, month)[1])
     
     async with AsyncSessionLocal() as db:
         # Get or create Taishin brokerage account
@@ -346,7 +346,7 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1) -> None:
     Sync E-Sun stock holdings and cash balance, update snapshots, and recalculate balance sheet.
     """
     log.info(f"sync.esun.assets.start period={year}-{month:02d}")
-    period = first_of_month(year, month)
+    period = date(year, month, calendar.monthrange(year, month)[1])
     
     async with AsyncSessionLocal() as db:
         # Get or create E-Sun brokerage account
