@@ -477,9 +477,8 @@ async def check_and_run_tasks(now: datetime) -> None:
             
             set_last_trade_sync_month(now.year, now.month)
             
-    # 2. Asset value sync: Run on the last day of the month (starting at 22:00 or later)
-    last_day_of_month = calendar.monthrange(now.year, now.month)[1]
-    if now.day == last_day_of_month and now.hour >= 22:
+    # 2. Asset value sync: Run DAILY (starting at 17:00 or later)
+    if now.hour >= 17:
         current_day = now.date()
         last_asset_sync = get_last_asset_sync_day()
         if last_asset_sync != current_day:
