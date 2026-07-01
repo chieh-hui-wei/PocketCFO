@@ -108,9 +108,7 @@ class StockHoldingService:
             if has_snap and has_sec:
                 continue
 
-            # Firstrade does not carry over dynamically. It is strictly based on uploaded PDFs or manual saves.
-            if acct.code == "broker_Firstrade":
-                continue
+
 
 
             prev_period_stmt = (

@@ -661,25 +661,31 @@ export default function StockHoldingsPage() {
             <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handleNextMonth}>{">"}</span>
           </div>
 
-          {viewMode === "month" && versionDates.length > 0 && (
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
-              <span className="text-xxs text-slate-400 font-sans font-normal">更新版本：</span>
-              <select
-                value={selectedVersionDate}
-                onChange={e => setSelectedVersionDate(e.target.value)}
-                className="bg-transparent border-none text-slate-700 font-bold text-xs focus:outline-none cursor-pointer pr-1"
-              >
-                {versionDates.map(d => {
-                  const parts = d.split("-");
-                  const label = `${parts[1]}月${parts[2]}日`;
-                  return (
-                    <option key={d} value={d}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+          {viewMode === "month" && (
+            versionDates.length > 0 ? (
+              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+                <span className="text-xxs text-slate-400 font-sans font-normal">更新版本：</span>
+                <select
+                  value={selectedVersionDate}
+                  onChange={e => setSelectedVersionDate(e.target.value)}
+                  className="bg-transparent border-none text-slate-700 font-bold text-xs focus:outline-none cursor-pointer pr-1"
+                >
+                  {versionDates.map(d => {
+                    const parts = d.split("-");
+                    const label = `${parts[1]}月${parts[2]}日`;
+                    return (
+                      <option key={d} value={d}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 shadow-xxs text-xxs font-normal text-slate-400 font-sans">
+                <span>🔄 結轉自前月餘額</span>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -836,7 +842,7 @@ export default function StockHoldingsPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                   <div className="text-xs font-bold text-slate-400 mb-1">股票資產整體損益</div>
                   <div className={`text-2xl font-bold ${totalPortfolioPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {totalPortfolioPnl >= 0 ? `+ $${totalPortfolioPnl.toLocaleString()}` : `- $${Math.abs(totalPortfolioPnl).toLocaleString()}`}
+                    {totalPortfolioPnl >= 0 ? `+ $${totalPortfolioPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(totalPortfolioPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-1">累計未實現損益估值</div>
                 </div>
@@ -855,9 +861,13 @@ export default function StockHoldingsPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-fit">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-800 text-sm">跨券商股票持股彙總</h3>
-                    {overviewLastUpdated && (
+                    {overviewLastUpdated ? (
                       <span className="text-xxs text-slate-400 font-normal">
                         更新時間：{formatUpdateTimestamp(overviewLastUpdated)}
+                      </span>
+                    ) : (
+                      <span className="text-xxs text-slate-400 font-normal italic">
+                        （自動結轉前月餘額數據）
                       </span>
                     )}
                   </div>
@@ -999,7 +1009,10 @@ export default function StockHoldingsPage() {
                           <h3 className="font-bold text-slate-800 text-lg">{selectedAccount.name} 持股庫存</h3>
                           <p className="text-xs text-slate-400 mt-0.5">
                             顯示 {formatMonth(currentDate)} 底的持股狀況
-                            {brokerLastUpdated && `（更新時間：${formatUpdateTimestamp(brokerLastUpdated)}）`}
+                            {brokerLastUpdated 
+                              ? `（更新時間：${formatUpdateTimestamp(brokerLastUpdated)}）` 
+                              : `（自動結轉前月餘額）`
+                            }
                           </p>
                         </div>
                         <button
@@ -1023,7 +1036,7 @@ export default function StockHoldingsPage() {
                         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                           <div className="text-[10px] font-bold text-slate-400 mb-1">券商未實現損益</div>
                           <div className={`text-xl font-bold ${selectedBrokerPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {selectedBrokerPnl >= 0 ? `+ $${selectedBrokerPnl.toLocaleString()}` : `- $${Math.abs(selectedBrokerPnl).toLocaleString()}`}
+                            {selectedBrokerPnl >= 0 ? `+ $${selectedBrokerPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(selectedBrokerPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                           </div>
                         </div>
                         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
