@@ -97,112 +97,144 @@ class StockHoldingService:
             last_day = calendar.monthrange(period_date.year, period_date.month)[1]
             query_end_date = period_date.replace(day=last_day) if is_first_of_month else period_date
             
-            txns_stmt = (
-                select(Transaction)
+            # Only compute Firstrade positions if the user has uploaded data (snapshots or transactions) in the target month
+            start_of_target_month = period_date.replace(day=1)
+            end_of_target_month = period_date.replace(day=last_day)
+            
+            has_activity_stmt = (
+                select(Transaction.id)
                 .where(
                     Transaction.user_id == self.user_id,
                     Transaction.account_id == firstrade_acct.id,
-                    Transaction.txn_date <= query_end_date
+                    Transaction.txn_date >= start_of_target_month,
+                    Transaction.txn_date <= end_of_target_month
                 )
-                .order_by(Transaction.txn_date.asc())
+                .limit(1)
             )
-            txns_res = await self.db.execute(txns_stmt)
-            txns = txns_res.scalars().all()
+            has_activity_res = await self.db.execute(has_activity_stmt)
+            has_activity = has_activity_res.scalar() is not None
             
-            positions = {}
-            cash_balance_usd = 0.0
-            
-            for txn in txns:
-                txn_usd = txn.original_amount if txn.original_amount is not None else (txn.amount / (txn.exchange_rate or 32.5))
-                cash_balance_usd += txn_usd
+            if not has_activity:
+                has_snap_stmt = (
+                    select(AccountSnapshot.id)
+                    .where(
+                        AccountSnapshot.user_id == self.user_id,
+                        AccountSnapshot.account_id == firstrade_acct.id,
+                        AccountSnapshot.period_date >= start_of_target_month,
+                        AccountSnapshot.period_date <= end_of_target_month
+                    )
+                    .limit(1)
+                )
+                has_snap_res = await self.db.execute(has_snap_stmt)
+                has_activity = has_snap_res.scalar() is not None
                 
-                ticker, qty, action, price = parse_stock_transaction(txn)
-                if ticker and qty > 0:
-                    if ticker not in positions:
-                        if action == "BUY":
-                            positions[ticker] = {
-                                "ticker": ticker,
-                                "name": normalize_stock_name(ticker, txn.description),
-                                "quantity": qty,
-                                "avg_cost": price,
-                                "currency": "USD",
-                                "exchange_rate": txn.exchange_rate or 32.5,
-                            }
-                    else:
-                        pos = positions[ticker]
-                        if action == "BUY":
-                            old_qty = pos["quantity"]
-                            old_avg = pos["avg_cost"]
-                            new_qty = old_qty + qty
-                            new_avg = (old_qty * old_avg + qty * price) / new_qty if new_qty > 0 else 0.0
-                            pos["quantity"] = new_qty
-                            pos["avg_cost"] = new_avg
-                        elif action == "SELL":
-                            pos["quantity"] = max(0.0, pos["quantity"] - qty)
-                            
-            active_positions = {t: p for t, p in positions.items() if p["quantity"] > 0.001}
+            if has_activity:
+                txns_stmt = (
+                    select(Transaction)
+                    .where(
+                        Transaction.user_id == self.user_id,
+                        Transaction.account_id == firstrade_acct.id,
+                        Transaction.txn_date <= query_end_date
+                    )
+                    .order_by(Transaction.txn_date.asc())
+                )
+                txns_res = await self.db.execute(txns_stmt)
+                txns = txns_res.scalars().all()
             
-            try:
-                rate = await get_usd_twd_rate(query_end_date)
-            except Exception:
-                rate = 32.5
+                positions = {}
+                cash_balance_usd = 0.0
                 
-            price_fetch_tasks = []
-            computed_sec_metadata = []
-            
-            for ticker, pos in active_positions.items():
-                sec = Security(
+                for txn in txns:
+                    txn_usd = txn.original_amount if txn.original_amount is not None else (txn.amount / (txn.exchange_rate or 32.5))
+                    cash_balance_usd += txn_usd
+                    
+                    ticker, qty, action, price = parse_stock_transaction(txn)
+                    if ticker and qty > 0:
+                        if ticker not in positions:
+                            if action == "BUY":
+                                positions[ticker] = {
+                                    "ticker": ticker,
+                                    "name": normalize_stock_name(ticker, txn.description),
+                                    "quantity": qty,
+                                    "avg_cost": price,
+                                    "currency": "USD",
+                                    "exchange_rate": txn.exchange_rate or 32.5,
+                                }
+                        else:
+                            pos = positions[ticker]
+                            if action == "BUY":
+                                old_qty = pos["quantity"]
+                                old_avg = pos["avg_cost"]
+                                new_qty = old_qty + qty
+                                new_avg = (old_qty * old_avg + qty * price) / new_qty if new_qty > 0 else 0.0
+                                pos["quantity"] = new_qty
+                                pos["avg_cost"] = new_avg
+                            elif action == "SELL":
+                                pos["quantity"] = max(0.0, pos["quantity"] - qty)
+                                
+                active_positions = {t: p for t, p in positions.items() if p["quantity"] > 0.001}
+                
+                try:
+                    rate = await get_usd_twd_rate(query_end_date)
+                except Exception:
+                    rate = 32.5
+                    
+                price_fetch_tasks = []
+                computed_sec_metadata = []
+                
+                for ticker, pos in active_positions.items():
+                    sec = Security(
+                        account_id=firstrade_acct.id,
+                        period_date=query_end_date,
+                        ticker=ticker,
+                        name=pos["name"],
+                        quantity=pos["quantity"],
+                        avg_cost=0.0,
+                        current_price=0.0,
+                        market_value=0.0,
+                        unrealized_pnl=0.0,
+                        currency="USD",
+                        exchange_rate=rate,
+                    )
+                    computed_sec_metadata.append((sec, pos, ticker, query_end_date))
+                    price_fetch_tasks.append(fetch_month_end_price(ticker, query_end_date))
+                    
+                fetched_prices = []
+                if price_fetch_tasks:
+                    fetched_prices = await asyncio.gather(*price_fetch_tasks)
+                    
+                total_sec_mv_twd = 0.0
+                for idx, (sec, pos, ticker, p_date) in enumerate(computed_sec_metadata):
+                    m_price = fetched_prices[idx] if fetched_prices[idx] is not None else pos["avg_cost"]
+                    pos_avg = pos["avg_cost"]
+                    pos_qty = pos["quantity"]
+                    
+                    sec.exchange_rate = rate
+                    sec.original_avg_cost = pos_avg
+                    sec.original_current_price = m_price
+                    sec.original_market_value = pos_qty * m_price
+                    sec.original_unrealized_pnl = (m_price - pos_avg) * pos_qty
+                    
+                    sec.avg_cost = round(pos_avg * rate)
+                    sec.current_price = round(m_price * rate)
+                    sec.market_value = round((pos_qty * m_price) * rate)
+                    sec.unrealized_pnl = round(((m_price - pos_avg) * pos_qty) * rate)
+                    
+                    total_sec_mv_twd += sec.market_value
+                    final_securities.append(sec)
+                    
+                cash_balance_twd = cash_balance_usd * rate
+                total_balance_twd = cash_balance_twd + total_sec_mv_twd
+                
+                ft_snap = AccountSnapshot(
                     account_id=firstrade_acct.id,
                     period_date=query_end_date,
-                    ticker=ticker,
-                    name=pos["name"],
-                    quantity=pos["quantity"],
-                    avg_cost=0.0,
-                    current_price=0.0,
-                    market_value=0.0,
-                    unrealized_pnl=0.0,
+                    balance=round(total_balance_twd),
+                    original_balance=total_balance_twd / rate if rate > 0 else None,
                     currency="USD",
                     exchange_rate=rate,
+                    source="pdf",
                 )
-                computed_sec_metadata.append((sec, pos, ticker, query_end_date))
-                price_fetch_tasks.append(fetch_month_end_price(ticker, query_end_date))
-                
-            fetched_prices = []
-            if price_fetch_tasks:
-                fetched_prices = await asyncio.gather(*price_fetch_tasks)
-                
-            total_sec_mv_twd = 0.0
-            for idx, (sec, pos, ticker, p_date) in enumerate(computed_sec_metadata):
-                m_price = fetched_prices[idx] if fetched_prices[idx] is not None else pos["avg_cost"]
-                pos_avg = pos["avg_cost"]
-                pos_qty = pos["quantity"]
-                
-                sec.exchange_rate = rate
-                sec.original_avg_cost = pos_avg
-                sec.original_current_price = m_price
-                sec.original_market_value = pos_qty * m_price
-                sec.original_unrealized_pnl = (m_price - pos_avg) * pos_qty
-                
-                sec.avg_cost = round(pos_avg * rate)
-                sec.current_price = round(m_price * rate)
-                sec.market_value = round((pos_qty * m_price) * rate)
-                sec.unrealized_pnl = round(((m_price - pos_avg) * pos_qty) * rate)
-                
-                total_sec_mv_twd += sec.market_value
-                final_securities.append(sec)
-                
-            cash_balance_twd = cash_balance_usd * rate
-            total_balance_twd = cash_balance_twd + total_sec_mv_twd
-            
-            ft_snap = AccountSnapshot(
-                account_id=firstrade_acct.id,
-                period_date=query_end_date,
-                balance=round(total_balance_twd),
-                original_balance=total_balance_twd / rate if rate > 0 else None,
-                currency="USD",
-                exchange_rate=rate,
-                source="pdf",
-            )
-            final_snapshots.append(ft_snap)
+                final_snapshots.append(ft_snap)
 
         return final_snapshots, final_securities
