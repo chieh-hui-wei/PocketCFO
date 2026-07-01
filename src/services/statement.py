@@ -452,7 +452,14 @@ class StatementService:
         exchange_rate = float(data.get("exchange_rate", 1.0))
 
         import re
-        period = first_of_month(data["period_year"], data["period_month"])
+        import calendar
+        from datetime import date
+        is_firstrade = (data.get("institution") or "").lower() == "firstrade" or "firstrade" in (data.get("account_code") or "").lower()
+        if is_firstrade:
+            last_day = calendar.monthrange(data["period_year"], data["period_month"])[1]
+            period = date(data["period_year"], data["period_month"], last_day)
+        else:
+            period = first_of_month(data["period_year"], data["period_month"])
         account_code = data.get("account_code")
         acc_num = data.get("account_number")
         db_accounts = await self.account_repo.get_all()
