@@ -201,20 +201,20 @@ export default function BalanceSheetPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="text-sm font-bold text-slate-500">資產總計</div>
           </div>
-          <div className="text-3xl font-bold text-slate-900 mb-6">${(latestBs?.total_assets ?? 0).toLocaleString()}</div>
+          <div className="text-3xl font-bold text-slate-900 mb-6">${(latestBs?.total_assets ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
           
           <div className="flex-1 space-y-4">
             <div className="flex justify-between text-sm">
               <span className="font-bold text-slate-800">流動資產</span>
-              <span className="font-bold text-slate-800">${(latestBs?.total_assets ?? 0).toLocaleString()}</span>
+              <span className="font-bold text-slate-800">${(latestBs?.total_assets ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="flex justify-between text-sm pl-4">
               <span className="text-slate-500">現金與存款</span>
-              <span className="text-slate-700 font-medium">${(latestBs?.total_cash ?? 0).toLocaleString()}</span>
+              <span className="text-slate-700 font-medium">${(latestBs?.total_cash ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="flex justify-between text-sm pl-4">
               <span className="text-slate-500">投資</span>
-              <span className="text-slate-700 font-medium">${(latestBs?.total_securities_market_value ?? 0).toLocaleString()}</span>
+              <span className="text-slate-700 font-medium">${(latestBs?.total_securities_market_value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
           </div>
         </div>
@@ -224,23 +224,23 @@ export default function BalanceSheetPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="text-sm font-bold text-slate-500">負債總計</div>
           </div>
-          <div className="text-3xl font-bold text-slate-900 mb-6">${(latestBs?.total_liabilities ?? 0).toLocaleString()}</div>
+          <div className="text-3xl font-bold text-slate-900 mb-6">${(latestBs?.total_liabilities ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
           
           <div className="flex-1 space-y-4">
             <div className="flex justify-between text-sm">
               <span className="font-bold text-slate-800">流動負債</span>
-              <span className="font-bold text-slate-800">${(latestBs?.total_liabilities ?? 0).toLocaleString()}</span>
+              <span className="font-bold text-slate-800">${(latestBs?.total_liabilities ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="flex justify-between text-sm pl-4">
               <span className="text-slate-500">信用卡負債</span>
               <span className="text-slate-700 font-medium">
-                ${(latestBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0).toLocaleString()}
+                ${(latestBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </span>
             </div>
             <div className="flex justify-between text-sm pl-4">
               <span className="text-slate-500">分期與其他負債</span>
               <span className="text-slate-700 font-medium">
-                ${(latestBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0).toLocaleString()}
+                ${(latestBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </span>
             </div>
           </div>
@@ -251,7 +251,7 @@ export default function BalanceSheetPage() {
           <div className="flex justify-between items-start mb-2">
             <div className="text-sm font-bold text-blue-200">淨資產</div>
           </div>
-          <div className="text-3xl font-bold mb-1">${(latestBs?.net_worth ?? 0).toLocaleString()}</div>
+          <div className="text-3xl font-bold mb-1">${(latestBs?.net_worth ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
           <div className="text-xs font-bold text-green-300 mb-4">▲ 6.3% vs 上月</div>
           
           <div className="flex-1 w-full h-[100px] mt-2">
@@ -283,7 +283,7 @@ export default function BalanceSheetPage() {
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(val) => `${val >= 1000 ? (val/1000) + 'K' : val}`} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, "金額"]}
+                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "金額"]}
                   />
                   <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={32}>
                     {assetLiabData.map((_, index) => (
@@ -306,7 +306,7 @@ export default function BalanceSheetPage() {
                     <span className="text-slate-600 font-medium truncate">{d.name}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-800">${d.value.toLocaleString()}</span>
+                    <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / (total || 1)) * 100)}%)</span>
                   </div>
                 </div>
@@ -327,7 +327,7 @@ export default function BalanceSheetPage() {
                   <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={80} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, "資產估值"]}
+                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "資產估值"]}
                   />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
                     {assetsDetailData.map((_, index) => (
@@ -350,7 +350,7 @@ export default function BalanceSheetPage() {
                     <span className="text-slate-600 font-medium truncate">{d.name}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-800">${d.value.toLocaleString()}</span>
+                    <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / total) * 100)}%)</span>
                   </div>
                 </div>
@@ -371,7 +371,7 @@ export default function BalanceSheetPage() {
                   <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={80} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, "負債金額"]}
+                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "負債金額"]}
                   />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
                     {liabDetailData.map((_, index) => (
@@ -394,7 +394,7 @@ export default function BalanceSheetPage() {
                     <span className="text-slate-600 font-medium truncate">{d.name}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-800">${d.value.toLocaleString()}</span>
+                    <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / total) * 100)}%)</span>
                   </div>
                 </div>
@@ -424,7 +424,7 @@ export default function BalanceSheetPage() {
               <tr className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-800">現金與存款</td>
                 <td className="px-4 py-3 text-slate-500">流動資產</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_cash ?? 0).toLocaleString()}</td>
+                <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_cash ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
@@ -432,7 +432,7 @@ export default function BalanceSheetPage() {
                 <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {c.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                 </tr>
@@ -441,7 +441,7 @@ export default function BalanceSheetPage() {
                 <tr key={`brokerage-cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {c.name}（現金部位）</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                 </tr>
@@ -450,7 +450,7 @@ export default function BalanceSheetPage() {
               <tr className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-800">投資</td>
                 <td className="px-4 py-3 text-slate-500">流動資產</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_securities_market_value ?? 0).toLocaleString()}</td>
+                <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_securities_market_value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
@@ -458,7 +458,7 @@ export default function BalanceSheetPage() {
                 <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {s.broker} - {s.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                 </tr>
@@ -468,7 +468,7 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 font-medium text-slate-800">信用卡負債</td>
                 <td className="px-4 py-3 text-slate-500">流動負債</td>
                 <td className="px-4 py-3 text-right font-medium text-slate-800">
-                  ${(latestBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0).toLocaleString()}
+                  ${(latestBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
@@ -477,7 +477,7 @@ export default function BalanceSheetPage() {
                 <tr key={`cc-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {cc.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${cc.payable.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-sm text-right text-slate-600">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                 </tr>
@@ -487,7 +487,7 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 font-medium text-slate-800">分期與其他負債</td>
                 <td className="px-4 py-3 text-slate-500">流動負債</td>
                 <td className="px-4 py-3 text-right font-medium text-slate-800">
-                  ${(latestBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0).toLocaleString()}
+                  ${(latestBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
@@ -496,7 +496,7 @@ export default function BalanceSheetPage() {
                 <tr key={`liab-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {l.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${l.balance.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-sm text-right text-slate-600">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                 </tr>

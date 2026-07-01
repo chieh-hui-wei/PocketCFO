@@ -118,7 +118,7 @@ export default function DashboardPage() {
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} dx={-10} tickFormatter={(val) => `${val >= 1000 ? (val/1000) + 'K' : val}`} />
                 <Tooltip 
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, "淨資產"]}
+                  formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "淨資產"]}
                 />
                 <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
               </LineChart>
@@ -145,7 +145,7 @@ export default function DashboardPage() {
                   <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 'bold' }} width={80} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, "支出金額"]}
+                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "支出金額"]}
                   />
                   <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={16}>
                     {pieData.map((_, index) => (
@@ -226,7 +226,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className={`text-sm font-bold ${t.amount < 0 ? "text-slate-800" : "text-green-600"}`}>
-                    {t.amount < 0 ? `- $${Math.abs(t.amount).toLocaleString()}` : `+ $${t.amount.toLocaleString()}`}
+                    {t.amount < 0 ? `- $${Math.abs(t.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `+ $${t.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                   </div>
                 </div>
               ))
