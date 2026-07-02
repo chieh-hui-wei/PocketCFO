@@ -258,12 +258,18 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
         except Exception as e:
             log.error(f"Failed to auto-sync E-Sun trades: {e}")
 
-async def sync_taishin_assets(year: int, month: int, user_id: int = 1) -> None:
+async def sync_taishin_assets(year: int, month: int, user_id: int = 1, target_date: date | None = None) -> None:
     """
     Sync Taishin stock holdings and cash balance, update snapshots, and recalculate balance sheet.
     """
     log.info(f"sync.taishin.assets.start period={year}-{month:02d}")
-    period = date(year, month, calendar.monthrange(year, month)[1])
+    period = target_date if target_date else date(year, month, calendar.monthrange(year, month)[1])
+    
+    # Sync trades first to keep transactions list up-to-date
+    try:
+        await sync_taishin_trades(year, month, user_id)
+    except Exception as e:
+        log.error(f"Failed to sync Taishin trades prior to assets: {e}")
     
     async with AsyncSessionLocal() as db:
         # Get or create Taishin brokerage account
@@ -341,12 +347,18 @@ async def sync_taishin_assets(year: int, month: int, user_id: int = 1) -> None:
         except Exception as e:
             log.error(f"Failed to auto-sync Taishin assets: {e}")
 
-async def sync_esun_assets(year: int, month: int, user_id: int = 1) -> None:
+async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date: date | None = None) -> None:
     """
     Sync E-Sun stock holdings and cash balance, update snapshots, and recalculate balance sheet.
     """
     log.info(f"sync.esun.assets.start period={year}-{month:02d}")
-    period = date(year, month, calendar.monthrange(year, month)[1])
+    period = target_date if target_date else date(year, month, calendar.monthrange(year, month)[1])
+    
+    # Sync trades first to keep transactions list up-to-date
+    try:
+        await sync_esun_trades(year, month, user_id)
+    except Exception as e:
+        log.error(f"Failed to sync E-Sun trades prior to assets: {e}")
     
     async with AsyncSessionLocal() as db:
         # Get or create E-Sun brokerage account
@@ -453,33 +465,19 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1) -> None:
 async def check_and_run_tasks(now: datetime) -> None:
     """
     Check if current time matches scheduled sync times and run them.
+    All scheduling evaluations are done in Taiwan timezone (Asia/Taipei).
     """
-    # 1. Trade sync: Run on the 1st day of the month
-    if now.day == 1:
-        current_month = (now.year, now.month)
-        last_trade_sync = get_last_trade_sync_month()
-        if last_trade_sync != current_month:
-            # Determine previous month
-            first_this_month = now.replace(day=1)
-            last_day_prev_month = first_this_month - timedelta(days=1)
-            prev_year = last_day_prev_month.year
-            prev_month = last_day_prev_month.month
-            
-            # Query all active users
-            async with AsyncSessionLocal() as db:
-                result = await db.execute(select(User).where(User.is_active == True))
-                users = result.scalars().all()
-            
-            for u in users:
-                # Sync trades in background tasks so they don't block the main loop
-                asyncio.create_task(sync_taishin_trades(prev_year, prev_month, user_id=u.id))
-                asyncio.create_task(sync_esun_trades(prev_year, prev_month, user_id=u.id))
-            
-            set_last_trade_sync_month(now.year, now.month)
-            
-    # 2. Asset value sync: Run DAILY (starting at 17:00 or later)
-    if now.hour >= 17:
-        current_day = now.date()
+    from zoneinfo import ZoneInfo
+    tz_taipei = ZoneInfo("Asia/Taipei")
+    if now.tzinfo is None:
+        taipei_now = now.astimezone(tz_taipei)
+    else:
+        taipei_now = now.astimezone(tz_taipei)
+
+    # Daily Sync: Run DAILY (starting at 17:00 Taipei time or later)
+    # Syncs current month's trades, current assets, and previous month's trades (during the first 5 days of the month)
+    if taipei_now.hour >= 17:
+        current_day = taipei_now.date()
         last_asset_sync = get_last_asset_sync_day()
         if last_asset_sync != current_day:
             # Query all active users
@@ -487,9 +485,21 @@ async def check_and_run_tasks(now: datetime) -> None:
                 result = await db.execute(select(User).where(User.is_active == True))
                 users = result.scalars().all()
                 
+            # Calculate previous month for catch-up trade sync at the beginning of the month
+            first_this_month = taipei_now.replace(day=1)
+            last_day_prev_month = first_this_month - timedelta(days=1)
+            prev_year = last_day_prev_month.year
+            prev_month = last_day_prev_month.month
+            
             for u in users:
-                asyncio.create_task(sync_taishin_assets(now.year, now.month, user_id=u.id))
-                asyncio.create_task(sync_esun_assets(now.year, now.month, user_id=u.id))
+                # 1. Sync current assets (which will internally sync trades first) daily
+                asyncio.create_task(sync_taishin_assets(taipei_now.year, taipei_now.month, user_id=u.id, target_date=taipei_now.date()))
+                asyncio.create_task(sync_esun_assets(taipei_now.year, taipei_now.month, user_id=u.id, target_date=taipei_now.date()))
+                
+                # 2. At the beginning of the month (day 1-5), also sync previous month's trades to catch late transactions
+                if taipei_now.day <= 5:
+                    asyncio.create_task(sync_taishin_trades(prev_year, prev_month, user_id=u.id))
+                    asyncio.create_task(sync_esun_trades(prev_year, prev_month, user_id=u.id))
                 
             set_last_asset_sync_day(current_day)
 
