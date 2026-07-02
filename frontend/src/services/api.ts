@@ -514,6 +514,11 @@ export async function getSchedulerStatus() {
   return data;
 }
 
+export async function triggerSchedulerSync() {
+  const { data } = await api.post("/settings/scheduler-sync");
+  return data;
+}
+
 
 
 

@@ -282,3 +282,21 @@ async def get_scheduler_status():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"無法讀取排程狀態：{str(e)}")
+
+
+@router.post("/scheduler-sync")
+async def trigger_scheduler_sync(
+    current_user = Depends(verify_token)
+):
+    from src.services.scheduler import sync_taishin_assets, sync_esun_assets
+    import datetime
+    from zoneinfo import ZoneInfo
+    
+    taipei_now = datetime.datetime.now(ZoneInfo("Asia/Taipei"))
+    try:
+        # Run asset sync which also pulls trades internally
+        await sync_taishin_assets(taipei_now.year, taipei_now.month, user_id=current_user.id, target_date=taipei_now.date())
+        await sync_esun_assets(taipei_now.year, taipei_now.month, user_id=current_user.id, target_date=taipei_now.date())
+        return {"status": "success", "message": "手動觸發排程同步成功！交易明細與持股餘額已更新！"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"手動排程同步失敗：{str(e)}")

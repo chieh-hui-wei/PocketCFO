@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile, testConnection, getSchedulerStatus } from "../services/api";
+import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile, testConnection, getSchedulerStatus, triggerSchedulerSync } from "../services/api";
 import { toast } from "../store/useToastStore";
 
 export default function SettingsPage() {
@@ -19,6 +19,7 @@ export default function SettingsPage() {
   // Scheduler status states
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null);
   const [isLoadingScheduler, setIsLoadingScheduler] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Invite Friend states
   const [inviteEmail, setInviteEmail] = useState("");
@@ -130,6 +131,22 @@ export default function SettingsPage() {
       toast.error("無法取得排程同步狀態");
     } finally {
       setIsLoadingScheduler(false);
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await triggerSchedulerSync();
+      toast.success(res.message || "手動同步成功！");
+      await fetchSchedulerStatus();
+    } catch (e: any) {
+      console.error(e);
+      const err = e.response?.data?.detail || e.message || "發生未知錯誤。";
+      toast.error(`手動同步失敗：${err}`);
+      await fetchSchedulerStatus();
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -844,6 +861,18 @@ export default function SettingsPage() {
                         </tbody>
                       </table>
                     </div>
+
+                    {Object.values(schedulerStatus?.sync_history || {}).some((h: any) => h.status === "failed") && (
+                      <div className="pt-4 flex justify-end">
+                        <button
+                          onClick={handleManualSync}
+                          disabled={isSyncing}
+                          className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {isSyncing ? "同步中..." : "🔄 立即重新同步 (同步失敗重試)"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
