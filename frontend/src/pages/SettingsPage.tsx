@@ -696,81 +696,17 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* API Credentials Form */}
-                <form onSubmit={handleSave} className="space-y-4 pt-4 border-t border-slate-100">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">玉山證券 / 網銀帳戶 (身分證字號)</label>
-                    <input
-                      type="text"
-                      value={esunAccount}
-                      onChange={e => setEsunAccount(e.target.value)}
-                      placeholder="請輸入身分證字號"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">網銀密碼 (Password)</label>
-                      <input
-                        type="password"
-                        value={esunPassword}
-                        onChange={e => setEsunPassword(e.target.value)}
-                        placeholder={settingsData?.has_esun_password ? "****** (已設定)" : "請輸入網銀密碼"}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">憑證解密密碼 (Cert Password)</label>
-                      <input
-                        type="password"
-                        value={esunCertPassword}
-                        onChange={e => setEsunCertPassword(e.target.value)}
-                        placeholder={settingsData?.has_esun_cert_password ? "****** (已設定)" : "請輸入憑證密碼"}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">API Key</label>
-                      <input
-                        type="password"
-                        value={esunApiKey}
-                        onChange={e => setEsunApiKey(e.target.value)}
-                        placeholder={settingsData?.esun_api_key || "未設定"}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">API Secret</label>
-                      <input
-                        type="password"
-                        value={esunApiSecret}
-                        onChange={e => setEsunApiSecret(e.target.value)}
-                        placeholder="留空代表不修改"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
-                    >
-                      儲存變更
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestConnection("esun")}
-                      disabled={testingBroker === "esun"}
-                      className="border border-blue-600 hover:bg-blue-50 text-blue-600 font-bold px-6 py-2 rounded-xl text-sm transition-all duration-200 disabled:opacity-50"
-                    >
-                      {testingBroker === "esun" ? "測試中..." : "測試 API 連線"}
-                    </button>
-                  </div>
-                </form>
+                {/* API Connection Test */}
+                <div className="pt-6 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => handleTestConnection("esun")}
+                    disabled={testingBroker === "esun"}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm disabled:opacity-50"
+                  >
+                    {testingBroker === "esun" ? "測試中..." : "測試 API 連線"}
+                  </button>
+                </div>
               </div>
             )}
 
