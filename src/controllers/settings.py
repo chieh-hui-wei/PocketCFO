@@ -268,3 +268,17 @@ async def test_connection(body: TestConnectionRequest):
 
     else:
         raise HTTPException(status_code=400, detail="未知的券商選擇")
+
+
+@router.get("/scheduler-status")
+async def get_scheduler_status():
+    from src.services.scheduler import load_scheduler_state
+    try:
+        state = load_scheduler_state()
+        return {
+            "status": "success",
+            "last_asset_sync_day": state.get("last_asset_sync_day"),
+            "sync_history": state.get("sync_history", {})
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"無法讀取排程狀態：{str(e)}")

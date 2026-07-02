@@ -509,6 +509,11 @@ export async function resetPassword(email: string, pinCode: string, newPassword:
   return data;
 }
 
+export async function getSchedulerStatus() {
+  const { data } = await api.get("/settings/scheduler-status");
+  return data;
+}
+
 
 
 

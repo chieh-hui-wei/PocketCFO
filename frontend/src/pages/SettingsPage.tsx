@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile, testConnection } from "../services/api";
+import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile, testConnection, getSchedulerStatus } from "../services/api";
 import { toast } from "../store/useToastStore";
 
 export default function SettingsPage() {
   const [settingsData, setSettingsData] = useState<CredentialsSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"profile" | "general" | "taishin" | "sinopac" | "esun" | "invite">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "general" | "taishin" | "sinopac" | "esun" | "invite" | "scheduler">("profile");
   const [userRole, setUserRole] = useState<string>("");
 
   // Profile update states
@@ -15,6 +15,10 @@ export default function SettingsPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState("");
   const [profileError, setProfileError] = useState("");
+
+  // Scheduler status states
+  const [schedulerStatus, setSchedulerStatus] = useState<any>(null);
+  const [isLoadingScheduler, setIsLoadingScheduler] = useState(false);
 
   // Invite Friend states
   const [inviteEmail, setInviteEmail] = useState("");
@@ -115,6 +119,25 @@ export default function SettingsPage() {
       console.error("Failed to parse user role in SettingsPage", e);
     }
   }, []);
+
+  const fetchSchedulerStatus = async () => {
+    setIsLoadingScheduler(true);
+    try {
+      const data = await getSchedulerStatus();
+      setSchedulerStatus(data);
+    } catch (e) {
+      console.error(e);
+      toast.error("無法取得排程同步狀態");
+    } finally {
+      setIsLoadingScheduler(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "scheduler") {
+      fetchSchedulerStatus();
+    }
+  }, [activeTab]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,6 +305,7 @@ export default function SettingsPage() {
             { id: "taishin", label: "台新證券設定" },
             { id: "sinopac", label: "永豐金證券設定" },
             { id: "esun", label: "玉山證券設定" },
+            { id: "scheduler", label: "自動同步排程狀態" },
             ...(userRole === "admin" ? [{ id: "invite", label: "邀請好友" }] : []),
           ].map((tab) => (
             <button
@@ -796,6 +820,96 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* Scheduler Status Tab */}
+            {activeTab === "scheduler" && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800 mb-1">自動同步排程狀態</h3>
+                    <p className="text-xs text-slate-500">
+                      確認每日下午 17:00 (台北時間) 的自動同步 API 是否成功撈取交易明細與持股餘額。
+                    </p>
+                  </div>
+                  <button
+                    onClick={fetchSchedulerStatus}
+                    disabled={isLoadingScheduler}
+                    className="border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold px-4 py-2 rounded-xl text-xs transition-all duration-200 disabled:opacity-50"
+                  >
+                    {isLoadingScheduler ? "重新整理中..." : "🔄 重新整理狀態"}
+                  </button>
+                </div>
+
+                {isLoadingScheduler ? (
+                  <div className="py-10 text-center text-sm text-slate-500">載入排程狀態中...</div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Last Sync Day Card */}
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-slate-700">最後排程資產同步日期</span>
+                      <span className="text-sm font-bold text-blue-600">
+                        {schedulerStatus?.last_asset_sync_day || "尚未執行過"}
+                      </span>
+                    </div>
+
+                    {/* Scheduler Status List */}
+                    <div className="border border-slate-100 rounded-xl overflow-hidden">
+                      <table className="w-full text-left border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="px-4 py-3 font-semibold text-slate-600">同步服務</th>
+                            <th className="px-4 py-3 font-semibold text-slate-600">狀態</th>
+                            <th className="px-4 py-3 font-semibold text-slate-600">最後執行時間 (台北時間)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { key: "taishin_trades", name: "台新證券 - 股票交易明細" },
+                            { key: "taishin_assets", name: "台新證券 - 資產與股票庫存" },
+                            { key: "esun_trades", name: "玉山證券 - 股票交易明細" },
+                            { key: "esun_assets", name: "玉山證券 - 資產與股票庫存" },
+                          ].map((item) => {
+                            const history = schedulerStatus?.sync_history?.[item.key];
+                            return (
+                              <tr key={item.key} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                                <td className="px-4 py-4 font-medium text-slate-800">{item.name}</td>
+                                <td className="px-4 py-4">
+                                  {history ? (
+                                    history.status === "success" ? (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                        ● 同步成功
+                                      </span>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                                          ● 同步失敗
+                                        </span>
+                                        {history.error && (
+                                          <p className="text-[11px] text-rose-500 max-w-[200px] break-all leading-normal">
+                                            {history.error}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-50 text-slate-500 border border-slate-100">
+                                      ● 尚未執行
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-4 text-slate-500">
+                                  {history?.time || "-"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

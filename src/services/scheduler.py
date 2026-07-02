@@ -66,6 +66,21 @@ def set_last_asset_sync_day(d: date) -> None:
     state["last_asset_sync_day"] = d.isoformat()
     save_scheduler_state(state)
 
+def update_sync_status(broker: str, status: str, error_msg: str | None = None) -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    state = load_scheduler_state()
+    if "sync_history" not in state:
+        state["sync_history"] = {}
+    
+    taipei_now = datetime.now(ZoneInfo("Asia/Taipei"))
+    state["sync_history"][broker] = {
+        "status": status,
+        "time": taipei_now.strftime("%Y-%m-%d %H:%M:%S"),
+        "error": error_msg
+    }
+    save_scheduler_state(state)
+
 async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
     """
     Sync stock transactions for a specific month from Taishin API.
@@ -154,8 +169,10 @@ async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
                 log.info(f"Auto-sync completed. Added {added_count} transactions to Taishin account.")
             else:
                 log.info("No new transactions found for Taishin account.")
+            update_sync_status("taishin_trades", "success")
         except Exception as e:
             log.error(f"Failed to auto-sync Taishin trades: {e}")
+            update_sync_status("taishin_trades", "failed", str(e))
 
 async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
     """
@@ -255,8 +272,10 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
                 log.info(f"Auto-sync completed. Added {added_count} transactions to E-Sun account.")
             else:
                 log.info("No new transactions found for E-Sun account.")
+            update_sync_status("esun_trades", "success")
         except Exception as e:
             log.error(f"Failed to auto-sync E-Sun trades: {e}")
+            update_sync_status("esun_trades", "failed", str(e))
 
 async def sync_taishin_assets(year: int, month: int, user_id: int = 1, target_date: date | None = None) -> None:
     """
@@ -344,8 +363,10 @@ async def sync_taishin_assets(year: int, month: int, user_id: int = 1, target_da
             
             await db.commit()
             log.info(f"sync.taishin.assets.success period={year}-{month:02d}")
+            update_sync_status("taishin_assets", "success")
         except Exception as e:
             log.error(f"Failed to auto-sync Taishin assets: {e}")
+            update_sync_status("taishin_assets", "failed", str(e))
 
 async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date: date | None = None) -> None:
     """
@@ -459,8 +480,10 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date:
             
             await db.commit()
             log.info(f"sync.esun.assets.success period={year}-{month:02d}")
+            update_sync_status("esun_assets", "success")
         except Exception as e:
             log.error(f"Failed to auto-sync E-Sun assets: {e}")
+            update_sync_status("esun_assets", "failed", str(e))
 
 async def check_and_run_tasks(now: datetime) -> None:
     """
