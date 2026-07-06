@@ -88,10 +88,13 @@ async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
     log.info(f"sync.taishin.trades.start period={year}-{month:02d}")
     period = first_of_month(year, month)
     
-    # Calculate start and end dates in YYYYMMDD format
-    start_date = f"{year}{month:02d}01"
-    last_day = calendar.monthrange(year, month)[1]
-    end_date = f"{year}{month:02d}{last_day:02d}"
+    from zoneinfo import ZoneInfo
+    today_dt = datetime.now(ZoneInfo("Asia/Taipei")).date()
+    start_dt = today_dt - timedelta(days=180)
+    
+    start_date = start_dt.strftime("%Y%m%d")
+    end_date = today_dt.strftime("%Y%m%d")
+    log.info(f"sync.taishin.trades.start range={start_date} to {end_date}")
     
     async with AsyncSessionLocal() as db:
         # Get or create Taishin brokerage account
@@ -120,6 +123,16 @@ async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
             history = await taishin.get_filled_history(start_date, end_date)
             log.info(f"Fetched {len(history)} filled history records from Taishin API for auto-sync.")
             
+            # Fetch existing transactions for this account in the last 180 days to check in memory
+            stmt = select(Transaction).where(
+                Transaction.user_id == user_id,
+                Transaction.account_id == account_id,
+                Transaction.source == TransactionSource.BROKERAGE,
+                Transaction.txn_date >= start_dt
+            )
+            res = await db.execute(stmt)
+            existing_txns = res.scalars().all()
+            
             added_count = 0
             for row in history:
                 try:
@@ -137,17 +150,23 @@ async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
                     
                 description = f"[{action_str}] {row.symbol} {row.filled_qty}股 @ {row.filled_price}"
                 
-                # Check for duplicates
-                stmt = select(Transaction).where(
-                    Transaction.user_id == user_id,
-                    Transaction.account_id == account_id,
-                    Transaction.txn_date == txn_date,
-                    Transaction.amount == amount,
-                    Transaction.description == description,
-                    Transaction.source == TransactionSource.BROKERAGE
-                )
-                existing = await db.execute(stmt)
-                if existing.scalars().first():
+                # Check for duplicates in memory
+                ord_no = getattr(row, "ord_no", "")
+                mat_seq = getattr(row, "mat_seq", getattr(row, "match_seq", ""))
+                sig = f"ORD:{ord_no}_SEQ:{mat_seq}" if (ord_no or mat_seq) else None
+                
+                is_dup = False
+                for txn in existing_txns:
+                    if sig and sig in txn.raw_data:
+                        is_dup = True
+                        break
+                    if (txn.txn_date == txn_date and 
+                        abs(txn.amount - amount) < 0.01 and 
+                        txn.description == description):
+                        is_dup = True
+                        break
+                
+                if is_dup:
                     continue
                     
                 txn = Transaction(
@@ -181,10 +200,13 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
     log.info(f"sync.esun.trades.start period={year}-{month:02d}")
     period = first_of_month(year, month)
     
-    # Calculate start and end dates in YYYY-MM-DD format
-    start_date = f"{year}-{month:02d}-01"
-    last_day = calendar.monthrange(year, month)[1]
-    end_date = f"{year}-{month:02d}-{last_day:02d}"
+    from zoneinfo import ZoneInfo
+    today_dt = datetime.now(ZoneInfo("Asia/Taipei")).date()
+    start_dt = today_dt - timedelta(days=180)
+    
+    start_date = start_dt.strftime("%Y-%m-%d")
+    end_date = today_dt.strftime("%Y-%m-%d")
+    log.info(f"sync.esun.trades.start range={start_date} to {end_date}")
     
     async with AsyncSessionLocal() as db:
         # Get or create E-Sun brokerage account
@@ -211,6 +233,16 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
             esun = get_esun_client()
             history = await esun.get_filled_history(start_date, end_date)
             log.info(f"Fetched {len(history)} filled history records from E-Sun API for auto-sync.")
+            
+            # Fetch existing transactions for this account in the last 180 days to check in memory
+            stmt = select(Transaction).where(
+                Transaction.user_id == user_id,
+                Transaction.account_id == account_id,
+                Transaction.source == TransactionSource.BROKERAGE,
+                Transaction.txn_date >= start_dt
+            )
+            res = await db.execute(stmt)
+            existing_txns = res.scalars().all()
             
             added_count = 0
             for summary in history:
@@ -240,17 +272,23 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
                         
                     description = f"[{action_str}] {stk_no} {qty}股 @ {price}"
                     
-                    # Check for duplicates
-                    stmt = select(Transaction).where(
-                        Transaction.user_id == user_id,
-                        Transaction.account_id == account_id,
-                        Transaction.txn_date == txn_date,
-                        Transaction.amount == amount,
-                        Transaction.description == description,
-                        Transaction.source == TransactionSource.BROKERAGE
-                    )
-                    existing = await db.execute(stmt)
-                    if existing.scalars().first():
+                    # Check for duplicates in memory
+                    ord_no = row.get("ord_no", "")
+                    ord_seq = row.get("ord_seq", row.get("match_no", row.get("t_time", "")))
+                    sig = f"ORD:{ord_no}_SEQ:{ord_seq}" if (ord_no or ord_seq) else None
+                    
+                    is_dup = False
+                    for txn in existing_txns:
+                        if sig and sig in txn.raw_data:
+                            is_dup = True
+                            break
+                        if (txn.txn_date == txn_date and 
+                            abs(txn.amount - amount) < 0.01 and 
+                            txn.description == description):
+                            is_dup = True
+                            break
+                    
+                    if is_dup:
                         continue
                         
                     txn = Transaction(
