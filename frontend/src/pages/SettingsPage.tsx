@@ -862,17 +862,15 @@ export default function SettingsPage() {
                       </table>
                     </div>
 
-                    {Object.values(schedulerStatus?.sync_history || {}).some((h: any) => h.status === "failed") && (
-                      <div className="pt-4 flex justify-end">
-                        <button
-                          onClick={handleManualSync}
-                          disabled={isSyncing}
-                          className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {isSyncing ? "同步中..." : "🔄 立即重新同步 (同步失敗重試)"}
-                        </button>
-                      </div>
-                    )}
+                    <div className="pt-4 flex justify-end">
+                      <button
+                        onClick={handleManualSync}
+                        disabled={isSyncing}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isSyncing ? "同步中..." : "🚀 立即執行自動同步 (同步最新數據)"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
