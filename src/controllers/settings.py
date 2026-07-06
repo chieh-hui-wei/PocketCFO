@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from src.instances.config import get_settings
+from src.middleware.auth import verify_token
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 settings = get_settings()
