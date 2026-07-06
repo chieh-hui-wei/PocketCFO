@@ -62,7 +62,6 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Write production docker-compose file directly to avoid SCP/SFTP connection issues
             cat << 'EOF' > docker-compose.prod.yml
             version: "3.9"
             
@@ -74,6 +73,7 @@ jobs:
                   - "8888:8888"
                 volumes:
                   - ./uploads:/app/uploads
+                  - ./secrets:/app/secrets
                   - ./pocketCFO.db:/app/pocketCFO.db
                   - ./pocketCFO2.db:/app/pocketCFO2.db
                 env_file:
@@ -95,3 +95,6 @@ jobs:
             # Pull and restart containers using production compose
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
+            
+            # Clean up old unused images and stopped containers to free VM disk space
+            docker system prune -f
