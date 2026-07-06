@@ -118,10 +118,13 @@ class EsunClient:
                 end_dt = date.today()
                 start_dt = end_dt - timedelta(days=90)
 
-        # Enforce 180-day lookup limit from today
-        limit_days_ago = date.today() - timedelta(days=180)
+        # Enforce 180-day lookup limit from today and prevent future end dates
+        today = date.today()
+        limit_days_ago = today - timedelta(days=180)
         if start_dt < limit_days_ago:
             start_dt = limit_days_ago
+        if end_dt > today:
+            end_dt = today
 
         start_str = start_dt.strftime("%Y-%m-%d")
         end_str = end_dt.strftime("%Y-%m-%d")
