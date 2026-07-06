@@ -4,7 +4,7 @@ import logging
 import calendar
 import json
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from src.instances.database import AsyncSessionLocal
 from src.dbs.models import Account, AccountType, Transaction, TransactionSource, TransactionCategory, AccountSnapshot, Security, User
 from src.dbs.repository import AccountRepository, TransactionRepository, SnapshotRepository, SecurityRepository
@@ -352,6 +352,15 @@ async def sync_taishin_assets(year: int, month: int, user_id: int = 1, target_da
                     )
                 )
                 
+            # Delete old securities for this account and day first to prevent sold/stale positions from persisting
+            await db.execute(
+                delete(Security).where(
+                    Security.user_id == user_id,
+                    Security.account_id == account_id,
+                    Security.period_date == period
+                )
+            )
+
             if securities:
                 sec_repo = SecurityRepository(db, user_id)
                 await sec_repo.upsert_many(securities)
@@ -469,6 +478,15 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date:
                     )
                 )
                 
+            # Delete old securities for this account and day first to prevent sold/stale positions from persisting
+            await db.execute(
+                delete(Security).where(
+                    Security.user_id == user_id,
+                    Security.account_id == account_id,
+                    Security.period_date == period
+                )
+            )
+
             if securities:
                 sec_repo = SecurityRepository(db, user_id)
                 await sec_repo.upsert_many(securities)
