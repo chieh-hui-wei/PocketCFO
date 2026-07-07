@@ -23,6 +23,8 @@ CATEGORY_TRANSLATION = {
     "TRANSPORT": "交通",
     "MEDICAL": "醫療",
     "ENTERTAINMENT": "娛樂",
+    "INSURANCE": "保險",
+    "EXERCISE": "運動",
     "DIVIDEND": "股利",
     "INTEREST": "利息",
     "OTHER": "其他"

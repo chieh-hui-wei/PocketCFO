@@ -85,6 +85,10 @@ async def run_migrations() -> None:
         "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'TRANSPORT'",
         "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'MEDICAL'",
         "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'ENTERTAINMENT'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'insurance'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'exercise'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'INSURANCE'",
+        "ALTER TYPE transactioncategory ADD VALUE IF NOT EXISTS 'EXERCISE'",
         # 2026-06-26: drop orphaned expense_category column (superseded by category enum)
         "ALTER TABLE transactions DROP COLUMN IF EXISTS expense_category",
         # 2026-06-26: per-user keyword → category override rules

@@ -23,6 +23,8 @@ CATEGORY_LABELS: dict[str, str] = {
     "medical": "醫療",
     "salary": "薪資",
     "entertainment": "娛樂",
+    "insurance": "保險",
+    "exercise": "運動",
     "expense": "支出",
     "investment": "投資",
     "dividend": "股利",
@@ -32,16 +34,18 @@ CATEGORY_LABELS: dict[str, str] = {
     "other": "其他",
 }
 
-VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "other"]
+VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "other"]
 
 _CLASSIFY_PROMPT = """\
 You are a financial transaction classifier for Taiwan.
 Classify each transaction into exactly ONE of these categories:
   food          – restaurants, supermarkets (全聯/全家/7-11), grocery, food delivery, drinks
   transport     – gas stations, ride-hailing (Uber/Bolt), taxis, MRT, buses, trains, parking, toll
-  medical       – hospitals, clinics, pharmacies, health insurance, dental, vision, skincare
+  medical       – hospitals, clinics, pharmacies, health checkups, dental, vision, skincare (excluding insurance premiums)
   salary        – salary / payroll / employer remittance deposits
   entertainment – streaming (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
+  insurance     – health insurance, life insurance, car/scooter insurance, annual premiums (e.g. 南山人壽, 富邦產險)
+  exercise      – gym membership, sports centers, sports equipment, fitness training
   other         – anything that doesn't clearly fit the above
 
 Each item has an "id", "merchant", and "description". Use all available fields to make the best decision.
@@ -154,6 +158,8 @@ def _category_to_enum(category: str):
         "transport": TransactionCategory.TRANSPORT,
         "medical": TransactionCategory.MEDICAL,
         "entertainment": TransactionCategory.ENTERTAINMENT,
+        "insurance": TransactionCategory.INSURANCE,
+        "exercise": TransactionCategory.EXERCISE,
         "salary": TransactionCategory.SALARY,
         "investment": TransactionCategory.INVESTMENT,
         "dividend": TransactionCategory.DIVIDEND,

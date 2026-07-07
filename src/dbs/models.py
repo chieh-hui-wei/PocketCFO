@@ -61,6 +61,8 @@ class TransactionCategory(str, enum.Enum):
     TRANSPORT = "TRANSPORT"   # gas stations, ride-hailing, MRT, trains
     MEDICAL = "MEDICAL"       # hospitals, clinics, pharmacies
     ENTERTAINMENT = "ENTERTAINMENT"  # streaming, cinemas, KTV, gaming
+    INSURANCE = "INSURANCE"          # health, life, auto, annual premiums
+    EXERCISE = "EXERCISE"            # gym, sports equipment, fitness classes
     DIVIDEND = "DIVIDEND"
     INTEREST = "INTEREST"
     OTHER = "OTHER"

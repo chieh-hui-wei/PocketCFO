@@ -316,6 +316,8 @@ export default function TransactionsPage() {
                 <option value="交通">交通</option>
                 <option value="醫療">醫療</option>
                 <option value="娛樂">娛樂</option>
+                <option value="保險">保險</option>
+                <option value="運動">運動</option>
                 <option value="股利">股利</option>
                 <option value="利息">利息</option>
                 <option value="其他">其他</option>
@@ -507,6 +509,8 @@ export default function TransactionsPage() {
                           <option value="交通">交通</option>
                           <option value="醫療">醫療</option>
                           <option value="娛樂">娛樂</option>
+                          <option value="保險">保險</option>
+                          <option value="運動">運動</option>
                           <option value="轉入">轉入</option>
                           <option value="轉出">轉出</option>
                           <option value="股利">股利</option>
@@ -685,6 +689,8 @@ export default function TransactionsPage() {
                     <option value="交通">交通</option>
                     <option value="醫療">醫療</option>
                     <option value="娛樂">娛樂</option>
+                    <option value="保險">保險</option>
+                    <option value="運動">運動</option>
                     <option value="薪資">薪資</option>
                     <option value="投資">投資</option>
                     <option value="轉入">轉入</option>
