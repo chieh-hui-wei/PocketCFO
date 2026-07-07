@@ -66,19 +66,23 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
+          <h1 className="text-2xl font-bold text-slate-800">財務總覽</h1>
+          <p className="text-sm text-slate-500 mt-1">即時查看您的資產負債與收支趨勢</p>
+        </div>
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
             {formatMonth(currentDate)}
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <div className="text-sm font-bold text-slate-800">Sarah</div>
-            <div className="text-xs font-medium text-slate-500">專屬個人財務管理</div>
-          </div>
-          <div className="w-12 h-12 bg-slate-100 rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-lg font-bold text-blue-600">
-            S
+          <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+            <div className="text-right">
+              <div className="text-sm font-bold text-slate-800">Sarah</div>
+              <div className="text-xs font-medium text-slate-500">專屬個人財務管理</div>
+            </div>
+            <div className="w-10 h-10 bg-blue-50 rounded-xl shadow-sm border border-blue-100 flex items-center justify-center text-sm font-bold text-blue-600">
+              S
+            </div>
           </div>
         </div>
       </div>
