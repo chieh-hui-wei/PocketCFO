@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { 
-  getTransactions, 
-  updateTransaction, 
-  deleteTransaction, 
+import {
+  getTransactions,
+  updateTransaction,
+  deleteTransaction,
   TransactionRecord,
   getAccounts,
   createTransaction,
@@ -92,12 +92,12 @@ export default function TransactionsPage() {
   const handleOpenAdd = async () => {
     const today = new Date();
     let defaultDate = today.toISOString().split("T")[0];
-    
+
     if (currentDate.getFullYear() !== today.getFullYear() || currentDate.getMonth() !== today.getMonth()) {
       const month = String(currentDate.getMonth() + 1).padStart(2, "0");
       defaultDate = `${currentDate.getFullYear()}-${month}-01`;
     }
-    
+
     setFormDate(defaultDate);
     setFormDescription("");
     setFormMerchant("");
@@ -107,7 +107,7 @@ export default function TransactionsPage() {
     setFormSource("bank");
     setFormAccountId("");
     setShowAddModal(true);
-    
+
     try {
       const accList = await getAccounts(true);
       setAccounts(accList);
@@ -140,9 +140,9 @@ export default function TransactionsPage() {
       toast.warning("請填寫交易日期、說明，且金額必須大於 0");
       return;
     }
-    
+
     const amountVal = formType === "expense" ? -Math.abs(formAmount) : Math.abs(formAmount);
-    
+
     try {
       await createTransaction({
         date: formDate,
@@ -153,7 +153,7 @@ export default function TransactionsPage() {
         source: formSource,
         account_id: formAccountId === "" ? null : formAccountId,
       });
-      
+
       setShowAddModal(false);
       fetchTxns();
     } catch (e) {
@@ -237,7 +237,7 @@ export default function TransactionsPage() {
   const handleBulkDelete = async () => {
     if (selectedTxnIds.length === 0) return;
     if (!window.confirm(`確定要刪除這 ${selectedTxnIds.length} 筆交易明細嗎？（所有相關月度報表皆會重新計算）`)) return;
-    
+
     try {
       await bulkDeleteTransactions(selectedTxnIds);
       toast.success("批次刪除交易明細成功！");
@@ -322,7 +322,7 @@ export default function TransactionsPage() {
                 <option value="利息">利息</option>
                 <option value="其他">其他</option>
               </select>
-              <button 
+              <button
                 onClick={handleBulkDelete}
                 className="bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded-lg text-xs font-bold text-red-600 transition-all cursor-pointer"
               >
@@ -330,13 +330,13 @@ export default function TransactionsPage() {
               </button>
             </div>
           )}
-          <button 
+          <button
             onClick={handleExport}
             className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             匯出 Excel
           </button>
-          <button 
+          <button
             onClick={handleOpenAdd}
             className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-xl text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
           >
@@ -367,27 +367,24 @@ export default function TransactionsPage() {
 
           {/* Type Filter Segment */}
           <div className="flex bg-slate-200/60 p-0.5 rounded-xl border border-slate-200/20">
-            <button 
+            <button
               onClick={() => setTypeFilter("all")}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                typeFilter === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${typeFilter === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
             >
               全部
             </button>
-            <button 
+            <button
               onClick={() => setTypeFilter("income")}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                typeFilter === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${typeFilter === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
             >
               僅看收入
             </button>
-            <button 
+            <button
               onClick={() => setTypeFilter("expense")}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                typeFilter === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${typeFilter === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
             >
               僅看支出
             </button>
@@ -396,7 +393,7 @@ export default function TransactionsPage() {
 
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
-            <input 
+            <input
               type="checkbox"
               checked={excludeTransfers}
               onChange={e => setExcludeTransfers(e.target.checked)}
@@ -438,7 +435,7 @@ export default function TransactionsPage() {
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-4 w-12 text-center">
-                    <input 
+                    <input
                       type="checkbox"
                       checked={filteredTxns.length > 0 && selectedTxnIds.length === filteredTxns.length}
                       ref={input => {
@@ -463,139 +460,139 @@ export default function TransactionsPage() {
                   const isEditing = editingTxnId === t.id;
                   const isSelected = selectedTxnIds.includes(t.id);
                   return (
-                  <tr key={t.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/20' : ''}`}>
-                    {/* Checkbox */}
-                    <td className="px-4 py-3 text-center">
-                      <input 
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={e => handleSelectRow(e.target.checked, t.id)}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-                      />
-                    </td>
-                    {/* Date */}
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                      {isEditing ? (
-                        <input 
-                          type="text" 
-                          value={editDate}
-                          onChange={e => setEditDate(e.target.value)}
-                          className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
+                    <tr key={t.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/20' : ''}`}>
+                      {/* Checkbox */}
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={e => handleSelectRow(e.target.checked, t.id)}
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                         />
-                      ) : (
-                        t.date
-                      )}
-                    </td>
+                      </td>
+                      {/* Date */}
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editDate}
+                            onChange={e => setEditDate(e.target.value)}
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
+                          />
+                        ) : (
+                          t.date
+                        )}
+                      </td>
 
-                    {/* Source */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
-                        {t.institution || getSourceLabel(t.source)}
-                      </span>
-                    </td>
-
-                    {/* Category */}
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                      {isEditing ? (
-                        <select 
-                          value={editCategory}
-                          onChange={e => setEditCategory(e.target.value)}
-                          className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="薪資">薪資</option>
-                          <option value="投資">投資</option>
-                          <option value="支出">支出</option>
-                          <option value="食物">食物</option>
-                          <option value="交通">交通</option>
-                          <option value="醫療">醫療</option>
-                          <option value="娛樂">娛樂</option>
-                          <option value="保險">保險</option>
-                          <option value="運動">運動</option>
-                          <option value="轉入">轉入</option>
-                          <option value="轉出">轉出</option>
-                          <option value="股利">股利</option>
-                          <option value="利息">利息</option>
-                          <option value="其他">其他</option>
-                          <option value="帳內互轉">帳內互轉</option>
-                        </select>
-                      ) : (
-                        t.raw_category || t.category || '-'
-                      )}
-                    </td>
-
-                    {/* Description */}
-                    <td className="px-4 py-3 text-slate-800">
-                      {isEditing ? (
-                        <input 
-                          type="text" 
-                          value={editDescription}
-                          onChange={e => setEditDescription(e.target.value)}
-                          className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
-                        />
-                      ) : (
-                        t.description || t.merchant || '-'
-                      )}
-                    </td>
-
-                    {/* Amount */}
-                    <td className="px-4 py-3 text-right font-bold whitespace-nowrap">
-                      {isEditing ? (
-                        <input 
-                          type="number" 
-                          value={editAmount}
-                          onChange={e => setEditAmount(parseFloat(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs text-right focus:outline-none focus:border-blue-500"
-                        />
-                      ) : (
-                        <span className={t.amount > 0 ? "text-green-600" : "text-slate-800"}>
-                          {t.amount > 0 ? `+ $${t.amount.toLocaleString()}` : `$${t.amount.toLocaleString()}`}
+                      {/* Source */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
+                          {t.institution || getSourceLabel(t.source)}
                         </span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {isEditing ? (
-                        <div className="flex justify-center gap-1.5">
-                          <button 
-                            onClick={() => handleSaveEdit(t.id)}
-                            className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-blue-700 shadow-sm transition-colors cursor-pointer"
+                      {/* Category */}
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                        {isEditing ? (
+                          <select
+                            value={editCategory}
+                            onChange={e => setEditCategory(e.target.value)}
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
                           >
-                            儲存
-                          </button>
-                          <button 
-                            onClick={handleCancelEdit}
-                            className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer"
-                          >
-                            取消
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-center gap-1.5">
-                          <button 
-                            onClick={() => handleStartEdit(t)}
-                            className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
-                            title="編輯交易"
-                          >
-                            編輯
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(t.id)}
-                            className="bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
-                            title="刪除交易"
-                          >
-                            刪除
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        );
-      })()}
+                            <option value="薪資">薪資</option>
+                            <option value="投資">投資</option>
+                            <option value="支出">支出</option>
+                            <option value="食物">食物</option>
+                            <option value="交通">交通</option>
+                            <option value="醫療">醫療</option>
+                            <option value="娛樂">娛樂</option>
+                            <option value="保險">保險</option>
+                            <option value="運動">運動</option>
+                            <option value="轉入">轉入</option>
+                            <option value="轉出">轉出</option>
+                            <option value="股利">股利</option>
+                            <option value="利息">利息</option>
+                            <option value="其他">其他</option>
+                            <option value="帳內互轉">帳內互轉</option>
+                          </select>
+                        ) : (
+                          t.raw_category || t.category || '-'
+                        )}
+                      </td>
+
+                      {/* Description */}
+                      <td className="px-4 py-3 text-slate-800">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editDescription}
+                            onChange={e => setEditDescription(e.target.value)}
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
+                          />
+                        ) : (
+                          t.description || t.merchant || '-'
+                        )}
+                      </td>
+
+                      {/* Amount */}
+                      <td className="px-4 py-3 text-right font-bold whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={editAmount}
+                            onChange={e => setEditAmount(parseFloat(e.target.value) || 0)}
+                            className="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs text-right focus:outline-none focus:border-blue-500"
+                          />
+                        ) : (
+                          <span className={t.amount > 0 ? "text-green-600" : "text-slate-800"}>
+                            {t.amount > 0 ? `+ $${t.amount.toLocaleString()}` : `$${t.amount.toLocaleString()}`}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {isEditing ? (
+                          <div className="flex justify-center gap-1.5">
+                            <button
+                              onClick={() => handleSaveEdit(t.id)}
+                              className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-blue-700 shadow-sm transition-colors cursor-pointer"
+                            >
+                              儲存
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-center gap-1.5">
+                            <button
+                              onClick={() => handleStartEdit(t)}
+                              className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
+                              title="編輯交易"
+                            >
+                              編輯
+                            </button>
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              className="bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
+                              title="刪除交易"
+                            >
+                              刪除
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          );
+        })()}
       </div>
 
       {showAddModal && (
@@ -605,15 +602,15 @@ export default function TransactionsPage() {
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">交易日期</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                   required
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">交易類型</label>
@@ -621,18 +618,16 @@ export default function TransactionsPage() {
                     <button
                       type="button"
                       onClick={() => handleTypeChange("expense")}
-                      className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                        formType === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${formType === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                        }`}
                     >
                       支出
                     </button>
                     <button
                       type="button"
                       onClick={() => handleTypeChange("income")}
-                      className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                        formType === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${formType === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                        }`}
                     >
                       收入
                     </button>
@@ -640,8 +635,8 @@ export default function TransactionsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">金額</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={formAmount || ""}
                     onChange={e => setFormAmount(parseFloat(e.target.value) || 0)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -655,8 +650,8 @@ export default function TransactionsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">交易說明 / 摘要</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formDescription}
                   onChange={e => setFormDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -667,8 +662,8 @@ export default function TransactionsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">交易商家 / 對象 (選填)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formMerchant}
                   onChange={e => setFormMerchant(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -679,7 +674,7 @@ export default function TransactionsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">收支分類</label>
-                  <select 
+                  <select
                     value={formCategory}
                     onChange={e => handleCategoryChange(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -703,7 +698,7 @@ export default function TransactionsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">交易來源</label>
-                  <select 
+                  <select
                     value={formSource}
                     onChange={e => setFormSource(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -718,7 +713,7 @@ export default function TransactionsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">關聯帳戶 (選填)</label>
-                <select 
+                <select
                   value={formAccountId}
                   onChange={e => setFormAccountId(e.target.value ? parseInt(e.target.value) : "")}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -733,14 +728,14 @@ export default function TransactionsPage() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors cursor-pointer"
                 >
                   取消
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer"
                 >
