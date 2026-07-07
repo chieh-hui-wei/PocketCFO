@@ -63,6 +63,9 @@ async def create_account(
     repo = AccountRepository(db, current_user.id)
     
     code = body.code
+    if code:
+        import re
+        code = re.sub(r'[^0-9]', '', str(code))
     if not code:
         import time
         code = f"manual_{body.account_type.value}_{int(time.time())}"
@@ -768,19 +771,22 @@ async def update_account(
     if body.is_internal is not None:
         account.is_internal = body.is_internal
     if body.code is not None:
-        # Check if the code is already used by another account for this user
-        from sqlalchemy import select
-        stmt = select(Account).where(
-            Account.code == body.code,
-            Account.id != account_id,
-            Account.user_id == current_user.id
-        )
-        result = await db.execute(stmt)
-        existing = result.scalars().first()
-        if existing:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail="Account number/code already exists")
-        account.code = body.code
+        import re
+        clean_code = re.sub(r'[^0-9]', '', str(body.code))
+        if clean_code:
+            # Check if the code is already used by another account for this user
+            from sqlalchemy import select
+            stmt = select(Account).where(
+                Account.code == clean_code,
+                Account.id != account_id,
+                Account.user_id == current_user.id
+            )
+            result = await db.execute(stmt)
+            existing = result.scalars().first()
+            if existing:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail="Account number/code already exists")
+            account.code = clean_code
     if body.notes is not None:
         account.notes = body.notes
         
