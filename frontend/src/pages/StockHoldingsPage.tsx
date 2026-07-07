@@ -28,7 +28,16 @@ export default function StockHoldingsPage() {
   const formatUpdateTimestamp = (isoString?: string) => {
     if (!isoString) return "";
     try {
-      const d = new Date(isoString);
+      let cleanIso = isoString;
+      // If the ISO string lacks timezone indicators, append 'Z' to treat it as UTC
+      if (!cleanIso.endsWith("Z") && !cleanIso.includes("+") && !cleanIso.includes("T") && cleanIso.includes(" ")) {
+        // Handle format: "YYYY-MM-DD HH:MM:SS" -> replace space with "T" and add "Z"
+        cleanIso = cleanIso.replace(" ", "T") + "Z";
+      } else if (!cleanIso.endsWith("Z") && !cleanIso.includes("+") && cleanIso.includes("T")) {
+        // Handle format: "YYYY-MM-DDTHH:MM:SS"
+        cleanIso = cleanIso + "Z";
+      }
+      const d = new Date(cleanIso);
       if (isNaN(d.getTime())) return "";
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
