@@ -43,6 +43,14 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
+    // Reset selected account ID if it has no transactions in the loaded transactions list
+    const activeIds = new Set(transactions.map(t => t.account_id).filter(Boolean));
+    if (selectedAccountId !== "all" && !activeIds.has(selectedAccountId)) {
+      setSelectedAccountId("all");
+    }
+  }, [transactions]);
+
+  useEffect(() => {
     setSelectedTxnIds([]);
   }, [currentDate, selectedAccountId, excludeTransfers, typeFilter]);
 
@@ -306,11 +314,14 @@ export default function TransactionsPage() {
             className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
           >
             <option value="all">所有帳戶/銀行</option>
-            {allAccounts.map(acc => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name} ({acc.institution})
-              </option>
-            ))}
+            {allAccounts
+              .filter(acc => transactions.some(t => t.account_id === acc.id))
+              .map(acc => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({acc.institution})
+                </option>
+              ))
+            }
           </select>
 
           {/* Type Filter Segment */}
