@@ -495,7 +495,15 @@ class StatementService:
         )
 
         total_market_value = float(data.get("total_market_value") or 0)
-        cash_balance = float(data.get("cash_balance") or 0)
+        
+        # Standard domestic Taiwan brokerages settle through separate bank accounts (already tracked).
+        # Therefore, we only count cash balance for foreign brokerages (e.g., Firstrade).
+        inst_lower = (data.get("institution") or "").lower()
+        if "firstrade" in inst_lower:
+            cash_balance = float(data.get("cash_balance") or 0)
+        else:
+            cash_balance = 0.0
+
         balance_orig = total_market_value + cash_balance
         
         # Save snapshot
