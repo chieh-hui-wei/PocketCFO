@@ -78,6 +78,7 @@ export default function AccountsPage() {
       if (created && created.is_internal !== formIsInternal) {
         await updateAccount(created.id, { is_internal: formIsInternal });
       }
+      toast.success("帳戶建立成功！");
       setShowAddModal(false);
       fetchAccounts();
     } catch (e) {
@@ -98,6 +99,7 @@ export default function AccountsPage() {
         is_internal: formIsInternal,
         code: formCode
       });
+      toast.success("帳戶修改已儲存！");
       setShowEditModal(false);
       fetchAccounts();
     } catch (e) {
@@ -112,6 +114,7 @@ export default function AccountsPage() {
     }
     try {
       await deleteAccount(id);
+      toast.success("帳戶已成功刪除！");
       fetchAccounts();
     } catch (e) {
       console.error(e);
