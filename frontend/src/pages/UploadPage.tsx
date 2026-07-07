@@ -8,6 +8,7 @@ import {
   UploadHistoryRecord,
 } from "../services/api";
 import { toast } from "../store/useToastStore";
+import { formatUtc8 } from "../utils/formatters";
 
 const KINDS = [
   { id: "bank", num: 1, title: "銀行對帳單", sub: "請上傳您的銀行對帳單", ext: "僅限 PDF 檔案" },
@@ -508,7 +509,7 @@ export default function UploadPage() {
                         return (
                           <tr key={record.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3 whitespace-nowrap text-slate-500 font-mono">
-                              {new Date(record.created_at).toLocaleString()}
+                              {formatUtc8(record.created_at)}
                             </td>
                             <td className="px-4 py-3 font-semibold text-slate-700 max-w-[200px] truncate" title={record.filename}>
                               {record.filename}

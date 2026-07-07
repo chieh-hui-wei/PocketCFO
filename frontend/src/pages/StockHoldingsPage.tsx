@@ -11,6 +11,7 @@ import {
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "../store/useToastStore";
+import { formatUtc8 } from "../utils/formatters";
 
 interface EditableSecurity {
   ticker: string;
@@ -25,30 +26,6 @@ export default function StockHoldingsPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | "overview">("overview");
   const [isEditing, setIsEditing] = useState(false);
   
-  const formatUpdateTimestamp = (isoString?: string) => {
-    if (!isoString) return "";
-    try {
-      let cleanIso = isoString;
-      // If the ISO string lacks timezone indicators, append 'Z' to treat it as UTC
-      if (!cleanIso.endsWith("Z") && !cleanIso.includes("+") && !cleanIso.includes("T") && cleanIso.includes(" ")) {
-        // Handle format: "YYYY-MM-DD HH:MM:SS" -> replace space with "T" and add "Z"
-        cleanIso = cleanIso.replace(" ", "T") + "Z";
-      } else if (!cleanIso.endsWith("Z") && !cleanIso.includes("+") && cleanIso.includes("T")) {
-        // Handle format: "YYYY-MM-DDTHH:MM:SS"
-        cleanIso = cleanIso + "Z";
-      }
-      const d = new Date(cleanIso);
-      if (isNaN(d.getTime())) return "";
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const h = String(d.getHours()).padStart(2, "0");
-      const min = String(d.getMinutes()).padStart(2, "0");
-      return `${y}年${m}月${day}日 ${h}:${min}`;
-    } catch {
-      return "";
-    }
-  };
   
   // Date State
   const [currentDate, setCurrentDate] = useState(() => {
@@ -872,7 +849,7 @@ export default function StockHoldingsPage() {
                     <h3 className="font-bold text-slate-800 text-sm">跨券商股票持股彙總</h3>
                     {overviewLastUpdated ? (
                       <span className="text-xxs text-slate-400 font-normal">
-                        更新時間：{formatUpdateTimestamp(overviewLastUpdated)}
+                        更新時間：{formatUtc8(overviewLastUpdated)}
                       </span>
                     ) : (
                       <span className="text-xxs text-slate-400 font-normal italic">
@@ -1019,7 +996,7 @@ export default function StockHoldingsPage() {
                           <p className="text-xs text-slate-400 mt-0.5">
                             顯示 {formatMonth(currentDate)} 底的持股狀況
                             {brokerLastUpdated 
-                              ? `（更新時間：${formatUpdateTimestamp(brokerLastUpdated)}）` 
+                              ? `（更新時間：${formatUtc8(brokerLastUpdated)}）` 
                               : `（自動結轉前月餘額）`
                             }
                           </p>

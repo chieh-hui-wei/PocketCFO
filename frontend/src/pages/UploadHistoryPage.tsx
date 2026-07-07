@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatUtc8 } from "../utils/formatters";
 import { getUploadHistory, deleteUploadHistory, UploadHistoryRecord } from "../services/api";
 import { toast } from "../store/useToastStore";
 
@@ -85,7 +86,7 @@ export default function UploadHistoryPage() {
               history.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                    {new Date(record.created_at).toLocaleString()}
+                    {formatUtc8(record.created_at)}
                   </td>
                   <td className="px-6 py-4 text-slate-800 font-medium">
                     {record.filename}
