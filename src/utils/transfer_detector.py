@@ -37,12 +37,35 @@ class TransferDetector:
         self.internal_account_ids = [aid.strip() for aid in internal_account_ids]
 
     def fuzzy_match_account(self, clean_aid: str, clean_cand: str) -> bool:
-        len_aid = len(clean_aid)
-        len_cand = len(clean_cand)
-        
-        if len_aid < 6 or len_cand < 6:
+        if not clean_aid or not clean_cand:
             return False
             
+        if clean_aid == clean_cand:
+            return True
+            
+        aid_digits = re.sub(r'[*xX]', '', clean_aid)
+        cand_digits = re.sub(r'[*xX]', '', clean_cand)
+        
+        if not aid_digits or not cand_digits:
+            return False
+            
+        if len(cand_digits) >= 4 and clean_aid.endswith(cand_digits):
+            return True
+        if len(aid_digits) >= 4 and clean_cand.endswith(aid_digits):
+            return True
+
+        parts = [p for p in re.split(r'[*xX]+', clean_cand) if p]
+        if len(parts) >= 2:
+            prefix = parts[0]
+            suffix = parts[-1]
+            if len(prefix) >= 3 and len(suffix) >= 3:
+                clean_aid_l = clean_aid.lstrip('0')
+                prefix_l = prefix.lstrip('0')
+                if clean_aid_l.startswith(prefix_l):
+                    idx = len(prefix_l)
+                    if suffix in clean_aid_l[idx:]:
+                        return True
+
         def match_equal_len(s1: str, s2: str) -> bool:
             match_count = 0
             for c1, c2 in zip(s1, s2):
@@ -51,7 +74,10 @@ class TransferDetector:
                 if c1 == c2 and c1 not in '*xX':
                     match_count += 1
             return match_count >= 4
-
+            
+        len_aid = len(clean_aid)
+        len_cand = len(clean_cand)
+        
         if len_cand == len_aid:
             return match_equal_len(clean_cand, clean_aid)
         elif len_cand < len_aid:
@@ -82,11 +108,11 @@ class TransferDetector:
         candidates = re.findall(r'[0-9*xX]+(?:-[0-9*xX]+)*', description)
         for cand in candidates:
             clean_cand = re.sub(r'[^0-9*xX]', '', cand)
-            if len(clean_cand) < 6:
+            if len(clean_cand) < 5:
                 continue
             for aid in self.internal_account_ids:
                 clean_aid = re.sub(r'[^0-9*xX]', '', aid)
-                if len(clean_aid) >= 6:
+                if len(clean_aid) >= 5:
                     if self.fuzzy_match_account(clean_aid, clean_cand):
                         return True
 
