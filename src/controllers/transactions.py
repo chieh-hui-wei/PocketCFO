@@ -520,6 +520,11 @@ class BulkDeleteRequest(BaseModel):
     ids: list[int]
 
 
+class BulkUpdateCategoryRequest(BaseModel):
+    ids: list[int]
+    category: str
+
+
 @router.post("/bulk-delete")
 async def bulk_delete_transactions(
     body: BulkDeleteRequest,
@@ -562,4 +567,65 @@ async def bulk_delete_transactions(
         log.error(f"Error bulk deleting transactions: {e}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bulk-update-category")
+async def bulk_update_category(
+    body: BulkUpdateCategoryRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token)
+) -> dict[str, Any]:
+    try:
+        from src.dbs.models import Transaction, TransactionCategory
+        from sqlalchemy import select
+        
+        # Fetch transactions
+        stmt = select(Transaction).where(Transaction.id.in_(body.ids), Transaction.user_id == current_user.id)
+        res = await db.execute(stmt)
+        txns = res.scalars().all()
+        
+        if not txns:
+            return {"status": "ok", "updated_count": 0}
+            
+        # Parse category
+        reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
+        reverse_cat["帳內互轉"] = "TRANSFER_IN"
+        cat_val = reverse_cat.get(body.category, body.category)
+        if isinstance(cat_val, str):
+            cat_val = cat_val.upper()
+        try:
+            new_cat = TransactionCategory(cat_val)
+        except ValueError:
+            new_cat = TransactionCategory.OTHER
+
+        periods_to_recompute = set((t.txn_date.year, t.txn_date.month) for t in txns)
+        
+        # Update categories
+        for t in txns:
+            t.category = new_cat
+            # If changing to/from inter-transfer, sync flags
+            if new_cat == TransactionCategory.TRANSFER_IN or new_cat == TransactionCategory.TRANSFER_OUT:
+                t.is_internal_transfer = True
+            else:
+                t.is_internal_transfer = False
+        await db.flush()
+        
+        # Recompute reports for affected periods
+        from src.services.reports.income_statement import IncomeStatementService
+        from src.services.reports.balance_sheet import BalanceSheetService
+        
+        is_service = IncomeStatementService(db, current_user.id)
+        bs_service = BalanceSheetService(db, current_user.id)
+        
+        for y, m in periods_to_recompute:
+            await is_service.compute(y, m)
+            await bs_service.compute(y, m)
+            
+        await db.commit()
+        return {"status": "ok", "updated_count": len(txns)}
+    except Exception as e:
+        log.error(f"Error bulk updating transaction categories: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 

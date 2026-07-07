@@ -525,6 +525,11 @@ export async function bulkDeleteTransactions(ids: number[]) {
   return data;
 }
 
+export async function bulkUpdateTransactionCategories(ids: number[], category: string) {
+  const { data } = await api.post("/transactions/bulk-update-category", { ids, category });
+  return data;
+}
+
 
 
 

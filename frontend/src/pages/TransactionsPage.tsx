@@ -7,7 +7,8 @@ import {
   getAccounts,
   createTransaction,
   Account,
-  bulkDeleteTransactions
+  bulkDeleteTransactions,
+  bulkUpdateTransactionCategories
 } from "../services/api";
 import { toast } from "../store/useToastStore";
 
@@ -248,6 +249,19 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleBulkUpdateCategory = async (category: string) => {
+    if (selectedTxnIds.length === 0) return;
+    try {
+      await bulkUpdateTransactionCategories(selectedTxnIds, category);
+      toast.success("批次更新交易類別成功！");
+      setSelectedTxnIds([]);
+      fetchTxns();
+    } catch (e) {
+      console.error(e);
+      toast.error("批次更新交易類別失敗");
+    }
+  };
+
   const handleSelectAll = (checked: boolean, filteredTxns: TransactionRecord[]) => {
     if (checked) {
       setSelectedTxnIds(filteredTxns.map(t => t.id));
@@ -282,12 +296,37 @@ export default function TransactionsPage() {
         </div>
         <div className="flex gap-3">
           {selectedTxnIds.length > 0 && (
-            <button 
-              onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-bold text-white hover:scale-[1.01] shadow-md transition-all cursor-pointer animate-in fade-in"
-            >
-              🗑️ 刪除所選 ({selectedTxnIds.length})
-            </button>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl animate-in fade-in">
+              <span className="text-xs font-bold text-slate-500">已選 {selectedTxnIds.length} 筆：</span>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkUpdateCategory(e.target.value);
+                    e.target.value = ""; // Reset value so it can be re-triggered
+                  }
+                }}
+                className="bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 px-2 py-1 outline-none cursor-pointer hover:bg-slate-50"
+              >
+                <option value="">批量修改類別...</option>
+                <option value="薪資">薪資</option>
+                <option value="投資">投資</option>
+                <option value="轉入">轉入</option>
+                <option value="轉出">轉出</option>
+                <option value="食物">食物</option>
+                <option value="交通">交通</option>
+                <option value="醫療">醫療</option>
+                <option value="娛樂">娛樂</option>
+                <option value="股利">股利</option>
+                <option value="利息">利息</option>
+                <option value="其他">其他</option>
+              </select>
+              <button 
+                onClick={handleBulkDelete}
+                className="bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded-lg text-xs font-bold text-red-600 transition-all cursor-pointer"
+              >
+                🗑️ 刪除所選
+              </button>
+            </div>
           )}
           <button 
             onClick={handleExport}
