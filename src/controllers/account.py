@@ -688,7 +688,7 @@ async def reclassify_and_recompute_all(db: AsyncSession, user_id: int):
     from src.services.reports.balance_sheet import BalanceSheetService
 
     # 1. Fetch all user accounts
-    result_accs = await db.execute(select(Account).where(Account.user_id == user_id, Account.is_active == True))
+    result_accs = await db.execute(select(Account).where(Account.user_id == user_id))
     accounts = result_accs.scalars().all()
     
     internal_aids = []
@@ -753,7 +753,7 @@ async def update_account(
 ):
     repo = AccountRepository(db, current_user.id)
     account = await repo.get_by_id(account_id)
-    if not account or not account.is_active:
+    if not account:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Account not found")
         
@@ -768,12 +768,11 @@ async def update_account(
     if body.is_internal is not None:
         account.is_internal = body.is_internal
     if body.code is not None:
-        # Check if the code is already used by another active account for this user
+        # Check if the code is already used by another account for this user
         from sqlalchemy import select
         stmt = select(Account).where(
             Account.code == body.code,
             Account.id != account_id,
-            Account.is_active == True,
             Account.user_id == current_user.id
         )
         result = await db.execute(stmt)
@@ -797,14 +796,20 @@ async def delete_account(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_token),
 ):
+    from sqlalchemy import delete as sa_delete
+    from src.dbs.models import AccountSnapshot, Security, Transaction
+
     repo = AccountRepository(db, current_user.id)
     account = await repo.get_by_id(account_id)
-    if not account or not account.is_active:
+    if not account:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Account not found")
-        
-    # Soft delete
-    account.is_active = False
+
+    # Hard cascade delete: remove all related data first
+    await db.execute(sa_delete(Security).where(Security.account_id == account_id))
+    await db.execute(sa_delete(AccountSnapshot).where(AccountSnapshot.account_id == account_id))
+    await db.execute(sa_delete(Transaction).where(Transaction.account_id == account_id))
+    await db.delete(account)
     await db.flush()
     await reclassify_and_recompute_all(db, current_user.id)
     await db.commit()

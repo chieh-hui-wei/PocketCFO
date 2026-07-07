@@ -98,6 +98,31 @@ async def run_migrations() -> None:
             UNIQUE (user_id, keyword)
         )
         """,
+        # 2026-07-07: migrate old prefix-style account codes (bank_inst_num / broker_inst_num)
+        # to digits-only codes. Uses a DO block so it is idempotent.
+        """
+        DO $$
+        DECLARE
+            r RECORD;
+            new_code TEXT;
+        BEGIN
+            FOR r IN SELECT id, code FROM accounts
+                WHERE code LIKE 'bank\\_%' OR code LIKE 'broker\\_%' OR code LIKE 'cc\\_%'
+            LOOP
+                -- Extract digits from the trailing segment after the last underscore
+                new_code := regexp_replace(split_part(r.code, '_', array_length(string_to_array(r.code, '_'), 1)), '[^0-9]', '', 'g');
+                IF new_code = '' THEN
+                    CONTINUE;
+                END IF;
+                -- Only update if the digits-only code is not already taken
+                IF NOT EXISTS (SELECT 1 FROM accounts WHERE code = new_code AND id <> r.id) THEN
+                    UPDATE accounts SET code = new_code WHERE id = r.id;
+                END IF;
+            END LOOP;
+        END $$
+        """,
+        # 2026-07-07: drop is_active from accounts (replaced by hard cascade delete)
+        "ALTER TABLE accounts DROP COLUMN IF EXISTS is_active",
     ]
 
     async with engine.begin() as conn:

@@ -129,7 +129,6 @@ class Account(Base):
     is_internal: Mapped[bool] = mapped_column(
         Boolean, default=True
     )  # user-owned → transfers excluded
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

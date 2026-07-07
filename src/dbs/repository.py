@@ -33,7 +33,7 @@ class AccountRepository:
 
     async def get_all(self) -> Sequence[Account]:
         result = await self.db.execute(
-            select(Account).where(Account.is_active == True, Account.user_id == self.user_id)
+            select(Account).where(Account.user_id == self.user_id)
         )
         return result.scalars().all()
 
