@@ -14,18 +14,18 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/transactions", tags=["Transactions"])
 
 CATEGORY_TRANSLATION = {
-    "salary": "薪資",
-    "investment": "投資",
-    "transfer_in": "轉入",
-    "transfer_out": "轉出",
-    "expense": "支出",
-    "food": "食物",
-    "transport": "交通",
-    "medical": "醫療",
-    "entertainment": "娛樂",
-    "dividend": "股利",
-    "interest": "利息",
-    "other": "其他"
+    "SALARY": "薪資",
+    "INVESTMENT": "投資",
+    "TRANSFER_IN": "轉入",
+    "TRANSFER_OUT": "轉出",
+    "EXPENSE": "支出",
+    "FOOD": "食物",
+    "TRANSPORT": "交通",
+    "MEDICAL": "醫療",
+    "ENTERTAINMENT": "娛樂",
+    "DIVIDEND": "股利",
+    "INTEREST": "利息",
+    "OTHER": "其他"
 }
 
 @router.get("/")
@@ -340,8 +340,10 @@ async def create_transaction(
 
         # Category mapping
         reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
-        reverse_cat["帳內互轉"] = "transfer_in"
+        reverse_cat["帳內互轉"] = "TRANSFER_IN"
         cat_val = reverse_cat.get(body.category, body.category)
+        if isinstance(cat_val, str):
+            cat_val = cat_val.upper()
         try:
             category = TransactionCategory(cat_val)
         except ValueError:
@@ -443,8 +445,10 @@ async def update_transaction(
             
         if body.category is not None:
             reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
-            reverse_cat["帳內互轉"] = "transfer_in"
+            reverse_cat["帳內互轉"] = "TRANSFER_IN"
             cat_val = reverse_cat.get(body.category, body.category)
+            if isinstance(cat_val, str):
+                cat_val = cat_val.upper()
             try:
                 txn.category = TransactionCategory(cat_val)
             except ValueError:

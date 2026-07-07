@@ -233,6 +233,8 @@ class StatementService:
                         "帳內互轉": "transfer_in"
                     }
                     cat_val = reverse_cat.get(cat_str, cat_str)
+                    if isinstance(cat_val, str):
+                        cat_val = cat_val.upper()
                     try:
                         category = TransactionCategory(cat_val)
                     except ValueError:
@@ -690,16 +692,22 @@ class StatementService:
             category = TransactionCategory.EXPENSE
             if cat_str:
                 reverse_cat = {
-                    "薪資": "salary",
-                    "投資": "investment",
-                    "轉入": "transfer_in",
-                    "轉出": "transfer_out",
-                    "支出": "expense",
-                    "股利": "dividend",
-                    "利息": "interest",
-                    "其他": "other",
+                    "薪資": "SALARY",
+                    "投資": "INVESTMENT",
+                    "轉入": "TRANSFER_IN",
+                    "轉出": "TRANSFER_OUT",
+                    "支出": "EXPENSE",
+                    "食物": "FOOD",
+                    "交通": "TRANSPORT",
+                    "醫療": "MEDICAL",
+                    "娛樂": "ENTERTAINMENT",
+                    "股利": "DIVIDEND",
+                    "利息": "INTEREST",
+                    "其他": "OTHER",
                 }
                 cat_val = reverse_cat.get(cat_str, cat_str)
+                if isinstance(cat_val, str):
+                    cat_val = cat_val.upper()
                 try:
                     category = TransactionCategory(cat_val)
                 except ValueError:
@@ -853,6 +861,23 @@ class StatementService:
                                 is_dup = True
                                 break
                     item["is_duplicate"] = is_dup
+
+                try:
+                    from src.utils.category_classifier import classify_transactions_batch, label
+                    from src.dbs.repository import CategoryRuleRepository
+                    rule_repo = CategoryRuleRepository(self.db, self.user_id)
+                    rules = list(await rule_repo.list_all())
+                    classify_items = [
+                        {"id": str(idx), "merchant": item.get("merchant") or "", "description": item.get("description") or ""}
+                        for idx, item in enumerate(data.get("items", []))
+                    ]
+                    if classify_items:
+                        classification = await classify_transactions_batch(classify_items, rules)
+                        for idx, item in enumerate(data.get("items", [])):
+                            cat_key = classification.get(str(idx), "other")
+                            item["category"] = label(cat_key)
+                except Exception as e:
+                    log.warning(f"Classification during parse phase failed: {e}")
             except Exception as e:
                 log.warning(f"Dry-run duplicate check failed: {e}")
         else:

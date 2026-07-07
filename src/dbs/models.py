@@ -52,18 +52,18 @@ class StatementType(str, enum.Enum):
 
 
 class TransactionCategory(str, enum.Enum):
-    SALARY = "salary"
-    INVESTMENT = "investment"
-    TRANSFER_IN = "transfer_in"
-    TRANSFER_OUT = "transfer_out"
-    EXPENSE = "expense"       # generic expense (bank transfers, etc.)
-    FOOD = "food"             # restaurants, supermarkets, convenience stores
-    TRANSPORT = "transport"   # gas stations, ride-hailing, MRT, trains
-    MEDICAL = "medical"       # hospitals, clinics, pharmacies
-    ENTERTAINMENT = "entertainment"  # streaming, cinemas, KTV, gaming
-    DIVIDEND = "dividend"
-    INTEREST = "interest"
-    OTHER = "other"
+    SALARY = "SALARY"
+    INVESTMENT = "INVESTMENT"
+    TRANSFER_IN = "TRANSFER_IN"
+    TRANSFER_OUT = "TRANSFER_OUT"
+    EXPENSE = "EXPENSE"       # generic expense (bank transfers, etc.)
+    FOOD = "FOOD"             # restaurants, supermarkets, convenience stores
+    TRANSPORT = "TRANSPORT"   # gas stations, ride-hailing, MRT, trains
+    MEDICAL = "MEDICAL"       # hospitals, clinics, pharmacies
+    ENTERTAINMENT = "ENTERTAINMENT"  # streaming, cinemas, KTV, gaming
+    DIVIDEND = "DIVIDEND"
+    INTEREST = "INTEREST"
+    OTHER = "OTHER"
 
 
 class TransactionSource(str, enum.Enum):

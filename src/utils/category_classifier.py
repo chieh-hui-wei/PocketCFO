@@ -160,4 +160,4 @@ def _category_to_enum(category: str):
         "interest": TransactionCategory.INTEREST,
         "other": TransactionCategory.OTHER,
     }
-    return _map.get(category, TransactionCategory.OTHER)
+    return _map.get(category.lower(), TransactionCategory.OTHER)
