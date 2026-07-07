@@ -181,19 +181,28 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
           <h3 className="font-bold text-slate-800 mb-6">本月收支摘要</h3>
           <div className="flex-1 flex flex-col gap-4">
-            <div className="flex justify-between items-center py-2">
+            <div className="flex justify-between items-center py-1">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                <span className="text-sm font-bold text-slate-600">薪資收入</span>
+                <span className="text-xs font-bold text-slate-600">薪資收入</span>
               </div>
-              <span className="text-sm font-bold text-slate-800">${(latestIs?.salary_income ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <span className="text-xs font-bold text-slate-800">${(latestIs?.salary_income ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
-            <div className="flex justify-between items-center py-2">
+            <div className="flex justify-between items-center py-1">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-300"></span>
-                <span className="text-sm font-bold text-slate-600">其他收入</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span className="text-xs font-bold text-slate-600">投資與股利</span>
               </div>
-              <span className="text-sm font-bold text-slate-800">${(latestIs?.investment_income ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <span className="text-xs font-bold text-slate-800">${(latestIs?.investment_income ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </div>
+            <div className="flex justify-between items-center py-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-teal-300"></span>
+                <span className="text-xs font-bold text-slate-600">其他收入</span>
+              </div>
+              <span className="text-xs font-bold text-slate-800">
+                ${Math.max(0, (latestIs?.total_income ?? 0) - (latestIs?.salary_income ?? 0) - (latestIs?.investment_income ?? 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
             </div>
             <div className="h-px bg-slate-100 w-full my-1"></div>
             <div className="flex justify-between items-center py-2">
