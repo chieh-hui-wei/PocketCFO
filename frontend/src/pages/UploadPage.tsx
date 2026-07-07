@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   parseStatement,
   confirmStatement,
   StatementKind,
+  getUploadHistory,
+  deleteUploadHistory,
+  UploadHistoryRecord,
 } from "../services/api";
 import { toast } from "../store/useToastStore";
 
@@ -27,6 +30,39 @@ export default function UploadPage() {
   // States for the two-step verification flow
   const [editData, setEditData] = useState<any | null>(null);
   const [activeAccountTab, setActiveAccountTab] = useState(0);
+
+  const [history, setHistory] = useState<UploadHistoryRecord[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const fetchHistory = async () => {
+    setIsHistoryLoading(true);
+    try {
+      const data = await getUploadHistory();
+      setHistory(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const handleDeleteHistory = async (id: number) => {
+    if (!window.confirm("確定要刪除這筆上傳紀錄嗎？（注意：這只會刪除紀錄解除重複檔案鎖定，不會刪除已解析出的交易明細喔！）")) {
+      return;
+    }
+    try {
+      await deleteUploadHistory(id);
+      toast.success("紀錄刪除成功！");
+      fetchHistory();
+    } catch (e) {
+      console.error(e);
+      toast.error("刪除失敗");
+    }
+  };
 
   const updateAccountField = (tabIdx: number, field: string, value: any) => {
     setEditData((prev: any) => {
@@ -212,6 +248,7 @@ export default function UploadPage() {
       setFiles({ bank: [], credit_card: [], brokerage: [], einvoice: [] });
       setPassword("");
       setParseStep(0);
+      fetchHistory();
     } catch (e: any) {
       console.error(e);
       toast.error(`確認儲存失敗：${e.response?.data?.detail || e.message || "發生未知錯誤。"}`);
@@ -420,9 +457,94 @@ export default function UploadPage() {
       {/* RIGHT COLUMN: Review & Confirm Dashboard */}
       <div className="flex-1 flex flex-col h-[calc(100vh-100px)] overflow-y-auto">
         {!editData ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-full flex flex-col items-center justify-center text-slate-400">
-            <div className="font-bold text-lg text-slate-500">尚無解析資料</div>
-            <div className="text-sm mt-2 text-center">請上傳對帳單並點擊「開始 AI 解析檔案」，即可在此核對並儲存結果。</div>
+          <div className="flex flex-col gap-6 h-full">
+            {/* Instruction Card */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner mb-4">
+                📄
+              </div>
+              <h2 className="text-base font-bold text-slate-800 mb-2">等待開始解析</h2>
+              <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                請在左側選單選擇並上傳您的銀行對帳單、信用卡單、證券庫存或發票明細，接著點擊「開始 AI 解析檔案」。系統將利用 Gemini AI 智慧讀取並為您在此生成對帳確認列表。
+              </p>
+            </div>
+
+            {/* Recent Upload History Table */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-1 flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800 text-sm">最近上傳紀錄 (最近50筆)</h3>
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  注意：刪除上傳紀錄僅解除重複檔案上傳限制，不會刪除已產生的收支明細
+                </span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto border border-slate-100 rounded-xl">
+                {isHistoryLoading ? (
+                  <div className="py-20 text-center text-slate-400 text-xs font-bold animate-pulse">載入中...</div>
+                ) : history.length === 0 ? (
+                  <div className="py-20 text-center text-slate-300 text-xs font-medium">目前尚無任何對帳單上傳歷史紀錄</div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3">上傳時間</th>
+                        <th className="px-4 py-3">檔案名稱</th>
+                        <th className="px-4 py-3">類型</th>
+                        <th className="px-4 py-3">狀態</th>
+                        <th className="px-4 py-3 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {history.map((record) => {
+                        const getKindLabel = (kind: string) => {
+                          switch (kind) {
+                            case "bank": return "銀行對帳單";
+                            case "credit_card": return "信用卡帳單";
+                            case "brokerage": return "證券對帳單";
+                            case "einvoice": return "發票載具";
+                            default: return kind;
+                          }
+                        };
+                        return (
+                          <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 whitespace-nowrap text-slate-500 font-mono">
+                              {new Date(record.created_at).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-slate-700 max-w-[200px] truncate" title={record.filename}>
+                              {record.filename}
+                            </td>
+                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                              {getKindLabel(record.kind)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {record.status === "success" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200/60 text-[10px] font-bold">
+                                  <span className="w-1 h-1 rounded-full bg-green-500"></span>
+                                  成功
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200/60 text-[10px] font-bold" title={record.message || ""}>
+                                  <span className="w-1 h-1 rounded-full bg-red-500"></span>
+                                  失敗
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => handleDeleteHistory(record.id)}
+                                className="px-2 py-1 text-red-500 hover:bg-red-50 rounded font-bold text-[10px] transition-colors"
+                              >
+                                刪除
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
