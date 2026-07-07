@@ -891,6 +891,14 @@ class StatementService:
     ) -> Account:
         account = await self.account_repo.get_by_code(code)
         if not account:
+            clean_code = code.replace("-", "")
+            all_accounts = await self.account_repo.get_all()
+            for acc in all_accounts:
+                if acc.code.replace("-", "") == clean_code:
+                    account = acc
+                    break
+
+        if not account:
             account = await self.account_repo.create(
                 Account(
                     code=code, name=name, account_type=account_type, institution=institution, currency=currency

@@ -55,6 +55,7 @@ Important rules:
 - `amount` in transactions is the total settlement amount (DEBIT or CREDIT). Use positive values.
 - `action` should be one of BUY, SELL, DIVIDEND, INTEREST, TAX or OTHER.
 - Ensure that the sum of `market_value` for all holdings roughly matches `total_market_value`.
+- If the account number in the PDF contains asterisks/X (e.g. `***-12345` or `**812345`), you MUST retain the asterisks/X. Do NOT guess or randomly fill in missing digits.
 """
 
 async def parse_firstrade_statement(pdf_path: Path) -> dict[str, Any]:
