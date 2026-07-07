@@ -145,9 +145,11 @@ class StatementService:
         results = []
 
         for acc_data in accounts_data:
-            acc_num = acc_data.get("account_number")
-            if acc_num:
-                acc_num = re.sub(r'[^0-9]', '', str(acc_num))
+            acc_num_raw = acc_data.get("account_number")
+            # For matching: keep asterisks/X as wildcards (strip only hyphens/spaces)
+            acc_num_match = re.sub(r'[^0-9*xX]', '', str(acc_num_raw)) if acc_num_raw else None
+            # For storage as code: digits only (preserve leading zeros)
+            acc_num_digits = re.sub(r'[^0-9]', '', str(acc_num_raw)) if acc_num_raw else None
             currency = acc_data.get("currency") or "TWD"
             exchange_rate = float(acc_data.get("exchange_rate") or data.get("exchange_rate") or 1.0)
 
@@ -155,15 +157,16 @@ class StatementService:
             account_code = data.get("account_code") if len(accounts_data) == 1 else None
             display_name = None
             if not account_code:
-                # Attempt to fuzzy match against existing accounts
+                # Attempt to fuzzy match against existing accounts using the masked pattern
                 inst = data.get("institution", "unknown").strip()
-                matching_acc = self._find_matching_db_account(inst, acc_num, AccountType.BANK, db_accounts)
+                matching_acc = self._find_matching_db_account(inst, acc_num_match, AccountType.BANK, db_accounts)
                 if matching_acc:
                     account_code = matching_acc.code
                     display_name = matching_acc.name
                 else:
-                    if acc_num:
-                        account_code = f"bank_{inst}_{acc_num}"
+                    # New account — code is digits-only account number
+                    if acc_num_digits:
+                        account_code = acc_num_digits
                     else:
                         account_code = f"bank_{inst}"
 
@@ -468,20 +471,23 @@ class StatementService:
         else:
             period = first_of_month(data["period_year"], data["period_month"])
         account_code = data.get("account_code")
-        acc_num = data.get("account_number")
-        if acc_num:
-            acc_num = re.sub(r'[^0-9]', '', str(acc_num))
+        acc_num_raw = data.get("account_number")
+        # For matching: keep asterisks/X as wildcards (strip only hyphens/spaces)
+        acc_num_match = re.sub(r'[^0-9*xX]', '', str(acc_num_raw)) if acc_num_raw else None
+        # For storage as code: digits only (preserve leading zeros)
+        acc_num_digits = re.sub(r'[^0-9]', '', str(acc_num_raw)) if acc_num_raw else None
         db_accounts = await self.account_repo.get_all()
         display_name = None
         if not account_code:
             inst = data.get("institution", "unknown").strip()
-            matching_acc = self._find_matching_db_account(inst, acc_num, AccountType.BROKERAGE, db_accounts)
+            matching_acc = self._find_matching_db_account(inst, acc_num_match, AccountType.BROKERAGE, db_accounts)
             if matching_acc:
                 account_code = matching_acc.code
                 display_name = matching_acc.name
             else:
-                if acc_num:
-                    account_code = f"broker_{inst}_{acc_num}"
+                # New account — code is digits-only account number
+                if acc_num_digits:
+                    account_code = acc_num_digits
                 else:
                     account_code = f"broker_{inst}"
 
@@ -916,10 +922,12 @@ class StatementService:
     ) -> Account:
         account = await self.account_repo.get_by_code(code)
         if not account:
-            clean_code = code.replace("-", "")
+            clean_code = re.sub(r'[^0-9]', '', code)
             all_accounts = await self.account_repo.get_all()
             for acc in all_accounts:
-                if acc.code.replace("-", "") == clean_code:
+                # Match digits-only code against old-style "bank_inst_number" or "broker_inst_number"
+                acc_digits = re.sub(r'[^0-9]', '', acc.code)
+                if acc_digits and clean_code and acc_digits == clean_code:
                     account = acc
                     break
 
@@ -980,25 +988,28 @@ class StatementService:
         candidates = []
         code = db_acc.code
         if "_" in code:
+            # Old-style: bank_institution_number — take last segment (the number)
             parts = code.split("_")
             candidates.append(parts[-1])
         else:
+            # New-style: just the digits
             candidates.append(code)
-            
+
         import re
+        # Also scan the name for any digit sequences (for accounts with numbers in name)
         name_candidates = re.findall(r'[0-9*xX\-]+', db_acc.name)
         for cand in name_candidates:
             clean = re.sub(r'[^0-9]', '', cand)
             if len(clean) >= 4 or '*' in cand or 'x' in cand.lower():
                 candidates.append(cand)
-                
+
         if db_acc.notes:
             notes_candidates = re.findall(r'[0-9*xX\-]+', db_acc.notes)
             for cand in notes_candidates:
                 clean = re.sub(r'[^0-9]', '', cand)
                 if len(clean) >= 4 or '*' in cand or 'x' in cand.lower():
                     candidates.append(cand)
-                    
+
         return list(set(candidates))
 
     def fuzzy_match_acc_nums(self, db_num: str, parsed_num: str) -> bool:
