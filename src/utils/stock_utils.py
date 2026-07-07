@@ -81,15 +81,23 @@ def parse_stock_transaction(txn: Any) -> Tuple[Optional[str], float, Optional[st
     return ticker, qty, action, price
 
 
+_PRICE_CACHE: dict[tuple[str, date], float] = {}
+
+
 async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[float]:
     """
     Fetches the closing price for a stock on the last trading day of the target month.
-    Queries Yahoo Finance v8 chart API.
+    Queries Yahoo Finance v8 chart API. Cached in memory.
     """
     # Clean ticker
     ticker = ticker.strip()
     if not ticker:
         return None
+
+    cache_key = (ticker, period_date)
+    if cache_key in _PRICE_CACHE:
+        log.info(f"Price cache hit for {ticker} on {period_date}: {_PRICE_CACHE[cache_key]}")
+        return _PRICE_CACHE[cache_key]
 
     # Handle Taiwan tickers: if numeric, try .TW first, then .TWO
     tickers_to_try = []
@@ -129,9 +137,10 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
                         prices = adjclose if adjclose else close
                         valid_prices = [p for p in prices if p is not None]
                         if valid_prices:
-                            last_price = valid_prices[-1]
+                            last_price = float(valid_prices[-1])
+                            _PRICE_CACHE[cache_key] = last_price
                             log.info(f"Successfully fetched price for {t} at month-end of {period_date}: {last_price}")
-                            return float(last_price)
+                            return last_price
             except Exception as e:
                 log.warning(f"Error querying Yahoo Finance for {t}: {e}")
                 
