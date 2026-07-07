@@ -11,10 +11,10 @@ import { toast } from "../store/useToastStore";
 import { formatUtc8 } from "../utils/formatters";
 
 const KINDS = [
-  { id: "bank", num: 1, title: "銀行對帳單", sub: "請上傳您的銀行對帳單", ext: "僅限 PDF 檔案" },
-  { id: "credit_card", num: 2, title: "信用卡對帳單", sub: "請上傳您的信用卡帳單", ext: "僅限 PDF 檔案" },
-  { id: "brokerage", num: 3, title: "證券對帳單", sub: "請上傳您的證券對帳單", ext: "僅限 PDF 檔案" },
-  { id: "einvoice", num: 4, title: "電子發票載具清單", sub: "請上傳您的電子發票清單", ext: "PDF 或 CSV 檔案" },
+  { id: "bank", num: 1, title: "銀行對帳單", sub: "請上傳您的銀行對帳單", ext: "PDF 或 圖片檔案" },
+  { id: "credit_card", num: 2, title: "信用卡對帳單", sub: "請上傳您的信用卡帳單", ext: "PDF 或 圖片檔案" },
+  { id: "brokerage", num: 3, title: "證券對帳單", sub: "請上傳您的證券對帳單", ext: "PDF 或 圖片檔案" },
+  { id: "einvoice", num: 4, title: "電子發票載具清單", sub: "請上傳您的電子發票清單", ext: "PDF、CSV 或 圖片檔案" },
 ];
 
 export default function UploadPage() {
@@ -385,7 +385,17 @@ export default function UploadPage() {
                   {files[k.id].length > 0 ? <span className="text-blue-700 font-bold">已選 {files[k.id].length} 檔</span> : '拖曳檔案或'}
                 </span>
                 {files[k.id].length === 0 && <button className="mt-1 bg-blue-600 text-white px-3 py-1 rounded text-[10px] shadow-sm">瀏覽</button>}
-                <input type="file" id={`file-${k.id}`} className="hidden" accept={k.id === "einvoice" ? ".pdf,.csv" : ".pdf"} onChange={(e) => handleFileSelect(e, k.id)} />
+                <input 
+                  type="file" 
+                  id={`file-${k.id}`} 
+                  className="hidden" 
+                  accept={
+                    k.id === "einvoice" 
+                      ? ".pdf,.csv,.png,.jpg,.jpeg,.webp,.heic,.heif" 
+                      : ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif"
+                  } 
+                  onChange={(e) => handleFileSelect(e, k.id)} 
+                />
               </div>
             </div>
           ))}

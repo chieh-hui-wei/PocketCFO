@@ -33,48 +33,65 @@ def get_gemini_client() -> genai.Client:
 )
 async def extract_from_pdf(pdf_path: Path, prompt: str) -> str:
     """
-    Send a PDF to Gemini and return the text response.
-    Uses inline base64 encoding (files < 20 MB).
+    Send a PDF or Image to Gemini and return the text response.
     """
     import logging
     log = logging.getLogger(__name__)
 
-    client = get_gemini_client()
-    pdf_bytes = pdf_path.read_bytes()
-    b64 = base64.b64encode(pdf_bytes).decode()
+    suffix = pdf_path.suffix.lower()
+    mime_type = "application/pdf"
+    is_image = False
+    
+    if suffix in (".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif"):
+        is_image = True
+        if suffix == ".png":
+            mime_type = "image/png"
+        elif suffix in (".jpg", ".jpeg"):
+            mime_type = "image/jpeg"
+        elif suffix == ".webp":
+            mime_type = "image/webp"
+        elif suffix == ".heic":
+            mime_type = "image/heic"
+        elif suffix == ".heif":
+            mime_type = "image/heif"
 
-    # Extract text content locally to assist Gemini parsing and speed
-    extracted_text = ""
-    try:
-        import pdfplumber
-        with pdfplumber.open(pdf_path) as pdf:
-            pages_text = []
-            for i, page in enumerate(pdf.pages):
-                text = page.extract_text()
-                if text:
-                    pages_text.append(f"--- PAGE {i+1} ---\n{text}")
-            extracted_text = "\n\n".join(pages_text)
-    except Exception as e:
-        log.warning(f"Failed to extract text from PDF using pdfplumber: {e}")
+    client = get_gemini_client()
+    file_bytes = pdf_path.read_bytes()
+
+    contents = [
+        types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+    ]
+
+    # Only attempt local text extraction for PDFs
+    if not is_image:
+        extracted_text = ""
         try:
-            import PyPDF2
-            with open(pdf_path, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
+            import pdfplumber
+            with pdfplumber.open(pdf_path) as pdf:
                 pages_text = []
-                for i, page in enumerate(reader.pages):
+                for i, page in enumerate(pdf.pages):
                     text = page.extract_text()
                     if text:
                         pages_text.append(f"--- PAGE {i+1} ---\n{text}")
                 extracted_text = "\n\n".join(pages_text)
-        except Exception as e2:
-            log.warning(f"Failed to extract text using PyPDF2: {e2}")
+        except Exception as e:
+            log.warning(f"Failed to extract text from PDF using pdfplumber: {e}")
+            try:
+                import PyPDF2
+                with open(pdf_path, "rb") as f:
+                    reader = PyPDF2.PdfReader(f)
+                    pages_text = []
+                    for i, page in enumerate(reader.pages):
+                        text = page.extract_text()
+                        if text:
+                            pages_text.append(f"--- PAGE {i+1} ---\n{text}")
+                    extracted_text = "\n\n".join(pages_text)
+            except Exception as e2:
+                log.warning(f"Failed to extract text using PyPDF2: {e2}")
 
-    # Build contents with raw bytes and extracted text to avoid OCR delays and errors
-    contents = [
-        types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
-    ]
-    if extracted_text.strip():
-        contents.append(f"Here is the locally extracted text content of the PDF statement to ensure 100% data and numerical accuracy:\n\n{extracted_text}")
+        if extracted_text.strip():
+            contents.append(f"Here is the locally extracted text content of the PDF statement to ensure 100% data and numerical accuracy:\n\n{extracted_text}")
+
     contents.append(prompt)
 
     response = await client.aio.models.generate_content(

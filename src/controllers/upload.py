@@ -112,7 +112,8 @@ async def upload_and_parse_statement(
     """
     history_repo = UploadHistoryRepository(db, current_user.id)
 
-    valid_exts = (".pdf", ".csv") if kind == "einvoice" else (".pdf",)
+    image_exts = (".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif")
+    valid_exts = (".pdf", ".csv") + image_exts if kind == "einvoice" else (".pdf",) + image_exts
     if not file.filename or not file.filename.lower().endswith(valid_exts):
         raise HTTPException(status_code=400, detail=f"Only {', '.join(valid_exts)} files are accepted")
 
