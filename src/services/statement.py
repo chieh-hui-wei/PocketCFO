@@ -9,7 +9,7 @@ import json
 from datetime import date
 from pathlib import Path
 from typing import Any
-
+import re
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -781,21 +781,36 @@ class StatementService:
         """Flags e-invoice transactions that overlap with credit card transactions."""
         cc_txns = await self.txn_repo.get_by_period_and_source(period_date, TransactionSource.CREDIT_CARD)
         einvoice_txns = await self.txn_repo.get_by_period_and_source(period_date, TransactionSource.E_INVOICE)
+        if not einvoice_txns:
+            return
+
+        # Reset all duplicate flags for the current period first
+        await self.txn_repo.mark_duplicates([e.id for e in einvoice_txns], False)
 
         matched_cc_ids = set()
         einvoice_dup_ids: list[int] = []
 
         for e in einvoice_txns:
+            e_merchant = e.merchant or e.description or ""
+            e_amount_abs = abs(e.amount)
+
             for c in cc_txns:
                 if c.id in matched_cc_ids:
                     continue
-                if abs((c.txn_date - e.txn_date).days) <= 1 and abs(c.amount - e.amount) < 0.01:
-                    matched_cc_ids.add(c.id)
-                    einvoice_dup_ids.append(e.id)
-                    log.info(f"einvoice.deduplicate.match einvoice_txn={e.id} cc_txn={c.id} amount={e.amount}")
-                    break
+                
+                day_diff = abs((c.txn_date - e.txn_date).days)
+                amount_diff = abs(abs(c.amount) - e_amount_abs)
+                
+                if day_diff <= 1 and amount_diff < 0.01:
+                    c_merchant = c.merchant or c.description or ""
+                    if is_merchant_overlap(e_merchant, c_merchant):
+                        matched_cc_ids.add(c.id)
+                        einvoice_dup_ids.append(e.id)
+                        log.info(f"einvoice.deduplicate.match einvoice_txn={e.id} cc_txn={c.id} amount={e.amount}")
+                        break
 
-        await self.txn_repo.mark_duplicates(einvoice_dup_ids, True)
+        if einvoice_dup_ids:
+            await self.txn_repo.mark_duplicates(einvoice_dup_ids, True)
 
     async def parse_statement(self, pdf_path: Path, kind: str, filename: str = "") -> dict[str, Any]:
         """
