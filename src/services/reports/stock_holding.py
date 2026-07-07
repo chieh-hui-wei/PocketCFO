@@ -52,7 +52,7 @@ class StockHoldingService:
             end_date = period_date.replace(day=last_day)
             
             for acct in all_accounts:
-                if acct.code == "broker_Firstrade":
+                if acct.institution.lower() == "firstrade":
                     continue
                 latest_snap_stmt = (
                     select(AccountSnapshot)
@@ -82,16 +82,16 @@ class StockHoldingService:
                     existing_securities.extend(sec_res.scalars().all())
         else:
             snaps = await self.snapshot_repo.get_by_period(period_date)
-            existing_snapshots = {s.account_id: s for s in snaps if s.account.code != "broker_Firstrade"}
+            existing_snapshots = {s.account_id: s for s in snaps if s.account.institution.lower() != "firstrade"}
             
             secs = await self.security_repo.get_by_period(period_date)
-            existing_securities = [s for s in secs if s.account.code != "broker_Firstrade"]
+            existing_securities = [s for s in secs if s.account.institution.lower() != "firstrade"]
 
         final_snapshots: List[AccountSnapshot] = list(existing_snapshots.values())
         final_securities: List[Security] = list(existing_securities)
 
         # 3. Handle Firstrade specifically by aggregating all historical transactions up to the query date
-        firstrade_acct = next((a for a in brokerage_accounts if a.code == "broker_Firstrade"), None)
+        firstrade_acct = next((a for a in brokerage_accounts if a.institution.lower() == "firstrade"), None)
         if firstrade_acct:
             import calendar
             last_day = calendar.monthrange(period_date.year, period_date.month)[1]
