@@ -239,6 +239,7 @@ export interface TransactionRecord {
   is_refund: boolean;
   raw_category: string | null;
   institution?: string;
+  account_id?: number | null;
 }
 
 export async function getTransactions(year: number, month?: number) {
@@ -516,6 +517,11 @@ export async function getSchedulerStatus() {
 
 export async function triggerSchedulerSync() {
   const { data } = await api.post("/settings/scheduler-sync");
+  return data;
+}
+
+export async function bulkDeleteTransactions(ids: number[]) {
+  const { data } = await api.post("/transactions/bulk-delete", { ids });
   return data;
 }
 

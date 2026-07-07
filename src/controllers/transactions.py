@@ -91,7 +91,8 @@ async def get_transactions(
                 "category": display_category,
                 "is_refund": t.is_refund,
                 "raw_category": raw_data.get("category", None),
-                "institution": t.account.institution if t.account else ""
+                "institution": t.account.institution if t.account else "",
+                "account_id": t.account_id
             })
             
         return {"status": "ok", "transactions": result}
@@ -507,6 +508,54 @@ async def delete_transaction(
         raise
     except Exception as e:
         log.error(f"Error deleting transaction: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[int]
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_transactions(
+    body: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token)
+) -> dict[str, Any]:
+    try:
+        from src.dbs.models import Transaction
+        from sqlalchemy import select, delete
+        
+        # Get periods to recompute
+        stmt = select(Transaction).where(Transaction.id.in_(body.ids), Transaction.user_id == current_user.id)
+        res = await db.execute(stmt)
+        txns = res.scalars().all()
+        
+        if not txns:
+            return {"status": "ok", "deleted_count": 0}
+            
+        periods_to_recompute = set((t.txn_date.year, t.txn_date.month) for t in txns)
+        
+        # Delete
+        stmt_del = delete(Transaction).where(Transaction.id.in_(body.ids), Transaction.user_id == current_user.id)
+        await db.execute(stmt_del)
+        await db.flush()
+        
+        # Recompute reports for affected periods
+        from src.services.reports.income_statement import IncomeStatementService
+        from src.services.reports.balance_sheet import BalanceSheetService
+        
+        is_service = IncomeStatementService(db, current_user.id)
+        bs_service = BalanceSheetService(db, current_user.id)
+        
+        for y, m in periods_to_recompute:
+            await is_service.compute(y, m)
+            await bs_service.compute(y, m)
+            
+        await db.commit()
+        return {"status": "ok", "deleted_count": len(txns)}
+    except Exception as e:
+        log.error(f"Error bulk deleting transactions: {e}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 

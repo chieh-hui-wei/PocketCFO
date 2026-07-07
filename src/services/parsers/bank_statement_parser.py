@@ -33,7 +33,8 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact schema:
           "description": "string",
           "debit": float or null,
           "credit": float or null,
-          "balance": float or null
+          "balance": float or null,
+          "category": "string (薪資/投資/轉入/轉出/支出/食物/交通/醫療/娛樂/股利/利息/其他)"
         }
       ]
     }
@@ -41,6 +42,7 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact schema:
 }
 
 Important rules:
+- Category selection: Analyze the description/merchant for each transaction and select the most appropriate category from (薪資/投資/轉入/轉出/支出/食物/交通/醫療/娛樂/股利/利息/其他).
 - ALL dates MUST be formatted as YYYY-MM-DD in the Gregorian calendar (西元年). If the statement uses the Taiwan ROC calendar (民國), you MUST convert it by adding 1911 to the year. (e.g. 民國 113 年 = 2024).
 - account_number: You MUST extract the full, unmasked account number (完整帳號) for each account if available anywhere in the document. Do not mask digits if you can find the complete account number.
 - closing_balance should be the balance at the end of the statement period for this specific account. It may be labeled as "台幣存款本期結餘", "本月餘額", "外幣結餘", "期末餘額", or found under "資產總覽" / "往來帳戶餘額彙整表".

@@ -6,7 +6,8 @@ import {
   TransactionRecord,
   getAccounts,
   createTransaction,
-  Account
+  Account,
+  bulkDeleteTransactions
 } from "../services/api";
 import { toast } from "../store/useToastStore";
 
@@ -25,12 +26,25 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
+  const [selectedTxnIds, setSelectedTxnIds] = useState<number[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | "all">("all");
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">(() => {
     const params = new URLSearchParams(window.location.search);
     const paramType = params.get("type");
     if (paramType === "income" || paramType === "expense") return paramType;
     return "all";
   });
+
+  useEffect(() => {
+    getAccounts()
+      .then(setAllAccounts)
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    setSelectedTxnIds([]);
+  }, [currentDate, selectedAccountId, excludeTransfers, typeFilter]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -97,14 +111,14 @@ export default function TransactionsPage() {
     setFormCategory(cat);
     if (["薪資", "轉入", "股利", "利息"].includes(cat)) {
       setFormType("income");
-    } else if (["支出", "轉出"].includes(cat)) {
+    } else if (["支出", "轉出", "食物", "交通", "醫療", "娛樂"].includes(cat)) {
       setFormType("expense");
     }
   };
 
   const handleTypeChange = (type: "income" | "expense") => {
     setFormType(type);
-    if (type === "income" && ["支出", "轉出"].includes(formCategory)) {
+    if (type === "income" && ["支出", "轉出", "食物", "交通", "醫療", "娛樂"].includes(formCategory)) {
       setFormCategory("其他");
     } else if (type === "expense" && ["薪資", "轉入", "股利", "利息"].includes(formCategory)) {
       setFormCategory("支出");
@@ -210,6 +224,38 @@ export default function TransactionsPage() {
       toast.error("刪除交易失敗");
     }
   };
+
+  const handleBulkDelete = async () => {
+    if (selectedTxnIds.length === 0) return;
+    if (!window.confirm(`確定要刪除這 ${selectedTxnIds.length} 筆交易明細嗎？（所有相關月度報表皆會重新計算）`)) return;
+    
+    try {
+      await bulkDeleteTransactions(selectedTxnIds);
+      toast.success("批次刪除交易明細成功！");
+      setSelectedTxnIds([]);
+      fetchTxns();
+    } catch (e) {
+      console.error(e);
+      toast.error("批次刪除交易明細失敗");
+    }
+  };
+
+  const handleSelectAll = (checked: boolean, filteredTxns: TransactionRecord[]) => {
+    if (checked) {
+      setSelectedTxnIds(filteredTxns.map(t => t.id));
+    } else {
+      setSelectedTxnIds([]);
+    }
+  };
+
+  const handleSelectRow = (checked: boolean, id: number) => {
+    if (checked) {
+      setSelectedTxnIds(prev => [...prev, id]);
+    } else {
+      setSelectedTxnIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
   const handleExport = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
@@ -227,6 +273,20 @@ export default function TransactionsPage() {
           <p className="text-sm text-slate-500 mt-1">完整檢視您每個月的所有收支紀錄，並可自由修改或刪除資料</p>
         </div>
         <div className="flex gap-3">
+          {/* Account Filter */}
+          <select
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+            className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500"
+          >
+            <option value="all">所有帳戶/銀行</option>
+            {allAccounts.map(acc => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} ({acc.institution})
+              </option>
+            ))}
+          </select>
+
           <div className="flex bg-slate-100 p-1 rounded-xl shadow-sm border border-slate-200">
             <button 
               onClick={() => setTypeFilter("all")}
@@ -274,6 +334,14 @@ export default function TransactionsPage() {
           >
             匯出 Excel
           </button>
+          {selectedTxnIds.length > 0 && (
+            <button 
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm font-bold text-white hover:scale-[1.01] shadow-md transition-all cursor-pointer animate-in fade-in"
+            >
+              🗑️ 刪除所選 ({selectedTxnIds.length})
+            </button>
+          )}
           <button 
             onClick={handleOpenAdd}
             className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
@@ -292,18 +360,35 @@ export default function TransactionsPage() {
               if (typeFilter === "income") return t.amount > 0;
               if (typeFilter === "expense") return t.amount < 0;
               return true;
+            })
+            .filter(t => {
+              if (selectedAccountId === "all") return true;
+              return t.account_id === selectedAccountId;
             });
           return isLoading ? (
             <div className="py-20 text-center text-slate-500 font-bold">載入中...</div>
           ) : filteredTxns.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">
               <div className="font-bold text-lg text-slate-500 mb-2">本月尚無交易紀錄</div>
-              <div className="text-sm mt-2">請上傳對帳單以產生資料</div>
+              <div className="text-sm mt-2">請上傳對帳單或調整篩選條件以產生資料</div>
             </div>
           ) : (
             <table className="w-full text-left text-sm relative">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
+                  <th className="px-4 py-4 w-12 text-center">
+                    <input 
+                      type="checkbox"
+                      checked={filteredTxns.length > 0 && selectedTxnIds.length === filteredTxns.length}
+                      ref={input => {
+                        if (input) {
+                          input.indeterminate = selectedTxnIds.length > 0 && selectedTxnIds.length < filteredTxns.length;
+                        }
+                      }}
+                      onChange={e => handleSelectAll(e.target.checked, filteredTxns)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-4 w-32">日期</th>
                   <th className="px-4 py-4 w-28">來源</th>
                   <th className="px-4 py-4 w-32">類別</th>
@@ -315,8 +400,18 @@ export default function TransactionsPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredTxns.map((t) => {
                   const isEditing = editingTxnId === t.id;
+                  const isSelected = selectedTxnIds.includes(t.id);
                   return (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={t.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/20' : ''}`}>
+                    {/* Checkbox */}
+                    <td className="px-4 py-3 text-center">
+                      <input 
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={e => handleSelectRow(e.target.checked, t.id)}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     {/* Date */}
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                       {isEditing ? (
@@ -349,6 +444,10 @@ export default function TransactionsPage() {
                           <option value="薪資">薪資</option>
                           <option value="投資">投資</option>
                           <option value="支出">支出</option>
+                          <option value="食物">食物</option>
+                          <option value="交通">交通</option>
+                          <option value="醫療">醫療</option>
+                          <option value="娛樂">娛樂</option>
                           <option value="轉入">轉入</option>
                           <option value="轉出">轉出</option>
                           <option value="股利">股利</option>
@@ -523,6 +622,10 @@ export default function TransactionsPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                   >
                     <option value="支出">支出</option>
+                    <option value="食物">食物</option>
+                    <option value="交通">交通</option>
+                    <option value="醫療">醫療</option>
+                    <option value="娛樂">娛樂</option>
                     <option value="薪資">薪資</option>
                     <option value="投資">投資</option>
                     <option value="轉入">轉入</option>
