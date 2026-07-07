@@ -459,6 +459,7 @@ async def update_transaction(
             # Sync is_internal_transfer flag based on updated category
             if txn.category in (TransactionCategory.TRANSFER_IN, TransactionCategory.TRANSFER_OUT):
                 txn.is_internal_transfer = True
+                txn.category = TransactionCategory.TRANSFER_IN if txn.amount > 0 else TransactionCategory.TRANSFER_OUT
             else:
                 txn.is_internal_transfer = False
                 
@@ -610,11 +611,11 @@ async def bulk_update_category(
         
         # Update categories
         for t in txns:
-            t.category = new_cat
-            # If changing to/from inter-transfer, sync flags
-            if new_cat == TransactionCategory.TRANSFER_IN or new_cat == TransactionCategory.TRANSFER_OUT:
+            if new_cat in (TransactionCategory.TRANSFER_IN, TransactionCategory.TRANSFER_OUT):
                 t.is_internal_transfer = True
+                t.category = TransactionCategory.TRANSFER_IN if t.amount > 0 else TransactionCategory.TRANSFER_OUT
             else:
+                t.category = new_cat
                 t.is_internal_transfer = False
         await db.flush()
         
