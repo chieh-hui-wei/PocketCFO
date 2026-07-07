@@ -558,20 +558,6 @@ export default function UploadPage() {
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">請仔細核對以下欄位是否正確，確認無誤後即可點擊最下方的「確認並寫入資料庫」</p>
               </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleCancelReview}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors"
-                >
-                  取消
-                </button>
-                <button 
-                  onClick={handleConfirm}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm transition-colors"
-                >
-                  確認無誤並寫入資料庫
-                </button>
-              </div>
             </div>
 
             {/* Tab selector for multiple bank accounts */}
