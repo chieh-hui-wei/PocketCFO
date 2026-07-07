@@ -45,6 +45,10 @@ class StockHoldingService:
         existing_snapshots = {}
         existing_securities = []
         
+        # Check if there is already a snapshot for Firstrade in this month
+        firstrade_acct = next((a for a in brokerage_accounts if a.institution.lower() == "firstrade"), None)
+        has_db_firstrade = False
+        
         if is_first_of_month:
             import calendar
             start_date = period_date
@@ -52,8 +56,6 @@ class StockHoldingService:
             end_date = period_date.replace(day=last_day)
             
             for acct in all_accounts:
-                if acct.institution.lower() == "firstrade":
-                    continue
                 latest_snap_stmt = (
                     select(AccountSnapshot)
                     .where(
@@ -68,6 +70,8 @@ class StockHoldingService:
                 res = await self.db.execute(latest_snap_stmt)
                 snap = res.scalar_one_or_none()
                 if snap:
+                    if acct.institution.lower() == "firstrade":
+                        has_db_firstrade = True
                     existing_snapshots[acct.id] = snap
                     
                     sec_stmt = (
@@ -82,17 +86,20 @@ class StockHoldingService:
                     existing_securities.extend(sec_res.scalars().all())
         else:
             snaps = await self.snapshot_repo.get_by_period(period_date)
-            existing_snapshots = {s.account_id: s for s in snaps if s.account.institution.lower() != "firstrade"}
-            
+            for s in snaps:
+                if s.account.institution.lower() == "firstrade":
+                    has_db_firstrade = True
+                existing_snapshots[s.account_id] = s
+                
             secs = await self.security_repo.get_by_period(period_date)
-            existing_securities = [s for s in secs if s.account.institution.lower() != "firstrade"]
+            existing_securities = list(secs)
 
         final_snapshots: List[AccountSnapshot] = list(existing_snapshots.values())
         final_securities: List[Security] = list(existing_securities)
 
         # 3. Handle Firstrade specifically by aggregating all historical transactions up to the query date
-        firstrade_acct = next((a for a in brokerage_accounts if a.institution.lower() == "firstrade"), None)
-        if firstrade_acct:
+        # (Only if we don't already have it stored in the database for this period)
+        if firstrade_acct and not has_db_firstrade:
             import calendar
             last_day = calendar.monthrange(period_date.year, period_date.month)[1]
             query_end_date = period_date.replace(day=last_day) if is_first_of_month else period_date

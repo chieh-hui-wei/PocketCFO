@@ -533,21 +533,36 @@ class StatementService:
         # Holdings / Securities
         securities = []
         for h in data.get("holdings", []):
+            qty = float(h.get("quantity") or 0)
+            avg_cost = float(h.get("avg_cost") or 0)
+            price = float(h.get("current_price") or 0)
+            
+            mv_orig = float(h.get("market_value") or 0)
+            if not mv_orig or mv_orig == 0:
+                mv_orig = qty * price
+                
+            pnl_orig = float(h.get("unrealized_pnl") or 0)
+            if not pnl_orig or pnl_orig == 0:
+                if avg_cost > 0:
+                    pnl_orig = (price - avg_cost) * qty
+                else:
+                    pnl_orig = 0.0
+
             securities.append(
                 Security(
                     account_id=account.id,
                     period_date=period,
                     ticker=h.get("ticker") or h.get("name") or "Unknown",
                     name=normalize_stock_name(h.get("ticker"), h.get("name") or ""),
-                    quantity=float(h.get("quantity") or 0),
-                    avg_cost=round(float(h.get("avg_cost") or 0) * exchange_rate),
-                    current_price=round(float(h.get("current_price") or 0) * exchange_rate),
-                    market_value=round(float(h.get("market_value") or 0) * exchange_rate),
-                    unrealized_pnl=round(float(h.get("unrealized_pnl") or 0) * exchange_rate),
-                    original_avg_cost=float(h.get("avg_cost") or 0) if currency != "TWD" else None,
-                    original_current_price=float(h.get("current_price") or 0) if currency != "TWD" else None,
-                    original_market_value=float(h.get("market_value") or 0) if currency != "TWD" else None,
-                    original_unrealized_pnl=float(h.get("unrealized_pnl") or 0) if currency != "TWD" else None,
+                    quantity=qty,
+                    avg_cost=round(avg_cost * exchange_rate),
+                    current_price=round(price * exchange_rate),
+                    market_value=round(mv_orig * exchange_rate),
+                    unrealized_pnl=round(pnl_orig * exchange_rate),
+                    original_avg_cost=avg_cost if currency != "TWD" else None,
+                    original_current_price=price if currency != "TWD" else None,
+                    original_market_value=mv_orig if currency != "TWD" else None,
+                    original_unrealized_pnl=pnl_orig if currency != "TWD" else None,
                     currency=currency,
                     exchange_rate=exchange_rate,
                     upload_history_id=upload_history_id,
