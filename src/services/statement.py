@@ -146,6 +146,8 @@ class StatementService:
 
         for acc_data in accounts_data:
             acc_num = acc_data.get("account_number")
+            if acc_num:
+                acc_num = re.sub(r'[^0-9]', '', str(acc_num))
             currency = acc_data.get("currency") or "TWD"
             exchange_rate = float(acc_data.get("exchange_rate") or data.get("exchange_rate") or 1.0)
 
@@ -161,15 +163,12 @@ class StatementService:
                     display_name = matching_acc.name
                 else:
                     if acc_num:
-                        acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
-                        account_code = f"bank_{inst}_{acc_num_clean}"
+                        account_code = f"bank_{inst}_{acc_num}"
                     else:
                         account_code = f"bank_{inst}"
 
             if not display_name:
                 display_name = data.get("institution", "Unknown Bank")
-                if acc_num:
-                    display_name = f"{display_name} ({acc_num})"
 
             account = await self._resolve_or_create_account(
                 code=account_code,
@@ -313,6 +312,8 @@ class StatementService:
         period = first_of_month(data["period_year"], data["period_month"])
         db_accounts = await self.account_repo.get_all()
         card_last_four = data.get("card_last_four")
+        if card_last_four:
+            card_last_four = re.sub(r'[^0-9]', '', str(card_last_four))
         account_code = data.get("account_code")
         card_name = None
         if not account_code:
@@ -466,6 +467,8 @@ class StatementService:
             period = first_of_month(data["period_year"], data["period_month"])
         account_code = data.get("account_code")
         acc_num = data.get("account_number")
+        if acc_num:
+            acc_num = re.sub(r'[^0-9]', '', str(acc_num))
         db_accounts = await self.account_repo.get_all()
         display_name = None
         if not account_code:
@@ -476,15 +479,12 @@ class StatementService:
                 display_name = matching_acc.name
             else:
                 if acc_num:
-                    acc_num_clean = re.sub(r'[^A-Za-z0-9]', '', str(acc_num))
-                    account_code = f"broker_{inst}_{acc_num_clean}"
+                    account_code = f"broker_{inst}_{acc_num}"
                 else:
                     account_code = f"broker_{inst}"
 
         if not display_name:
             display_name = data.get("institution", "Unknown Broker")
-            if acc_num:
-                display_name = f"{display_name} ({acc_num})"
 
         account = await self._resolve_or_create_account(
             code=account_code,
