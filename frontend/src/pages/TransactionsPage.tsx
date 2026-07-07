@@ -267,17 +267,43 @@ export default function TransactionsPage() {
   return (
     <div className="animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">交易明細</h1>
           <p className="text-sm text-slate-500 mt-1">完整檢視您每個月的所有收支紀錄，並可自由修改或刪除資料</p>
         </div>
         <div className="flex gap-3">
+          {selectedTxnIds.length > 0 && (
+            <button 
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-bold text-white hover:scale-[1.01] shadow-md transition-all cursor-pointer animate-in fade-in"
+            >
+              🗑️ 刪除所選 ({selectedTxnIds.length})
+            </button>
+          )}
+          <button 
+            onClick={handleExport}
+            className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            匯出 Excel
+          </button>
+          <button 
+            onClick={handleOpenAdd}
+            className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-xl text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+          >
+            + 手動新增
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-wrap justify-between items-center gap-4 mb-6">
+        <div className="flex items-center gap-3">
           {/* Account Filter */}
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-            className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500"
+            className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
           >
             <option value="all">所有帳戶/銀行</option>
             {allAccounts.map(acc => (
@@ -287,10 +313,11 @@ export default function TransactionsPage() {
             ))}
           </select>
 
-          <div className="flex bg-slate-100 p-1 rounded-xl shadow-sm border border-slate-200">
+          {/* Type Filter Segment */}
+          <div className="flex bg-slate-200/60 p-0.5 rounded-xl border border-slate-200/20">
             <button 
               onClick={() => setTypeFilter("all")}
-              className={`rounded px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
                 typeFilter === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -298,7 +325,7 @@ export default function TransactionsPage() {
             </button>
             <button 
               onClick={() => setTypeFilter("income")}
-              className={`rounded px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
                 typeFilter === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -306,15 +333,17 @@ export default function TransactionsPage() {
             </button>
             <button 
               onClick={() => setTypeFilter("expense")}
-              className={`rounded px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
                 typeFilter === "expense" ? "bg-white text-red-500 shadow-sm" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               僅看支出
             </button>
           </div>
-          
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm cursor-pointer hover:bg-slate-50 select-none">
+        </div>
+
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
             <input 
               type="checkbox"
               checked={excludeTransfers}
@@ -323,31 +352,11 @@ export default function TransactionsPage() {
             />
             排除帳內互轉
           </label>
-          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+          <div className="flex items-center gap-4 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
             {formatMonth(currentDate)}
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
           </div>
-          <button 
-            onClick={handleExport}
-            className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-          >
-            匯出 Excel
-          </button>
-          {selectedTxnIds.length > 0 && (
-            <button 
-              onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm font-bold text-white hover:scale-[1.01] shadow-md transition-all cursor-pointer animate-in fade-in"
-            >
-              🗑️ 刪除所選 ({selectedTxnIds.length})
-            </button>
-          )}
-          <button 
-            onClick={handleOpenAdd}
-            className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
-          >
-            + 手動新增
-          </button>
         </div>
       </div>
 
