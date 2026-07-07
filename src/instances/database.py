@@ -121,6 +121,27 @@ async def run_migrations() -> None:
             END LOOP;
         END $$
         """,
+        # 2026-07-07: purge all soft-deleted accounts (is_active=false) and their data
+        # Wrapped in a DO block so it is a no-op if the column was already dropped.
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'accounts' AND column_name = 'is_active'
+            ) THEN
+                -- Cascade delete related rows for inactive accounts
+                DELETE FROM securities
+                    WHERE account_id IN (SELECT id FROM accounts WHERE is_active = false);
+                DELETE FROM account_snapshots
+                    WHERE account_id IN (SELECT id FROM accounts WHERE is_active = false);
+                DELETE FROM transactions
+                    WHERE account_id IN (SELECT id FROM accounts WHERE is_active = false);
+                -- Delete the inactive accounts themselves
+                DELETE FROM accounts WHERE is_active = false;
+            END IF;
+        END $$
+        """,
         # 2026-07-07: drop is_active from accounts (replaced by hard cascade delete)
         "ALTER TABLE accounts DROP COLUMN IF EXISTS is_active",
     ]
