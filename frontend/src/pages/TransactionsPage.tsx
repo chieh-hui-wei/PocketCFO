@@ -26,6 +26,7 @@ export default function TransactionsPage() {
   });
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
   const [selectedTxnIds, setSelectedTxnIds] = useState<number[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | "all">("all");
@@ -238,6 +239,8 @@ export default function TransactionsPage() {
     if (selectedTxnIds.length === 0) return;
     if (!window.confirm(`確定要刪除這 ${selectedTxnIds.length} 筆交易明細嗎？（所有相關月度報表皆會重新計算）`)) return;
 
+    setIsBulkUpdating(true);
+    toast.info("正在批次刪除交易並重新計算報表，請稍候...", 6000);
     try {
       await bulkDeleteTransactions(selectedTxnIds);
       toast.success("批次刪除交易明細成功！");
@@ -246,11 +249,15 @@ export default function TransactionsPage() {
     } catch (e) {
       console.error(e);
       toast.error("批次刪除交易明細失敗");
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
   const handleBulkUpdateCategory = async (category: string) => {
     if (selectedTxnIds.length === 0) return;
+    setIsBulkUpdating(true);
+    toast.info("正在批次更新交易類別並重新計算報表，請稍候...", 6000);
     try {
       await bulkUpdateTransactionCategories(selectedTxnIds, category);
       toast.success("批次更新交易類別成功！");
@@ -259,6 +266,8 @@ export default function TransactionsPage() {
     } catch (e) {
       console.error(e);
       toast.error("批次更新交易類別失敗");
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
@@ -299,34 +308,47 @@ export default function TransactionsPage() {
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl animate-in fade-in">
               <span className="text-xs font-bold text-slate-500">已選 {selectedTxnIds.length} 筆：</span>
               <select
+                disabled={isBulkUpdating}
                 onChange={(e) => {
                   if (e.target.value) {
                     handleBulkUpdateCategory(e.target.value);
                     e.target.value = ""; // Reset value so it can be re-triggered
                   }
                 }}
-                className="bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 px-2 py-1 outline-none cursor-pointer hover:bg-slate-50"
+                className={`bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 px-2 py-1 outline-none focus:outline-none transition-colors ${
+                  isBulkUpdating ? "cursor-not-allowed opacity-60 bg-slate-100" : "cursor-pointer hover:bg-slate-50"
+                }`}
               >
-                <option value="">批量修改類別...</option>
-                <option value="薪資">薪資</option>
-                <option value="投資">投資</option>
-                <option value="轉入">轉入</option>
-                <option value="轉出">轉出</option>
-                <option value="食物">食物</option>
-                <option value="交通">交通</option>
-                <option value="醫療">醫療</option>
-                <option value="娛樂">娛樂</option>
-                <option value="保險">保險</option>
-                <option value="運動">運動</option>
-                <option value="股利">股利</option>
-                <option value="利息">利息</option>
-                <option value="其他">其他</option>
+                <option value="">{isBulkUpdating ? "更新中..." : "批量修改類別..."}</option>
+                {!isBulkUpdating && (
+                  <>
+                    <option value="薪資">薪資</option>
+                    <option value="投資">投資</option>
+                    <option value="轉入">轉入</option>
+                    <option value="轉出">轉出</option>
+                    <option value="食物">食物</option>
+                    <option value="交通">交通</option>
+                    <option value="醫療">醫療</option>
+                    <option value="娛樂">娛樂</option>
+                    <option value="保險">保險</option>
+                    <option value="運動">運動</option>
+                    <option value="股利">股利</option>
+                    <option value="利息">利息</option>
+                    <option value="帳內互轉">帳內互轉</option>
+                    <option value="其他">其他</option>
+                  </>
+                )}
               </select>
               <button
+                disabled={isBulkUpdating}
                 onClick={handleBulkDelete}
-                className="bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded-lg text-xs font-bold text-red-600 transition-all cursor-pointer"
+                className={`border px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                  isBulkUpdating 
+                    ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" 
+                    : "bg-red-50 hover:bg-red-100 border-red-200 text-red-600 cursor-pointer"
+                }`}
               >
-                🗑️ 刪除所選
+                {isBulkUpdating ? "⏳ 處理中" : "🗑️ 刪除所選"}
               </button>
             </div>
           )}
