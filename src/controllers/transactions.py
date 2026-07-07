@@ -455,6 +455,12 @@ async def update_transaction(
                 txn.category = TransactionCategory(cat_val)
             except ValueError:
                 txn.category = TransactionCategory.OTHER
+            
+            # Sync is_internal_transfer flag based on updated category
+            if txn.category in (TransactionCategory.TRANSFER_IN, TransactionCategory.TRANSFER_OUT):
+                txn.is_internal_transfer = True
+            else:
+                txn.is_internal_transfer = False
                 
         await db.flush()
         
