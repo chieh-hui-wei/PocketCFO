@@ -95,65 +95,30 @@ export default function IncomeStatementPage() {
     { name: '其他收入', value: Math.max(0, activeRecord.total_income - activeRecord.salary_income - activeRecord.investment_income) },
   ].filter(d => d.value > 0) : [];
 
-  // Mirror backend total_expenses logic exactly, per transaction source:
-  // - bank: exclude is_internal_transfer (already shown as "帳內互轉"), TRANSFER_IN/OUT, INVESTMENT, CREDIT_CARD_PAYMENT, DEBT_REPAYMENT
-  // - credit_card: include ALL transactions (net of refunds), no category filter
-  // - e_invoice: include all non-duplicates (no category filter)
+  // Map backend category keys → Chinese display names
+  const CATEGORY_LABEL: Record<string, string> = {
+    SALARY: "薪資", INVESTMENT: "投資", TRANSFER_IN: "轉入", TRANSFER_OUT: "轉出",
+    EXPENSE: "生活用品", FOOD: "餐飲美食", TRANSPORT: "交通運輸",
+    MEDICAL: "醫療保健", ENTERTAINMENT: "娛樂休閒", INSURANCE: "保險",
+    EXERCISE: "運動", CREDIT_CARD_PAYMENT: "信用卡繳款", DEBT_REPAYMENT: "本金償還",
+    DIVIDEND: "股利", INTEREST: "利息", OTHER: "其他",
+    "食物": "餐飲美食", "餐飲": "餐飲美食", "餐飲美食": "餐飲美食",
+    "交通": "交通運輸", "醫療": "醫療保健", "娛樂": "娛樂休閒",
+    "支出": "生活用品", "生活用品": "生活用品",
+    "other": "其他",
+  };
+
+  // Use backend-computed category breakdown
   const expensePieData = (() => {
-    if (!activeRecord || recentTxns.length === 0) return [];
-    const expenseCategories: Record<string, number> = {};
-
-    recentTxns.forEach(t => {
-      if (t.is_duplicate) return;
-      if (t.amount >= 0) return; // Only expenses (negative amounts)
-
-      const amt = Math.abs(t.amount);
-      const sign = t.is_refund ? -1 : 1;
-      const src = t.source; // "bank", "credit_card", "e_invoice"
-
-      // For bank transactions, apply category-based exclusions
-      if (src === "bank") {
-        const isExcluded =
-          t.category === "帳內互轉" ||
-          t.category === "轉入" ||
-          t.category === "轉出" ||
-          t.category === "信用卡繳款" ||
-          t.category === "本金償還" ||
-          t.category === "投資" ||
-          t.category === "TRANSFER_IN" ||
-          t.category === "TRANSFER_OUT" ||
-          t.category === "CREDIT_CARD_PAYMENT" ||
-          t.category === "DEBT_REPAYMENT" ||
-          t.category === "INVESTMENT";
-        if (isExcluded) return;
-      }
-      // For credit_card and e_invoice: include all (no category filter, backend does the same)
-
-      let name = "其他";
-      if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食") {
-        name = "餐飲美食";
-      } else if (t.category === "交通" || t.category === "交通運輸") {
-        name = "交通運輸";
-      } else if (t.category === "支出" || t.category === "生活用品") {
-        name = "生活用品";
-      } else if (t.category === "娛樂" || t.category === "娛樂休閒") {
-        name = "娛樂休閒";
-      } else if (t.category === "醫療" || t.category === "醫療保健") {
-        name = "醫療保健";
-      } else if (t.category === "保險") {
-        name = "保險";
-      } else if (t.category === "運動") {
-        name = "運動";
-      } else if (t.category === "薪資") {
-        return; // Salary refunds/negatives are edge cases — skip
-      } else {
-        name = t.category || "其他";
-      }
-
-      expenseCategories[name] = (expenseCategories[name] || 0) + (sign * amt);
-    });
-
-    return Object.entries(expenseCategories)
+    const breakdown = activeRecord?.expense_category_breakdown;
+    if (!breakdown || Object.keys(breakdown).length === 0) return [];
+    const merged: Record<string, number> = {};
+    for (const [key, amt] of Object.entries(breakdown)) {
+      if (amt <= 0) continue;
+      const label = CATEGORY_LABEL[key] ?? key;
+      merged[label] = (merged[label] ?? 0) + amt;
+    }
+    return Object.entries(merged)
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value);

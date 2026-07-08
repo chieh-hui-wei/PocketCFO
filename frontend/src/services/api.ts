@@ -214,6 +214,7 @@ export interface IncomeStatementRecord {
   investment_income: number;
   credit_card_expenses: number;
   bank_expenses: number;
+  expense_category_breakdown?: Record<string, number>; // category key -> TWD amount
 }
 
 export interface Account {

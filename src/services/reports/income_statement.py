@@ -66,6 +66,7 @@ class IncomeStatementService:
             "income_sources": [],
             "expense_sources": [],
             "transfers_excluded": [],
+            "expense_category_breakdown": {},  # category -> total amount (TWD)
         }
 
         salary_income = 0.0
@@ -133,8 +134,13 @@ class IncomeStatementService:
                                 "amount": abs(txn.amount),
                                 "desc": txn.description,
                                 "account": account.name,
+                                "category": txn.category.value if txn.category else "other",
                             }
                         )
+                        # Track category breakdown
+                        cat_key = txn.category.value if txn.category else "OTHER"
+                        breakdown = detail["expense_category_breakdown"]
+                        breakdown[cat_key] = breakdown.get(cat_key, 0) + abs(txn.amount)
         # ── Process credit card transactions (migrated from bills/items) ────
         cc_txns = await self.txn_repo.get_by_period_and_source(period, TransactionSource.CREDIT_CARD)
         net = 0.0
@@ -162,6 +168,11 @@ class IncomeStatementService:
                 "by_category": by_cat,
             }
         )
+        # Merge CC category breakdown (use display-friendly keys)
+        breakdown = detail["expense_category_breakdown"]
+        for cc_cat, cc_amt in by_cat.items():
+            if cc_amt > 0:
+                breakdown[cc_cat] = breakdown.get(cc_cat, 0) + cc_amt
 
         # ── Process e-invoice transactions ─────────────────────────────────
         ei_txns = await self.txn_repo.get_by_period_and_source(period, TransactionSource.E_INVOICE)
@@ -177,6 +188,10 @@ class IncomeStatementService:
                         "payment_method": tx.payment_method,
                     }
                 )
+                # Track e-invoice category breakdown
+                ei_cat = tx.category.value if tx.category else "OTHER"
+                breakdown = detail["expense_category_breakdown"]
+                breakdown[ei_cat] = breakdown.get(ei_cat, 0) + abs(tx.amount)
         detail["einvoice_expenses"] = einvoice_expenses
 
         total_income = salary_income + investment_income + other_income
@@ -203,8 +218,17 @@ class IncomeStatementService:
 
     async def get_history(self, months: int = 12) -> list[dict[str, Any]]:
         all_is = await self.is_repo.list_all()
-        return [
-            {
+        result = []
+        for s in all_is[:months]:
+            # Parse stored category breakdown from detail_json
+            category_breakdown: dict[str, float] = {}
+            try:
+                if s.detail_json:
+                    d = json.loads(s.detail_json)
+                    category_breakdown = d.get("expense_category_breakdown", {})
+            except Exception:
+                pass
+            result.append({
                 "period": s.period_date.isoformat(),
                 "total_income": s.total_income,
                 "total_expenses": s.total_expenses,
@@ -213,6 +237,6 @@ class IncomeStatementService:
                 "investment_income": s.investment_income,
                 "credit_card_expenses": s.credit_card_expenses,
                 "bank_expenses": s.bank_expenses,
-            }
-            for s in all_is[:months]
-        ]
+                "expense_category_breakdown": category_breakdown,
+            })
+        return result
