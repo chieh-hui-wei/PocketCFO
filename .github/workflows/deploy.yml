@@ -74,8 +74,6 @@ jobs:
                 volumes:
                   - ./uploads:/app/uploads
                   - ./secrets:/app/secrets
-                  - ./pocketCFO.db:/app/pocketCFO.db
-                  - ./pocketCFO2.db:/app/pocketCFO2.db
                 env_file:
                   - .env
                 restart: unless-stopped
