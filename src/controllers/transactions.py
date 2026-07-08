@@ -96,7 +96,8 @@ async def get_transactions(
                 "is_refund": t.is_refund,
                 "raw_category": raw_data.get("category", None),
                 "institution": t.account.institution if t.account else "",
-                "account_id": t.account_id
+                "account_id": t.account_id,
+                "is_duplicate": t.is_duplicate
             })
             
         return {"status": "ok", "transactions": result}

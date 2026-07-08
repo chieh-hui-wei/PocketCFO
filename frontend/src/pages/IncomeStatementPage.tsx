@@ -112,8 +112,13 @@ export default function IncomeStatementPage() {
         t.category === "DEBT_REPAYMENT" ||
         t.category === "INVESTMENT";
 
+      if (t.is_duplicate) {
+        return;
+      }
+
       if (t.amount < 0 && !isExcluded) {
         const amt = Math.abs(t.amount);
+        const sign = t.is_refund ? -1 : 1;
         let name = "其他";
         if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食") {
           name = "餐飲美食";
@@ -134,7 +139,7 @@ export default function IncomeStatementPage() {
         } else {
           name = t.category || "其他";
         }
-        expenseCategories[name] = (expenseCategories[name] || 0) + amt;
+        expenseCategories[name] = (expenseCategories[name] || 0) + (sign * amt);
       }
     });
     return Object.entries(expenseCategories)

@@ -240,6 +240,7 @@ export interface TransactionRecord {
   raw_category: string | null;
   institution?: string;
   account_id?: number | null;
+  is_duplicate?: boolean;
 }
 
 export async function getTransactions(year: number, month?: number) {
