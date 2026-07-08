@@ -29,7 +29,7 @@ export default function TransactionsPage() {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
   const [selectedTxnIds, setSelectedTxnIds] = useState<number[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | "all">("all");
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">(() => {
     const params = new URLSearchParams(window.location.search);
@@ -46,9 +46,20 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     // Reset selected account ID if it has no transactions in the loaded transactions list
-    const activeIds = new Set(transactions.map(t => t.account_id).filter(Boolean));
-    if (selectedAccountId !== "all" && !activeIds.has(selectedAccountId)) {
-      setSelectedAccountId("all");
+    if (selectedAccountId !== "all") {
+      if (selectedAccountId.startsWith("source:")) {
+        const sourceVal = selectedAccountId.split(":")[1];
+        const hasSourceData = transactions.some(t => t.source === sourceVal);
+        if (!hasSourceData) {
+          setSelectedAccountId("all");
+        }
+      } else {
+        const accId = parseInt(selectedAccountId);
+        const activeIds = new Set(transactions.map(t => t.account_id).filter(Boolean));
+        if (!activeIds.has(accId)) {
+          setSelectedAccountId("all");
+        }
+      }
     }
   }, [transactions]);
 
@@ -375,14 +386,17 @@ export default function TransactionsPage() {
           {/* Account Filter */}
           <select
             value={selectedAccountId}
-            onChange={(e) => setSelectedAccountId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
             className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
           >
-            <option value="all">所有帳戶/銀行</option>
+            <option value="all">所有交易來源</option>
+            {transactions.some(t => t.source === "credit_card") && <option value="source:credit_card">所有信用卡帳單</option>}
+            {transactions.some(t => t.source === "e_invoice") && <option value="source:e_invoice">所有電子發票</option>}
+            {transactions.some(t => t.source === "brokerage") && <option value="source:brokerage">所有證券交易</option>}
             {allAccounts
               .filter(acc => transactions.some(t => t.account_id === acc.id))
               .map(acc => (
-                <option key={acc.id} value={acc.id}>
+                <option key={acc.id} value={acc.id.toString()}>
                   {acc.name} ({acc.institution})
                 </option>
               ))
@@ -445,7 +459,11 @@ export default function TransactionsPage() {
             })
             .filter(t => {
               if (selectedAccountId === "all") return true;
-              return t.account_id === selectedAccountId;
+              if (selectedAccountId === "source:credit_card") return t.source === "credit_card";
+              if (selectedAccountId === "source:e_invoice") return t.source === "e_invoice";
+              if (selectedAccountId === "source:brokerage") return t.source === "brokerage";
+              if (selectedAccountId === "source:bank") return t.source === "bank";
+              return t.account_id === parseInt(selectedAccountId);
             });
           return isLoading ? (
             <div className="py-20 text-center text-slate-500 font-bold">載入中...</div>
