@@ -17,10 +17,10 @@ RUN apt-get update && apt-get install -y \
 
 RUN uv pip install --system --no-cache -r requirements.txt
 
-COPY taishin_sdk-1.0.2-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl .
+COPY libs/taishin_sdk-1.0.2-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl .
 RUN uv pip install --system --no-cache taishin_sdk-1.0.2-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 
-COPY esun_trade-2.2.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl .
+COPY libs/esun_trade-2.2.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl .
 RUN uv pip install --system --no-cache esun_trade-2.2.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 
 COPY . .
