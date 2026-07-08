@@ -95,53 +95,64 @@ export default function IncomeStatementPage() {
     { name: '其他收入', value: Math.max(0, activeRecord.total_income - activeRecord.salary_income - activeRecord.investment_income) },
   ].filter(d => d.value > 0) : [];
 
+  // Mirror backend total_expenses logic exactly, per transaction source:
+  // - bank: exclude is_internal_transfer (already shown as "帳內互轉"), TRANSFER_IN/OUT, INVESTMENT, CREDIT_CARD_PAYMENT, DEBT_REPAYMENT
+  // - credit_card: include ALL transactions (net of refunds), no category filter
+  // - e_invoice: include all non-duplicates (no category filter)
   const expensePieData = (() => {
     if (!activeRecord || recentTxns.length === 0) return [];
     const expenseCategories: Record<string, number> = {};
+
     recentTxns.forEach(t => {
-      const isExcluded = 
-        t.category === "帳內互轉" || 
-        t.category === "轉入" || 
-        t.category === "轉出" || 
-        t.category === "信用卡繳款" || 
-        t.category === "本金償還" || 
-        t.category === "投資" ||
-        t.category === "TRANSFER_IN" ||
-        t.category === "TRANSFER_OUT" ||
-        t.category === "CREDIT_CARD_PAYMENT" ||
-        t.category === "DEBT_REPAYMENT" ||
-        t.category === "INVESTMENT";
+      if (t.is_duplicate) return;
+      if (t.amount >= 0) return; // Only expenses (negative amounts)
 
-      if (t.is_duplicate) {
-        return;
+      const amt = Math.abs(t.amount);
+      const sign = t.is_refund ? -1 : 1;
+      const src = t.source; // "bank", "credit_card", "e_invoice"
+
+      // For bank transactions, apply category-based exclusions
+      if (src === "bank") {
+        const isExcluded =
+          t.category === "帳內互轉" ||
+          t.category === "轉入" ||
+          t.category === "轉出" ||
+          t.category === "信用卡繳款" ||
+          t.category === "本金償還" ||
+          t.category === "投資" ||
+          t.category === "TRANSFER_IN" ||
+          t.category === "TRANSFER_OUT" ||
+          t.category === "CREDIT_CARD_PAYMENT" ||
+          t.category === "DEBT_REPAYMENT" ||
+          t.category === "INVESTMENT";
+        if (isExcluded) return;
+      }
+      // For credit_card and e_invoice: include all (no category filter, backend does the same)
+
+      let name = "其他";
+      if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食") {
+        name = "餐飲美食";
+      } else if (t.category === "交通" || t.category === "交通運輸") {
+        name = "交通運輸";
+      } else if (t.category === "支出" || t.category === "生活用品") {
+        name = "生活用品";
+      } else if (t.category === "娛樂" || t.category === "娛樂休閒") {
+        name = "娛樂休閒";
+      } else if (t.category === "醫療" || t.category === "醫療保健") {
+        name = "醫療保健";
+      } else if (t.category === "保險") {
+        name = "保險";
+      } else if (t.category === "運動") {
+        name = "運動";
+      } else if (t.category === "薪資") {
+        return; // Salary refunds/negatives are edge cases — skip
+      } else {
+        name = t.category || "其他";
       }
 
-      if (t.amount < 0 && !isExcluded) {
-        const amt = Math.abs(t.amount);
-        const sign = t.is_refund ? -1 : 1;
-        let name = "其他";
-        if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食") {
-          name = "餐飲美食";
-        } else if (t.category === "交通" || t.category === "交通運輸") {
-          name = "交通運輸";
-        } else if (t.category === "支出" || t.category === "生活用品") {
-          name = "生活用品";
-        } else if (t.category === "娛樂" || t.category === "娛樂休閒") {
-          name = "娛樂休閒";
-        } else if (t.category === "醫療" || t.category === "醫療保健") {
-          name = "醫療保健";
-        } else if (t.category === "保險") {
-          name = "保險";
-        } else if (t.category === "運動") {
-          name = "運動";
-        } else if (t.category === "其他") {
-          name = "其他";
-        } else {
-          name = t.category || "其他";
-        }
-        expenseCategories[name] = (expenseCategories[name] || 0) + (sign * amt);
-      }
+      expenseCategories[name] = (expenseCategories[name] || 0) + (sign * amt);
     });
+
     return Object.entries(expenseCategories)
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
