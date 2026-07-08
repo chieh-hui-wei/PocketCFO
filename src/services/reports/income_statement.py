@@ -146,17 +146,21 @@ class IncomeStatementService:
         net = 0.0
         by_cat: dict[str, float] = {}
         for tx in cc_txns:
+            # Exclude card payments, transfers, and investments from CC expenses
+            if tx.category in (
+                TransactionCategory.CREDIT_CARD_PAYMENT,
+                TransactionCategory.DEBT_REPAYMENT,
+                TransactionCategory.TRANSFER_IN,
+                TransactionCategory.TRANSFER_OUT,
+                TransactionCategory.INVESTMENT,
+            ):
+                continue
+
             amt = abs(tx.amount)
             sign = -1 if getattr(tx, "is_refund", False) else 1
             net += sign * amt
-            # Attempt to get original category from raw_data if present
-            cat = "other"
-            try:
-                if tx.raw_data:
-                    payload = json.loads(tx.raw_data)
-                    cat = payload.get("category") or payload.get("merchant") or "other"
-            except Exception:
-                cat = "other"
+            # Use standard transaction category, do NOT fall back to merchant names
+            cat = tx.category.value if tx.category else "OTHER"
             by_cat[cat] = by_cat.get(cat, 0) + sign * amt
 
         credit_card_expenses += net
@@ -171,8 +175,7 @@ class IncomeStatementService:
         # Merge CC category breakdown (use display-friendly keys)
         breakdown = detail["expense_category_breakdown"]
         for cc_cat, cc_amt in by_cat.items():
-            if cc_amt > 0:
-                breakdown[cc_cat] = breakdown.get(cc_cat, 0) + cc_amt
+            breakdown[cc_cat] = breakdown.get(cc_cat, 0) + cc_amt
 
         # ── Process e-invoice transactions ─────────────────────────────────
         ei_txns = await self.txn_repo.get_by_period_and_source(period, TransactionSource.E_INVOICE)

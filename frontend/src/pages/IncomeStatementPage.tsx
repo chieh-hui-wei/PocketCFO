@@ -108,21 +108,55 @@ export default function IncomeStatementPage() {
     "other": "其他",
   };
 
-  // Use backend-computed category breakdown
+  // Group by standard category based on actual filtered expenses
   const expensePieData = (() => {
-    const breakdown = activeRecord?.expense_category_breakdown;
-    if (!breakdown || Object.keys(breakdown).length === 0) return [];
-    const merged: Record<string, number> = {};
-    for (const [key, amt] of Object.entries(breakdown)) {
-      if (amt <= 0) continue;
-      const label = CATEGORY_LABEL[key] ?? key;
-      merged[label] = (merged[label] ?? 0) + amt;
-    }
-    return Object.entries(merged)
+    if (!recentTxns || recentTxns.length === 0) return [];
+    
+    const EXCLUDED_CATEGORIES = new Set([
+      "帳內互轉", "轉入", "轉出",
+      "投資",
+      "信用卡繳款", "本金償還",
+      "TRANSFER_IN", "TRANSFER_OUT",
+      "INVESTMENT", "CREDIT_CARD_PAYMENT", "DEBT_REPAYMENT",
+    ]);
+
+    const expenseCategories: Record<string, number> = {};
+
+    recentTxns
+      .filter(t => !EXCLUDED_CATEGORIES.has(t.category))
+      .filter(t => !t.is_duplicate)
+      .filter(t => t.amount < 0) // Only negative amounts are expenses
+      .forEach(t => {
+        const amt = Math.abs(t.amount);
+        let name = "其他";
+        if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食" || t.category === "FOOD") {
+          name = "餐飲美食";
+        } else if (t.category === "交通" || t.category === "交通運輸" || t.category === "TRANSPORT") {
+          name = "交通運輸";
+        } else if (t.category === "支出" || t.category === "生活用品" || t.category === "EXPENSE") {
+          name = "生活用品";
+        } else if (t.category === "娛樂" || t.category === "娛樂休閒" || t.category === "ENTERTAINMENT") {
+          name = "娛樂休閒";
+        } else if (t.category === "醫療" || t.category === "醫療保健" || t.category === "MEDICAL") {
+          name = "醫療保健";
+        } else if (t.category === "保險" || t.category === "INSURANCE") {
+          name = "保險";
+        } else if (t.category === "運動" || t.category === "EXERCISE") {
+          name = "運動";
+        } else {
+          name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他";
+        }
+        expenseCategories[name] = (expenseCategories[name] || 0) + amt;
+      });
+
+    return Object.entries(expenseCategories)
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value);
   })();
+
+  // Calculate dynamic total expenses from the same filtered list to display in the header
+  const displayTotalExpenses = expensePieData.reduce((sum, d) => sum + d.value, 0);
 
   const handleExport = () => {
     const year = currentDate.getFullYear();
@@ -178,9 +212,9 @@ export default function IncomeStatementPage() {
       <div className="grid grid-cols-4 gap-6 mb-6">
         {[
           { label: "總收入", val: activeRecord?.total_income ?? 0 },
-          { label: "總支出", val: activeRecord?.total_expenses ?? 0 },
-          { label: viewMode === "year" ? "本年結餘" : "本月結餘", val: activeRecord?.net_savings ?? 0 },
-          { label: "儲蓄率", val: activeRecord && activeRecord.total_income > 0 ? (activeRecord.net_savings / activeRecord.total_income * 100) : 0, isPercent: true },
+          { label: "總支出", val: displayTotalExpenses },
+          { label: viewMode === "year" ? "本年結餘" : "本月結餘", val: (activeRecord?.total_income ?? 0) - displayTotalExpenses },
+          { label: "儲蓄率", val: activeRecord && activeRecord.total_income > 0 ? (((activeRecord.total_income - displayTotalExpenses) / activeRecord.total_income) * 100) : 0, isPercent: true },
         ].map((k, i) => (
           <div key={i} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="text-sm font-bold text-slate-500 mb-2">{k.label}</div>
@@ -249,7 +283,7 @@ export default function IncomeStatementPage() {
             <h3 className="font-bold text-slate-800">支出分類明細</h3>
             {activeRecord && (
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
-                {viewMode === "year" ? "年總支出" : "總支出"}: ${activeRecord.total_expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {viewMode === "year" ? "年總支出" : "總支出"}: ${displayTotalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </span>
             )}
           </div>
@@ -283,7 +317,7 @@ export default function IncomeStatementPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }} />
                     <span className="text-slate-600 font-medium w-10">{d.name}</span>
-                    <span className="text-slate-400 font-bold">{Math.round((d.value / (activeRecord?.total_expenses || 1)) * 100)}%</span>
+                    <span className="text-slate-400 font-bold">{Math.round((d.value / (displayTotalExpenses || 1)) * 100)}%</span>
                   </div>
                   <span className="text-slate-800 font-bold">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                 </div>
