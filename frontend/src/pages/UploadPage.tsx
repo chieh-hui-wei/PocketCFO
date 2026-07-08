@@ -1045,11 +1045,16 @@ export default function UploadPage() {
                                 <option value="交通">交通</option>
                                 <option value="醫療">醫療</option>
                                 <option value="娛樂">娛樂</option>
+                                <option value="保險">保險</option>
+                                <option value="運動">運動</option>
+                                <option value="信用卡繳款">信用卡繳款</option>
+                                <option value="本金償還">本金償還</option>
                                 <option value="轉入">轉入</option>
                                 <option value="轉出">轉出</option>
                                 <option value="股利">股利</option>
                                 <option value="利息">利息</option>
                                 <option value="其他">其他</option>
+                                <option value="帳內互轉">帳內互轉</option>
                               </select>
                             </td>
                             <td className="px-3 py-1.5">
