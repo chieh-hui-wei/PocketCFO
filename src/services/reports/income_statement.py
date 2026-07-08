@@ -93,13 +93,22 @@ class IncomeStatementService:
 
                 if txn.amount > 0:
                     # Income
+                    if txn.category in (
+                        TransactionCategory.TRANSFER_IN,
+                        TransactionCategory.TRANSFER_OUT,
+                        TransactionCategory.CREDIT_CARD_PAYMENT,
+                        TransactionCategory.DEBT_REPAYMENT,
+                        TransactionCategory.INVESTMENT,
+                    ):
+                        continue
+
                     desc_upper = (txn.description or "").upper()
                     if txn.category == TransactionCategory.SALARY:
                         salary_income += txn.amount
                         detail["income_sources"].append(
                             {"type": "salary", "amount": txn.amount, "desc": txn.description}
                         )
-                    elif txn.category == TransactionCategory.INVESTMENT or any(kw in desc_upper for kw in [k.upper() for k in INVESTMENT_KEYWORDS]):
+                    elif txn.category in (TransactionCategory.DIVIDEND, TransactionCategory.INTEREST) or any(kw in desc_upper for kw in [k.upper() for k in INVESTMENT_KEYWORDS]):
                         investment_income += txn.amount
                         detail["income_sources"].append(
                             {"type": "investment", "amount": txn.amount, "desc": txn.description}
