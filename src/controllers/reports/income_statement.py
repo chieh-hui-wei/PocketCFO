@@ -200,6 +200,7 @@ async def compute_income_statement(
     """
     svc = IncomeStatementService(db, current_user.id)
     stmt = await svc.compute(year, month)
+    await db.commit()
     return {
         "period": stmt.period_date.isoformat(),
         "total_income": stmt.total_income,
@@ -211,3 +212,39 @@ async def compute_income_statement(
         "bank_expenses": stmt.bank_expenses,
         "net_savings": stmt.net_savings,
     }
+
+
+@router.post("/recompute-all")
+async def recompute_all_income_statements(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    """
+    Recompute ALL stored income statement months for the current user.
+    Useful after backend logic changes to refresh stale DB records.
+    """
+    from sqlalchemy import select
+    from src.dbs.models import IncomeStatement
+
+    svc = IncomeStatementService(db, current_user.id)
+
+    # Get all stored periods for this user
+    res = await db.execute(
+        select(IncomeStatement.period_date)
+        .where(IncomeStatement.user_id == current_user.id)
+        .order_by(IncomeStatement.period_date.asc())
+    )
+    periods = res.scalars().all()
+
+    results = []
+    for period in periods:
+        stmt = await svc.compute(period.year, period.month)
+        results.append({
+            "period": stmt.period_date.isoformat(),
+            "total_income": stmt.total_income,
+            "total_expenses": stmt.total_expenses,
+            "net_savings": stmt.net_savings,
+        })
+
+    await db.commit()
+    return {"status": "ok", "recomputed": len(results), "periods": results}

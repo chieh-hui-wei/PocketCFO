@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getIncomeStatementHistory, computeIncomeStatement, IncomeStatementRecord, getTransactions, TransactionRecord } from "../services/api";
+import { getIncomeStatementHistory, IncomeStatementRecord, getTransactions, TransactionRecord } from "../services/api";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
@@ -22,16 +22,6 @@ export default function IncomeStatementPage() {
   useEffect(() => {
     getIncomeStatementHistory().then(setHistory).catch(console.error);
   }, []);
-
-  // Auto-recompute and refresh the current period whenever date/viewMode changes
-  useEffect(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1;
-    computeIncomeStatement(year, month)
-      .then(() => getIncomeStatementHistory())
-      .then(setHistory)
-      .catch(console.error);
-  }, [currentDate, viewMode]);
 
   useEffect(() => {
     const month = viewMode === "year" ? undefined : currentDate.getMonth() + 1;
