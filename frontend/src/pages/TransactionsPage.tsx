@@ -414,7 +414,7 @@ export default function TransactionsPage() {
                   .filter(acc => acc.type === "credit_card" && transactions.some(t => t.account_id === acc.id))
                   .map(acc => (
                     <option key={acc.id} value={acc.id.toString()}>
-                      {acc.name} ({acc.institution})
+                      {acc.institution ? `${acc.institution}信用卡` : acc.name}
                     </option>
                   ))
                 }
