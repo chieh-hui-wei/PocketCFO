@@ -31,22 +31,26 @@ CATEGORY_LABELS: dict[str, str] = {
     "interest": "利息",
     "transfer_in": "轉入",
     "transfer_out": "轉出",
+    "credit_card_payment": "信用卡繳款",
+    "debt_repayment": "本金償還",
     "other": "其他",
 }
 
-VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "other"]
+VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "credit_card_payment", "debt_repayment", "other"]
 
 _CLASSIFY_PROMPT = """\
 You are a financial transaction classifier for Taiwan.
 Classify each transaction into exactly ONE of these categories:
-  food          – restaurants, supermarkets (全聯/全家/7-11), grocery, food delivery, drinks
-  transport     – gas stations, ride-hailing (Uber/Bolt), taxis, MRT, buses, trains, parking, toll
-  medical       – hospitals, clinics, pharmacies, health checkups, dental, vision, skincare (excluding insurance premiums)
-  salary        – salary / payroll / employer remittance deposits
-  entertainment – streaming (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
-  insurance     – health insurance, life insurance, car/scooter insurance, annual premiums (e.g. 南山人壽, 富邦產險)
-  exercise      – gym membership, sports centers, sports equipment, fitness training
-  other         – anything that doesn't clearly fit the above
+  food                – restaurants, supermarkets (全聯/全家/7-11), grocery, food delivery, drinks
+  transport           – gas stations, ride-hailing (Uber/Bolt), taxis, MRT, buses, trains, parking, toll
+  medical             – hospitals, clinics, pharmacies, health checkups, dental, vision, skincare (excluding insurance premiums)
+  salary              – salary / payroll / employer remittance deposits
+  entertainment       – streaming (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
+  insurance           – health insurance, life insurance, car/scooter insurance, annual premiums (e.g. 南山人壽, 富邦產險)
+  exercise            – gym membership, sports centers, sports equipment, fitness training
+  credit_card_payment – paying credit card bills or monthly payments to card issuers (e.g., 信用卡繳款, 繳卡費)
+  debt_repayment      – principal repayments on bank loans, installments, or mortgages (e.g., 貸款本金, 分期還款)
+  other               – anything that doesn't clearly fit the above
 
 Each item has an "id", "merchant", and "description". Use all available fields to make the best decision.
 Return ONLY valid JSON (no markdown, no explanation) in this exact schema:
@@ -162,6 +166,8 @@ def _category_to_enum(category: str):
         "exercise": TransactionCategory.EXERCISE,
         "salary": TransactionCategory.SALARY,
         "investment": TransactionCategory.INVESTMENT,
+        "credit_card_payment": TransactionCategory.CREDIT_CARD_PAYMENT,
+        "debt_repayment": TransactionCategory.DEBT_REPAYMENT,
         "dividend": TransactionCategory.DIVIDEND,
         "interest": TransactionCategory.INTEREST,
         "other": TransactionCategory.OTHER,
