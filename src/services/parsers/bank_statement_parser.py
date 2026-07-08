@@ -75,7 +75,7 @@ Return ONLY valid JSON with this exact schema:
     {
       "date": "YYYY-MM-DD",
       "merchant": "string",
-      "category": "string (餐飲/購物/交通/娛樂/醫療/其他)",
+      "category": "string (餐飲/支出/交通/娛樂/醫療/其他)",
       "amount": float,
       "currency": "TWD",
       "is_refund": boolean
