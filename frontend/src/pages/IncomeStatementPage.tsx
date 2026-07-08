@@ -182,7 +182,8 @@ export default function IncomeStatementPage() {
     return Object.entries(expenseCategories)
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
   })();
 
   // Calculate dynamic total income and expenses from the filtered lists
