@@ -28,6 +28,8 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
+  const [excludeInvestments, setExcludeInvestments] = useState(false);
+  const [excludeCardPayments, setExcludeCardPayments] = useState(false);
   const [selectedTxnIds, setSelectedTxnIds] = useState<number[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
@@ -65,7 +67,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     setSelectedTxnIds([]);
-  }, [currentDate, selectedAccountId, excludeTransfers, typeFilter]);
+  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -458,6 +460,24 @@ export default function TransactionsPage() {
             />
             排除帳內互轉
           </label>
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
+            <input
+              type="checkbox"
+              checked={excludeInvestments}
+              onChange={e => setExcludeInvestments(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+            />
+            排除投資
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
+            <input
+              type="checkbox"
+              checked={excludeCardPayments}
+              onChange={e => setExcludeCardPayments(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+            />
+            排除信用卡繳款
+          </label>
           <div className="flex items-center gap-4 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
             {formatMonth(currentDate)}
@@ -470,7 +490,26 @@ export default function TransactionsPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {(() => {
           const filteredTxns = transactions
-            .filter(t => !excludeTransfers || t.category !== "帳內互轉")
+            .filter(t => {
+              if (excludeTransfers && (
+                t.category === "帳內互轉" || 
+                t.category === "轉入" || 
+                t.category === "轉出" || 
+                t.category === "TRANSFER_IN" || 
+                t.category === "TRANSFER_OUT"
+              )) return false;
+              if (excludeInvestments && (
+                t.category === "投資" || 
+                t.category === "INVESTMENT"
+              )) return false;
+              if (excludeCardPayments && (
+                t.category === "信用卡繳款" || 
+                t.category === "本金償還" || 
+                t.category === "CREDIT_CARD_PAYMENT" || 
+                t.category === "DEBT_REPAYMENT"
+              )) return false;
+              return true;
+            })
             .filter(t => {
               if (typeFilter === "income") return t.amount > 0;
               if (typeFilter === "expense") return t.amount < 0;

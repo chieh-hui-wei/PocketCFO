@@ -89,10 +89,6 @@ export default function IncomeStatementPage() {
     ? { period: `${targetYear}-01-01`, ...annualData }
     : (history.find(b => b.period === targetPeriod) || null);
 
-  const [excludeTransfers, setExcludeTransfers] = useState(true);
-  const [excludeInvestments, setExcludeInvestments] = useState(true);
-  const [excludeCardPayments, setExcludeCardPayments] = useState(true);
-
   // Map backend category keys → Chinese display names
   const CATEGORY_LABEL: Record<string, string> = {
     SALARY: "薪資", INVESTMENT: "投資", TRANSFER_IN: "轉入", TRANSFER_OUT: "轉出",
@@ -106,26 +102,20 @@ export default function IncomeStatementPage() {
     "other": "其他",
   };
 
-  // Build the dynamic set of excluded categories based on the checkboxes
+  // Build the permanent set of excluded categories for income statement
   const EXCLUDED_CATEGORIES = (() => {
     const set = new Set<string>();
-    if (excludeTransfers) {
-      set.add("帳內互轉");
-      set.add("轉入");
-      set.add("轉出");
-      set.add("TRANSFER_IN");
-      set.add("TRANSFER_OUT");
-    }
-    if (excludeInvestments) {
-      set.add("投資");
-      set.add("INVESTMENT");
-    }
-    if (excludeCardPayments) {
-      set.add("信用卡繳款");
-      set.add("本金償還");
-      set.add("CREDIT_CARD_PAYMENT");
-      set.add("DEBT_REPAYMENT");
-    }
+    set.add("帳內互轉");
+    set.add("轉入");
+    set.add("轉出");
+    set.add("TRANSFER_IN");
+    set.add("TRANSFER_OUT");
+    set.add("投資");
+    set.add("INVESTMENT");
+    set.add("信用卡繳款");
+    set.add("本金償還");
+    set.add("CREDIT_CARD_PAYMENT");
+    set.add("DEBT_REPAYMENT");
     return set;
   })();
 
@@ -247,37 +237,6 @@ export default function IncomeStatementPage() {
             匯出 Excel
           </button>
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-8 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm mb-6 text-sm font-bold text-slate-600">
-        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-slate-800 transition-colors">
-          <input 
-            type="checkbox" 
-            checked={excludeTransfers} 
-            onChange={(e) => setExcludeTransfers(e.target.checked)}
-            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
-          />
-          排除帳內互轉
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-slate-800 transition-colors">
-          <input 
-            type="checkbox" 
-            checked={excludeInvestments} 
-            onChange={(e) => setExcludeInvestments(e.target.checked)}
-            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
-          />
-          排除投資項目
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-slate-800 transition-colors">
-          <input 
-            type="checkbox" 
-            checked={excludeCardPayments} 
-            onChange={(e) => setExcludeCardPayments(e.target.checked)}
-            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
-          />
-          排除信用卡繳款
-        </label>
       </div>
 
       {/* KPI Cards */}
