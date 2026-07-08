@@ -25,6 +25,8 @@ CATEGORY_TRANSLATION = {
     "ENTERTAINMENT": "娛樂",
     "INSURANCE": "保險",
     "EXERCISE": "運動",
+    "CREDIT_CARD_PAYMENT": "信用卡繳款",
+    "DEBT_REPAYMENT": "本金償還",
     "DIVIDEND": "股利",
     "INTEREST": "利息",
     "OTHER": "其他"

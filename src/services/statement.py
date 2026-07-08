@@ -726,6 +726,8 @@ class StatementService:
                     "娛樂": "ENTERTAINMENT",
                     "保險": "INSURANCE",
                     "運動": "EXERCISE",
+                    "信用卡繳款": "CREDIT_CARD_PAYMENT",
+                    "本金償還": "DEBT_REPAYMENT",
                     "股利": "DIVIDEND",
                     "利息": "INTEREST",
                     "其他": "OTHER",

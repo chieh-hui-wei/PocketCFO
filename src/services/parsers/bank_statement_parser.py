@@ -13,18 +13,17 @@ from src.instances.gemini import extract_structured
 from src.utils.date_utils import parse_period_date
 
 BANK_STATEMENT_PROMPT = """
-You are a financial data extraction assistant.
-Analyze this Taiwan bank statement PDF and extract the following data in JSON format.
-Note: A statement might contain multiple accounts (e.g. TWD savings, foreign currency savings, checking, or multiple sub-accounts). You MUST extract each account separately.
+You are an expert financial data extraction assistant.
+Analyze this Taiwan bank statement PDF (which may be a Consolidated Statement/綜合對帳單 containing bank savings, credit cards, funds, and securities) and extract the bank savings accounts and their transaction details in JSON format.
 
-Return ONLY valid JSON (no markdown, no explanation) with this exact schema:
+Return ONLY valid JSON with this exact schema:
 {
-  "institution": "string (bank name in Traditional Chinese)",
+  "institution": "string (bank name in Traditional Chinese, e.g. 國泰世華銀行, 玉山銀行, 台新銀行)",
   "period_year": integer,
   "period_month": integer,
   "accounts": [
     {
-      "account_number": "string (MUST search the entire document, including headers and summaries, to find and extract the FULL, UNMASKED account number for this specific account. Do not mask/truncate digits with 'X' or '*' if the complete account number is visible anywhere in the file.)",
+      "account_number": "string (MUST search the entire document to find and extract the FULL, UNMASKED account number for this specific savings account. Do not mask/truncate digits if the complete account number is visible anywhere in the file.)",
       "closing_balance": float,
       "currency": "string (e.g., TWD, USD, EUR, etc. Default to TWD if not specified)",
       "transactions": [
@@ -42,15 +41,14 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact schema:
 }
 
 Important rules:
-- Category selection: Analyze the description/merchant for each transaction and select the most appropriate category from (薪資/投資/轉入/轉出/支出/食物/交通/醫療/娛樂/股利/利息/其他).
-- ALL dates MUST be formatted as YYYY-MM-DD in the Gregorian calendar (西元年). If the statement uses the Taiwan ROC calendar (民國), you MUST convert it by adding 1911 to the year. (e.g. 民國 113 年 = 2024).
-- account_number: You MUST extract the full, unmasked account number (完整帳號) for each account if available anywhere in the document. Do not mask digits if you can find the complete account number. If the account number contains asterisks/X and the full unmasked number is not found anywhere else, you MUST retain the asterisks/X. Do NOT guess or randomly fill in missing digits.
-- closing_balance should be the balance at the end of the statement period for this specific account. It may be labeled as "台幣存款本期結餘", "本月餘額", "外幣結餘", "期末餘額", or found under "資產總覽" / "往來帳戶餘額彙整表".
-- period_year and period_month MUST represent the month the transactions actually took place in (the statement cycle month), NOT the statement issue date or billing date. For example, a statement issued in June covering May's transactions should have period_month = 5.
-- debit = money going out (negative to account), credit = money coming in
-- For description, MUST combine the transaction summary (摘要) with any counterparty account (對方帳號/行庫) or notes (備註). Example: "網路轉帳 - 0008 000077720XXXX736"
-- For inter-account transfers, include them but they will be filtered later
-- If you cannot find a field, use null
+- **Taiwan Consolidated Statements (綜合對帳單)**: Focus ONLY on bank savings sections (e.g., 台幣活期存款, 台幣活存, 活期性存款, 外幣存款, 活期存款). Do NOT extract credit card consumption items, securities/stock inventory, or fund valuations as bank accounts or savings transactions.
+- **Category Classification**: Analyze the description and merchant details for each transaction, and classify it into one of these exact categories: (薪資/投資/轉入/轉出/支出/食物/交通/醫療/娛樂/股利/利息/其他).
+- **Account Number**: Look carefully for the full savings account number (存款帳號) associated with each savings section. If the account number contains asterisks/X and the full unmasked number is not found anywhere else, retain the asterisks/X. Do NOT guess digits.
+- ALL dates MUST be formatted as YYYY-MM-DD in the Gregorian calendar (西元年). If the statement uses the Taiwan ROC calendar (民國), you MUST convert it by adding 1911 to the year (e.g. 113年10月31日 = 2024-10-31).
+- `closing_balance` must be the final balance of this specific savings account at the end of the period.
+- `debit` = money going out (negative to account), `credit` = money coming in (positive).
+- For description, combine transaction summary with any counterparty account or notes.
+- If you cannot find a field, use null.
 """
 
 

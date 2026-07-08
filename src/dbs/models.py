@@ -63,6 +63,8 @@ class TransactionCategory(str, enum.Enum):
     ENTERTAINMENT = "ENTERTAINMENT"  # streaming, cinemas, KTV, gaming
     INSURANCE = "INSURANCE"          # health, life, auto, annual premiums
     EXERCISE = "EXERCISE"            # gym, sports equipment, fitness classes
+    CREDIT_CARD_PAYMENT = "CREDIT_CARD_PAYMENT" # paying off credit card balance
+    DEBT_REPAYMENT = "DEBT_REPAYMENT"           # paying off loan principal
     DIVIDEND = "DIVIDEND"
     INTEREST = "INTEREST"
     OTHER = "OTHER"
