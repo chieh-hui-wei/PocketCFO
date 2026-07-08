@@ -39,7 +39,7 @@ export default function TransactionsPage() {
   });
 
   useEffect(() => {
-    getAccounts()
+    getAccounts(true)
       .then(setAllAccounts)
       .catch(console.error);
   }, []);
@@ -393,14 +393,33 @@ export default function TransactionsPage() {
             {transactions.some(t => t.source === "credit_card") && <option value="source:credit_card">所有信用卡帳單</option>}
             {transactions.some(t => t.source === "e_invoice") && <option value="source:e_invoice">所有電子發票</option>}
             {transactions.some(t => t.source === "brokerage") && <option value="source:brokerage">所有證券交易</option>}
-            {allAccounts
-              .filter(acc => transactions.some(t => t.account_id === acc.id))
-              .map(acc => (
-                <option key={acc.id} value={acc.id.toString()}>
-                  {acc.name} ({acc.institution})
-                </option>
-              ))
-            }
+            {/* Bank Accounts Group */}
+            {allAccounts.some(acc => acc.type === "bank" && transactions.some(t => t.account_id === acc.id)) && (
+              <optgroup label="銀行存款帳戶">
+                {allAccounts
+                  .filter(acc => acc.type === "bank" && transactions.some(t => t.account_id === acc.id))
+                  .map(acc => (
+                    <option key={acc.id} value={acc.id.toString()}>
+                      {acc.name} ({acc.institution})
+                    </option>
+                  ))
+                }
+              </optgroup>
+            )}
+
+            {/* Credit Card Accounts Group */}
+            {allAccounts.some(acc => acc.type === "credit_card" && transactions.some(t => t.account_id === acc.id)) && (
+              <optgroup label="信用卡">
+                {allAccounts
+                  .filter(acc => acc.type === "credit_card" && transactions.some(t => t.account_id === acc.id))
+                  .map(acc => (
+                    <option key={acc.id} value={acc.id.toString()}>
+                      {acc.name} ({acc.institution})
+                    </option>
+                  ))
+                }
+              </optgroup>
+            )}
           </select>
 
           {/* Type Filter Segment */}
