@@ -332,6 +332,8 @@ export default function TransactionsPage() {
                     <option value="娛樂">娛樂</option>
                     <option value="保險">保險</option>
                     <option value="運動">運動</option>
+                    <option value="信用卡繳款">信用卡繳款</option>
+                    <option value="本金償還">本金償還</option>
                     <option value="股利">股利</option>
                     <option value="利息">利息</option>
                     <option value="帳內互轉">帳內互轉</option>
@@ -530,6 +532,8 @@ export default function TransactionsPage() {
                             <option value="娛樂">娛樂</option>
                             <option value="保險">保險</option>
                             <option value="運動">運動</option>
+                            <option value="信用卡繳款">信用卡繳款</option>
+                            <option value="本金償還">本金償還</option>
                             <option value="轉入">轉入</option>
                             <option value="轉出">轉出</option>
                             <option value="股利">股利</option>
@@ -708,6 +712,8 @@ export default function TransactionsPage() {
                     <option value="娛樂">娛樂</option>
                     <option value="保險">保險</option>
                     <option value="運動">運動</option>
+                    <option value="信用卡繳款">信用卡繳款</option>
+                    <option value="本金償還">本金償還</option>
                     <option value="薪資">薪資</option>
                     <option value="投資">投資</option>
                     <option value="轉入">轉入</option>
