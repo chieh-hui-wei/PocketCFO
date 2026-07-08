@@ -375,7 +375,16 @@ export default function IncomeStatementPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {(() => {
+                const EXCLUDED_CATEGORIES = new Set([
+                  "帳內互轉", "轉入", "轉出",
+                  "投資",
+                  "信用卡繳款", "本金償還",
+                  "TRANSFER_IN", "TRANSFER_OUT",
+                  "INVESTMENT", "CREDIT_CARD_PAYMENT", "DEBT_REPAYMENT",
+                ]);
                 const filtered = recentTxns
+                  .filter(t => !EXCLUDED_CATEGORIES.has(t.category))
+                  .filter(t => !t.is_duplicate)
                   .filter(t => {
                     if (txnType === "income") return t.amount > 0;
                     if (txnType === "expense") return t.amount < 0;
