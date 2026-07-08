@@ -89,11 +89,9 @@ export default function IncomeStatementPage() {
     ? { period: `${targetYear}-01-01`, ...annualData }
     : (history.find(b => b.period === targetPeriod) || null);
 
-  const incomePieData = activeRecord ? [
-    { name: '薪資收入', value: activeRecord.salary_income },
-    { name: '投資收入', value: activeRecord.investment_income },
-    { name: '其他收入', value: Math.max(0, activeRecord.total_income - activeRecord.salary_income - activeRecord.investment_income) },
-  ].filter(d => d.value > 0) : [];
+  const [excludeTransfers, setExcludeTransfers] = useState(true);
+  const [excludeInvestments, setExcludeInvestments] = useState(true);
+  const [excludeCardPayments, setExcludeCardPayments] = useState(true);
 
   // Map backend category keys → Chinese display names
   const CATEGORY_LABEL: Record<string, string> = {
@@ -108,18 +106,60 @@ export default function IncomeStatementPage() {
     "other": "其他",
   };
 
+  // Build the dynamic set of excluded categories based on the checkboxes
+  const EXCLUDED_CATEGORIES = (() => {
+    const set = new Set<string>();
+    if (excludeTransfers) {
+      set.add("帳內互轉");
+      set.add("轉入");
+      set.add("轉出");
+      set.add("TRANSFER_IN");
+      set.add("TRANSFER_OUT");
+    }
+    if (excludeInvestments) {
+      set.add("投資");
+      set.add("INVESTMENT");
+    }
+    if (excludeCardPayments) {
+      set.add("信用卡繳款");
+      set.add("本金償還");
+      set.add("CREDIT_CARD_PAYMENT");
+      set.add("DEBT_REPAYMENT");
+    }
+    return set;
+  })();
+
+  // Compute dynamic income categories from recentTxns using the filter
+  const incomePieData = (() => {
+    if (!recentTxns || recentTxns.length === 0) return [];
+    const incomeCategories: Record<string, number> = {};
+
+    recentTxns
+      .filter(t => !EXCLUDED_CATEGORIES.has(t.category))
+      .filter(t => !t.is_duplicate)
+      .filter(t => t.amount > 0)
+      .forEach(t => {
+        let name = "其他收入";
+        if (t.category === "SALARY" || t.category === "薪資") {
+          name = "薪資收入";
+        } else if (t.category === "INVESTMENT" || t.category === "投資" || t.category === "DIVIDEND" || t.category === "股利") {
+          name = "投資收入";
+        } else {
+          name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他收入";
+          if (name === "其他") name = "其他收入";
+        }
+        incomeCategories[name] = (incomeCategories[name] || 0) + t.amount;
+      });
+
+    return Object.entries(incomeCategories)
+      .map(([name, value]) => ({ name, value }))
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+  })();
+
   // Group by standard category based on actual filtered expenses
   const expensePieData = (() => {
     if (!recentTxns || recentTxns.length === 0) return [];
-    
-    const EXCLUDED_CATEGORIES = new Set([
-      "帳內互轉", "轉入", "轉出",
-      "投資",
-      "信用卡繳款", "本金償還",
-      "TRANSFER_IN", "TRANSFER_OUT",
-      "INVESTMENT", "CREDIT_CARD_PAYMENT", "DEBT_REPAYMENT",
-    ]);
-
     const expenseCategories: Record<string, number> = {};
 
     recentTxns
@@ -155,7 +195,8 @@ export default function IncomeStatementPage() {
       .sort((a, b) => b.value - a.value);
   })();
 
-  // Calculate dynamic total expenses from the same filtered list to display in the header
+  // Calculate dynamic total income and expenses from the filtered lists
+  const displayTotalIncome = incomePieData.reduce((sum, d) => sum + d.value, 0);
   const displayTotalExpenses = expensePieData.reduce((sum, d) => sum + d.value, 0);
 
   const handleExport = () => {
@@ -208,13 +249,44 @@ export default function IncomeStatementPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex gap-8 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm mb-6 text-sm font-bold text-slate-600">
+        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-slate-800 transition-colors">
+          <input 
+            type="checkbox" 
+            checked={excludeTransfers} 
+            onChange={(e) => setExcludeTransfers(e.target.checked)}
+            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+          />
+          排除帳內互轉
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-slate-800 transition-colors">
+          <input 
+            type="checkbox" 
+            checked={excludeInvestments} 
+            onChange={(e) => setExcludeInvestments(e.target.checked)}
+            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+          />
+          排除投資項目
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-slate-800 transition-colors">
+          <input 
+            type="checkbox" 
+            checked={excludeCardPayments} 
+            onChange={(e) => setExcludeCardPayments(e.target.checked)}
+            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+          />
+          排除信用卡繳款
+        </label>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-6 mb-6">
         {[
-          { label: "總收入", val: activeRecord?.total_income ?? 0 },
+          { label: "總收入", val: displayTotalIncome },
           { label: "總支出", val: displayTotalExpenses },
-          { label: viewMode === "year" ? "本年結餘" : "本月結餘", val: (activeRecord?.total_income ?? 0) - displayTotalExpenses },
-          { label: "儲蓄率", val: activeRecord && activeRecord.total_income > 0 ? (((activeRecord.total_income - displayTotalExpenses) / activeRecord.total_income) * 100) : 0, isPercent: true },
+          { label: viewMode === "year" ? "本年結餘" : "本月結餘", val: displayTotalIncome - displayTotalExpenses },
+          { label: "儲蓄率", val: displayTotalIncome > 0 ? (((displayTotalIncome - displayTotalExpenses) / displayTotalIncome) * 100) : 0, isPercent: true },
         ].map((k, i) => (
           <div key={i} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="text-sm font-bold text-slate-500 mb-2">{k.label}</div>
@@ -234,7 +306,7 @@ export default function IncomeStatementPage() {
             <h3 className="font-bold text-slate-800">收入明細</h3>
             {activeRecord && (
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
-                {viewMode === "year" ? "年總收入" : "總收入"}: ${activeRecord.total_income.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {viewMode === "year" ? "年總收入" : "總收入"}: ${displayTotalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </span>
             )}
           </div>
@@ -268,7 +340,7 @@ export default function IncomeStatementPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: INCOME_COLORS[i % INCOME_COLORS.length] }} />
                     <span className="text-slate-600 font-medium w-16">{d.name}</span>
-                    <span className="text-slate-400 font-bold">{Math.round((d.value / (activeRecord?.total_income || 1)) * 100)}%</span>
+                    <span className="text-slate-400 font-bold">{Math.round((d.value / (displayTotalIncome || 1)) * 100)}%</span>
                   </div>
                   <span className="text-slate-800 font-bold">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                 </div>
@@ -374,13 +446,6 @@ export default function IncomeStatementPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {(() => {
-                const EXCLUDED_CATEGORIES = new Set([
-                  "帳內互轉", "轉入", "轉出",
-                  "投資",
-                  "信用卡繳款", "本金償還",
-                  "TRANSFER_IN", "TRANSFER_OUT",
-                  "INVESTMENT", "CREDIT_CARD_PAYMENT", "DEBT_REPAYMENT",
-                ]);
                 const filtered = recentTxns
                   .filter(t => !EXCLUDED_CATEGORIES.has(t.category))
                   .filter(t => !t.is_duplicate)
