@@ -99,7 +99,20 @@ export default function IncomeStatementPage() {
     if (!activeRecord || recentTxns.length === 0) return [];
     const expenseCategories: Record<string, number> = {};
     recentTxns.forEach(t => {
-      if (t.amount < 0) {
+      const isExcluded = 
+        t.category === "帳內互轉" || 
+        t.category === "轉入" || 
+        t.category === "轉出" || 
+        t.category === "信用卡繳款" || 
+        t.category === "本金償還" || 
+        t.category === "投資" ||
+        t.category === "TRANSFER_IN" ||
+        t.category === "TRANSFER_OUT" ||
+        t.category === "CREDIT_CARD_PAYMENT" ||
+        t.category === "DEBT_REPAYMENT" ||
+        t.category === "INVESTMENT";
+
+      if (t.amount < 0 && !isExcluded) {
         const amt = Math.abs(t.amount);
         let name = "其他";
         if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食") {
