@@ -110,7 +110,11 @@ class IncomeStatementService:
                             {"type": "other", "amount": txn.amount, "desc": txn.description}
                         )
                 else:
-                    if txn.category in (TransactionCategory.EXPENSE, TransactionCategory.OTHER):
+                    if txn.category not in (
+                        TransactionCategory.INVESTMENT,
+                        TransactionCategory.TRANSFER_IN,
+                        TransactionCategory.TRANSFER_OUT,
+                    ):
                         bank_expenses += abs(txn.amount)
                         detail["expense_sources"].append(
                             {
