@@ -95,13 +95,40 @@ export default function IncomeStatementPage() {
     { name: '其他收入', value: Math.max(0, activeRecord.total_income - activeRecord.salary_income - activeRecord.investment_income) },
   ].filter(d => d.value > 0) : [];
 
-  const expensePieData = activeRecord ? [
-    { name: '餐飲美食', value: activeRecord.total_expenses * 0.35 },
-    { name: '生活用品', value: activeRecord.total_expenses * 0.25 },
-    { name: '交通運輸', value: activeRecord.total_expenses * 0.20 },
-    { name: '娛樂休閒', value: activeRecord.total_expenses * 0.15 },
-    { name: '其他', value: activeRecord.total_expenses * 0.05 },
-  ].filter(d => d.value > 0) : [];
+  const expensePieData = (() => {
+    if (!activeRecord || recentTxns.length === 0) return [];
+    const expenseCategories: Record<string, number> = {};
+    recentTxns.forEach(t => {
+      if (t.amount < 0) {
+        const amt = Math.abs(t.amount);
+        let name = "其他";
+        if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食") {
+          name = "餐飲美食";
+        } else if (t.category === "交通" || t.category === "交通運輸") {
+          name = "交通運輸";
+        } else if (t.category === "支出" || t.category === "生活用品") {
+          name = "生活用品";
+        } else if (t.category === "娛樂" || t.category === "娛樂休閒") {
+          name = "娛樂休閒";
+        } else if (t.category === "醫療" || t.category === "醫療保健") {
+          name = "醫療保健";
+        } else if (t.category === "保險") {
+          name = "保險";
+        } else if (t.category === "運動") {
+          name = "運動";
+        } else if (t.category === "其他") {
+          name = "其他";
+        } else {
+          name = t.category || "其他";
+        }
+        expenseCategories[name] = (expenseCategories[name] || 0) + amt;
+      }
+    });
+    return Object.entries(expenseCategories)
+      .map(([name, value]) => ({ name, value }))
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+  })();
 
   const handleExport = () => {
     const year = currentDate.getFullYear();
