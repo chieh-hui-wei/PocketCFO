@@ -114,6 +114,8 @@ class IncomeStatementService:
                         TransactionCategory.INVESTMENT,
                         TransactionCategory.TRANSFER_IN,
                         TransactionCategory.TRANSFER_OUT,
+                        TransactionCategory.CREDIT_CARD_PAYMENT,
+                        TransactionCategory.DEBT_REPAYMENT,
                     ):
                         bank_expenses += abs(txn.amount)
                         detail["expense_sources"].append(
