@@ -8,6 +8,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export default function StockTransactionsPage() {
+  const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const [currentDate, setCurrentDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -24,7 +25,7 @@ export default function StockTransactionsPage() {
       setIsLoading(true);
       try {
         const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1;
+        const month = viewMode === "monthly" ? currentDate.getMonth() + 1 : undefined;
         const [txns, summ] = await Promise.all([
           getStockTransactions(year, month),
           getStockTransactionsSummary(summaryMonths)
@@ -38,13 +39,31 @@ export default function StockTransactionsPage() {
       }
     };
     fetchTxnsAndSummary();
-  }, [currentDate, summaryMonths]);
+  }, [currentDate, summaryMonths, viewMode]);
 
-  const handlePrevMonth = () => setCurrentDate(d => { const nd = new Date(d); nd.setMonth(d.getMonth() - 1); return nd; });
-  const handleNextMonth = () => setCurrentDate(d => { const nd = new Date(d); nd.setMonth(d.getMonth() + 1); return nd; });
-  const formatMonth = (d: Date) => `${d.getFullYear()}年${d.getMonth() + 1}月`;
+  const handlePrev = () => setCurrentDate(d => {
+    const nd = new Date(d);
+    if (viewMode === "monthly") {
+      nd.setMonth(d.getMonth() - 1);
+    } else {
+      nd.setFullYear(d.getFullYear() - 1);
+    }
+    return nd;
+  });
 
-  // Extract all unique brokers from current month's transactions
+  const handleNext = () => setCurrentDate(d => {
+    const nd = new Date(d);
+    if (viewMode === "monthly") {
+      nd.setMonth(d.getMonth() + 1);
+    } else {
+      nd.setFullYear(d.getFullYear() + 1);
+    }
+    return nd;
+  });
+
+  const formatPeriod = (d: Date) => viewMode === "monthly" ? `${d.getFullYear()}年${d.getMonth() + 1}月` : `${d.getFullYear()}年度`;
+
+  // Extract all unique brokers from current month/year transactions
   const availableBrokers = Array.from(
     new Set(transactions.map(t => t.institution || t.merchant).filter(Boolean))
   ) as string[];
@@ -54,7 +73,7 @@ export default function StockTransactionsPage() {
     ? transactions
     : transactions.filter(t => (t.institution || t.merchant) === selectedBroker);
 
-  // Compute metrics for the current viewed month (based on filtered transactions)
+  // Compute metrics for the current viewed period (based on filtered transactions)
   const currentBuys = filteredTransactions.reduce((acc, t) => t.amount < 0 ? acc + Math.abs(t.amount) : acc, 0);
   const currentSells = filteredTransactions.reduce((acc, t) => t.amount > 0 ? acc + t.amount : acc, 0);
   const netFlow = currentSells - currentBuys;
@@ -86,15 +105,41 @@ export default function StockTransactionsPage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">股票交易明細</h1>
-          <p className="text-sm text-slate-500 mt-1">檢視您每個月的股票與證券進出紀錄與變化</p>
+          <p className="text-sm text-slate-500 mt-1">檢視您每月或年度的股票與證券進出紀錄與變化</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          {/* View Mode Toggle */}
+          <div className="flex bg-slate-100 p-0.5 rounded-full text-xs font-bold border border-slate-200">
+            <button
+              onClick={() => {
+                setViewMode("monthly");
+                setSelectedBroker("all");
+              }}
+              className={`px-4 py-1.5 rounded-full transition-all cursor-pointer ${
+                viewMode === "monthly" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              按月檢視
+            </button>
+            <button
+              onClick={() => {
+                setViewMode("annual");
+                setSelectedBroker("all");
+              }}
+              className={`px-4 py-1.5 rounded-full transition-all cursor-pointer ${
+                viewMode === "annual" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              按年檢視
+            </button>
+          </div>
+
           {/* Broker Filter */}
           {availableBrokers.length > 0 && (
             <select
               value={selectedBroker}
               onChange={(e) => setSelectedBroker(e.target.value)}
-              className="bg-white border border-slate-200 px-4 py-2 rounded-full text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500"
+              className="bg-white border border-slate-200 px-4 py-2 rounded-full text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="all">所有券商</option>
               {availableBrokers.map(b => (
@@ -104,9 +149,9 @@ export default function StockTransactionsPage() {
           )}
 
           <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
-            {formatMonth(currentDate)}
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
+            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrev}>{"<"}</span>
+            {formatPeriod(currentDate)}
+            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNext}>{">"}</span>
           </div>
         </div>
       </div>
@@ -115,24 +160,24 @@ export default function StockTransactionsPage() {
       <div className="grid grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="text-xs font-bold text-slate-400 mb-1">
-            {selectedBroker === "all" ? "本月累計買進 (所有券商)" : `本月累計買進 (${selectedBroker})`}
+            {selectedBroker === "all" ? (viewMode === "monthly" ? "本月累計買進 (所有券商)" : "本年累計買進 (所有券商)") : (viewMode === "monthly" ? `本月累計買進 (${selectedBroker})` : `本年累計買進 (${selectedBroker})`)}
           </div>
           <div className="text-2xl font-bold text-slate-800">${currentBuys.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
           <div className="text-xxs text-slate-400 mt-1">證券交割扣款金額</div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="text-xs font-bold text-slate-400 mb-1">
-            {selectedBroker === "all" ? "本月累計賣出 (所有券商)" : `本月累計賣出 (${selectedBroker})`}
+            {selectedBroker === "all" ? (viewMode === "monthly" ? "本月累計賣出 (所有券商)" : "本年累計賣出 (所有券商)") : (viewMode === "monthly" ? `本月累計賣出 (${selectedBroker})` : `本年累計賣出 (${selectedBroker})`)}
           </div>
           <div className="text-2xl font-bold text-green-600">${currentSells.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
           <div className="text-xxs text-slate-400 mt-1">證券交割入帳金額</div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <div className="text-xs font-bold text-slate-400 mb-1">當月交易淨流向</div>
+          <div className="text-xs font-bold text-slate-400 mb-1">{viewMode === "monthly" ? "當月交易淨流向" : "當年交易淨流向"}</div>
           <div className={`text-2xl font-bold ${netFlow >= 0 ? 'text-green-600' : 'text-blue-600'}`}>
             {netFlow >= 0 ? `+ $${netFlow.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(netFlow).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
           </div>
-          <div className="text-xxs text-slate-400 mt-1">{netFlow >= 0 ? "資金流回銀行存款" : "銀行存款流向證券資產"}</div>
+          <div className="text-xxs text-slate-400 mt-1">{netFlow >= 0 ? (viewMode === "monthly" ? "資金流回銀行存款" : "當年累計資金流回存款") : (viewMode === "monthly" ? "銀行存款流向證券資產" : "當年累計資金流向證券") }</div>
         </div>
       </div>
 
@@ -183,7 +228,7 @@ export default function StockTransactionsPage() {
         {brokerStats.length > 0 && (
           <div className="col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
             <div>
-              <h3 className="font-bold text-slate-800 mb-4 text-sm">當月券商交易佔比與統計</h3>
+              <h3 className="font-bold text-slate-800 mb-4 text-sm">{viewMode === "monthly" ? "當月券商交易佔比與統計" : "當年券商交易佔比與統計"}</h3>
               <div className="space-y-4 max-h-[160px] overflow-y-auto pr-1">
                 {brokerStats.map((item) => (
                   <div key={item.name} className="border-b border-slate-50 last:border-0 pb-3 last:pb-0">
@@ -221,7 +266,9 @@ export default function StockTransactionsPage() {
           <div className="py-20 text-center text-slate-500 font-bold">載入中...</div>
         ) : filteredTransactions.length === 0 ? (
           <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-            <div className="font-bold text-lg text-slate-500 mb-2">本月尚無該券商之股票交易紀錄</div>
+            <div className="font-bold text-lg text-slate-500 mb-2">
+              {viewMode === "monthly" ? "本月尚無該券商之股票交易紀錄" : "本年尚無該券商之股票交易紀錄"}
+            </div>
             <div className="text-sm mt-2">系統已自動為您過濾其他日常收支</div>
           </div>
         ) : (

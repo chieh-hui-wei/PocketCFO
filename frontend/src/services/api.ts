@@ -248,7 +248,7 @@ export async function getTransactions(year: number, month?: number) {
   return data.transactions as TransactionRecord[];
 }
 
-export async function getStockTransactions(year: number, month: number) {
+export async function getStockTransactions(year: number, month?: number) {
   const data = await fetchWithCache("/transactions/stocks", { year, month });
   return data.transactions as TransactionRecord[];
 }

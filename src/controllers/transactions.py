@@ -192,14 +192,29 @@ async def export_transactions(
 @router.get("/stocks")
 async def get_stock_transactions(
     year: int = Query(..., description="Year"),
-    month: int = Query(..., description="Month"),
+    month: int | None = Query(None, description="Month (Optional)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_token),
 ) -> dict[str, Any]:
     try:
-        period = first_of_month(year, month)
         repo = TransactionRepository(db, current_user.id)
-        txns = await repo.get_by_period(account_id=None, period_date=period)
+        if month is not None:
+            period = first_of_month(year, month)
+            txns = await repo.get_by_period(account_id=None, period_date=period)
+        else:
+            from datetime import date
+            from sqlalchemy import select
+            from sqlalchemy.orm import joinedload
+            from src.dbs.models import Transaction
+            start = date(year, 1, 1)
+            end = date(year, 12, 31)
+            stmt = select(Transaction).options(joinedload(Transaction.account)).where(
+                Transaction.user_id == current_user.id,
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+            )
+            result = await db.execute(stmt)
+            txns = result.scalars().all()
         
         # Sort by date descending
         sorted_txns = sorted(txns, key=lambda t: t.txn_date, reverse=True)
