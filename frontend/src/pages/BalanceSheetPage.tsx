@@ -71,6 +71,25 @@ export default function BalanceSheetPage() {
 
   const latestBs = history.find(b => b.period === targetPeriod) || null;
 
+  const getGrowthRateInfo = () => {
+    if (!latestBs) return { text: "— vs 上月", isPositive: true };
+    const prevMonthDate = new Date(currentDate);
+    prevMonthDate.setMonth(currentDate.getMonth() - 1);
+    const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+    const prevBs = history.find(b => b.period === prevPeriod) || null;
+
+    if (!prevBs || prevBs.net_worth === 0) return { text: "— vs 上月", isPositive: true };
+    const diff = latestBs.net_worth - prevBs.net_worth;
+    const rate = (diff / Math.abs(prevBs.net_worth)) * 100;
+    const sign = rate >= 0 ? "▲" : "▼";
+    return {
+      text: `${sign} ${Math.abs(rate).toFixed(1)}% vs 上月`,
+      isPositive: rate >= 0
+    };
+  };
+
+  const growthInfo = getGrowthRateInfo();
+
   const trendData = [...history].reverse().map(b => ({
     name: b.period.split("-")[1] + "月",
     value: b.net_worth
@@ -252,7 +271,9 @@ export default function BalanceSheetPage() {
             <div className="text-sm font-bold text-blue-200">淨資產</div>
           </div>
           <div className="text-3xl font-bold mb-1">${(latestBs?.net_worth ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-          <div className="text-xs font-bold text-green-300 mb-4">▲ 6.3% vs 上月</div>
+          <div className={`text-xs font-bold mb-4 ${growthInfo.isPositive ? 'text-green-300' : 'text-red-300'}`}>
+            {growthInfo.text}
+          </div>
           
           <div className="flex-1 w-full h-[100px] mt-2">
             {finalTrendData.length > 0 ? (
