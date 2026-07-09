@@ -16,7 +16,7 @@ import re
 # We no longer use generic keywords like "轉入", "轉出" because they mask real expenses (like paying rent).
 # Instead, we rely on explicit internal transfer markers or explicit account matching.
 TRANSFER_KEYWORDS = [
-    "內部轉帳", "自行轉帳", "卡費", "信用卡費",
+    "內部轉帳", "自行轉帳", "卡費", "信用卡費", "提款", "現金提款", "ATM提款", "ATM", "提領"
 ]
 
 # Regex patterns: description containing partial account numbers

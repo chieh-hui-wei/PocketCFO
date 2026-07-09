@@ -42,7 +42,7 @@ Return ONLY valid JSON with this exact schema:
 
 Important rules:
 - **Taiwan Consolidated Statements (綜合對帳單)**: Focus ONLY on bank savings sections (e.g., 台幣活期存款, 台幣活存, 活期性存款, 外幣存款, 活期存款). Do NOT extract credit card consumption items, securities/stock inventory, or fund valuations as bank accounts or savings transactions.
-- **Category Classification**: Analyze the description and merchant details for each transaction, and classify it into one of these exact categories: (薪資/投資/轉入/轉出/支出/食物/交通/醫療/娛樂/股利/利息/其他).
+- **Category Classification**: Analyze the description and merchant details for each transaction, and classify it into one of these exact categories: (薪資/投資/轉入/轉出/支出/食物/交通/醫療/娛樂/股利/利息/其他). Note that cash withdrawals / ATM withdrawals (e.g. 現金提款, ATM提款, 提款, 提現, ATM) MUST be classified as "轉出" or "帳內互轉" (which map to internal transfers), and MUST NOT be classified as "支出" or "其他".
 - **Account Number**: Look carefully for the full savings account number (存款帳號) associated with each savings section. If the account number contains asterisks/X and the full unmasked number is not found anywhere else, retain the asterisks/X. Do NOT guess digits.
 - ALL dates MUST be formatted as YYYY-MM-DD in the Gregorian calendar (西元年). If the statement uses the Taiwan ROC calendar (民國), you MUST convert it by adding 1911 to the year (e.g. 113年10月31日 = 2024-10-31).
 - `closing_balance` must be the final balance of this specific savings account at the end of the period.
