@@ -467,6 +467,8 @@ async def update_transaction(
         if body.category is not None:
             reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
             reverse_cat["帳內互轉"] = "TRANSFER_IN"
+            reverse_cat["其他收入"] = "OTHER"
+            reverse_cat["其他支出"] = "OTHER"
             cat_val = reverse_cat.get(body.category, body.category)
             if isinstance(cat_val, str):
                 cat_val = cat_val.upper()
@@ -618,6 +620,8 @@ async def bulk_update_category(
         # Parse category
         reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
         reverse_cat["帳內互轉"] = "TRANSFER_IN"
+        reverse_cat["其他收入"] = "OTHER"
+        reverse_cat["其他支出"] = "OTHER"
         cat_val = reverse_cat.get(body.category, body.category)
         if isinstance(cat_val, str):
             cat_val = cat_val.upper()

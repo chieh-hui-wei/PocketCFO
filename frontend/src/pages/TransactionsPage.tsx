@@ -132,19 +132,19 @@ export default function TransactionsPage() {
 
   const handleCategoryChange = (cat: string) => {
     setFormCategory(cat);
-    if (["薪資", "轉入", "股利", "利息"].includes(cat)) {
+    if (["薪資", "轉入", "股利", "利息", "其他收入"].includes(cat)) {
       setFormType("income");
-    } else if (["支出", "轉出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物"].includes(cat)) {
+    } else if (["支出", "轉出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他支出"].includes(cat)) {
       setFormType("expense");
     }
   };
 
   const handleTypeChange = (type: "income" | "expense") => {
     setFormType(type);
-    if (type === "income" && ["支出", "轉出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物"].includes(formCategory)) {
-      setFormCategory("其他");
-    } else if (type === "expense" && ["薪資", "轉入", "股利", "利息"].includes(formCategory)) {
-      setFormCategory("支出");
+    if (type === "income" && ["支出", "轉出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他支出"].includes(formCategory)) {
+      setFormCategory("其他收入");
+    } else if (type === "expense" && ["薪資", "轉入", "股利", "利息", "其他收入"].includes(formCategory)) {
+      setFormCategory("其他支出");
     }
   };
 
@@ -206,10 +206,21 @@ export default function TransactionsPage() {
     }
   };
 
+  const getCategoryLabel = (t: TransactionRecord) => {
+    if (t.category === "其他") {
+      return t.amount > 0 ? "其他收入" : "其他支出";
+    }
+    return t.category;
+  };
+
   const handleStartEdit = (t: TransactionRecord) => {
     setEditingTxnId(t.id);
     setEditDate(t.date);
-    setEditCategory(t.category);
+    let cat = t.category;
+    if (cat === "其他") {
+      cat = t.amount > 0 ? "其他收入" : "其他支出";
+    }
+    setEditCategory(cat);
     setEditDescription(t.description || t.merchant || "");
     setEditAmount(t.amount);
   };
@@ -595,7 +606,7 @@ export default function TransactionsPage() {
                             {t.amount > 0 ? (
                               <>
                                 <optgroup label="收入類別">
-                                  {["薪資", "股利", "利息", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                  {["薪資", "股利", "利息", "其他收入"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                 </optgroup>
                                 <optgroup label="通用類別">
                                   {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -604,7 +615,7 @@ export default function TransactionsPage() {
                             ) : (
                               <>
                                 <optgroup label="支出類別">
-                                  {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                  {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他支出"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                 </optgroup>
                                 <optgroup label="通用類別">
                                   {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -613,7 +624,7 @@ export default function TransactionsPage() {
                             )}
                           </select>
                         ) : (
-                          t.category || '-'
+                          getCategoryLabel(t) || '-'
                         )}
                       </td>
 
@@ -779,7 +790,7 @@ export default function TransactionsPage() {
                     {formType === "income" ? (
                       <>
                         <optgroup label="收入類別">
-                          {["薪資", "股利", "利息", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          {["薪資", "股利", "利息", "其他收入"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </optgroup>
                         <optgroup label="通用類別">
                           {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -788,7 +799,7 @@ export default function TransactionsPage() {
                     ) : (
                       <>
                         <optgroup label="支出類別">
-                          {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他支出"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </optgroup>
                         <optgroup label="通用類別">
                           {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}

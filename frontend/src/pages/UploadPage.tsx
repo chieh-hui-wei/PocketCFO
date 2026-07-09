@@ -1034,27 +1034,29 @@ export default function UploadPage() {
                             </td>
                             <td className="px-3 py-1.5">
                               <select
-                                value={t.category || "其他"}
+                                value={t.category === "其他" ? (t.amount > 0 ? "其他收入" : "其他支出") : (t.category || "其他支出")}
                                 onChange={e => updateTransactionRow(idx, "category", e.target.value)}
                                 className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
                               >
-                                <option value="薪資">薪資</option>
-                                <option value="投資">投資</option>
-                                <option value="支出">支出</option>
-                                <option value="食物">食物</option>
-                                <option value="交通">交通</option>
-                                <option value="醫療">醫療</option>
-                                <option value="娛樂">娛樂</option>
-                                <option value="保險">保險</option>
-                                <option value="運動">運動</option>
-                                <option value="信用卡繳款">信用卡繳款</option>
-                                <option value="本金償還">本金償還</option>
-                                <option value="轉入">轉入</option>
-                                <option value="轉出">轉出</option>
-                                <option value="股利">股利</option>
-                                <option value="利息">利息</option>
-                                <option value="其他">其他</option>
-                                <option value="帳內互轉">帳內互轉</option>
+                                {t.amount > 0 ? (
+                                  <>
+                                    <optgroup label="收入類別">
+                                      {["薪資", "股利", "利息", "其他收入"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </optgroup>
+                                    <optgroup label="通用類別">
+                                      {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </optgroup>
+                                  </>
+                                ) : (
+                                  <>
+                                    <optgroup label="支出類別">
+                                      {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他支出"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </optgroup>
+                                    <optgroup label="通用類別">
+                                      {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </optgroup>
+                                  </>
+                                )}
                               </select>
                             </td>
                             <td className="px-3 py-1.5">
