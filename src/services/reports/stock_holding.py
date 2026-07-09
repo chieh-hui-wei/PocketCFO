@@ -61,7 +61,6 @@ class StockHoldingService:
                     .where(
                         AccountSnapshot.user_id == self.user_id,
                         AccountSnapshot.account_id == acct.id,
-                        AccountSnapshot.period_date >= start_date,
                         AccountSnapshot.period_date <= end_date
                     )
                     .order_by(AccountSnapshot.period_date.desc())
