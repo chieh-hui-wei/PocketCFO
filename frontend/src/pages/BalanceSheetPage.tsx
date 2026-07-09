@@ -454,7 +454,7 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
-              {latestBs?.detail?.securities?.map((s: any, i: number) => (
+              {latestBs?.detail?.securities?.filter((s: any) => s.market_value !== 0)?.map((s: any, i: number) => (
                 <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {s.broker} - {s.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
@@ -473,7 +473,7 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
-              {latestBs?.detail?.credit_cards?.map((cc: any, i: number) => (
+              {latestBs?.detail?.credit_cards?.filter((cc: any) => cc.payable !== 0)?.map((cc: any, i: number) => (
                 <tr key={`cc-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {cc.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
@@ -492,7 +492,7 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
-              {latestBs?.detail?.liabilities?.map((l: any, i: number) => (
+              {latestBs?.detail?.liabilities?.filter((l: any) => l.balance !== 0)?.map((l: any, i: number) => (
                 <tr key={`liab-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {l.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
