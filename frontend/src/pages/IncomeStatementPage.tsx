@@ -159,7 +159,7 @@ export default function IncomeStatementPage() {
       .filter(t => t.amount < 0) // Only negative amounts are expenses
       .forEach(t => {
         const amt = Math.abs(t.amount);
-        let name = "其他";
+        let name = "其他支出";
         if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食" || t.category === "FOOD") {
           name = "餐飲美食";
         } else if (t.category === "交通" || t.category === "交通運輸" || t.category === "TRANSPORT") {
@@ -177,7 +177,8 @@ export default function IncomeStatementPage() {
         } else if (t.category === "購物" || t.category === "SHOPPING") {
           name = "購物";
         } else {
-          name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他";
+          name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他支出";
+          if (name === "其他") name = "其他支出";
         }
         expenseCategories[name] = (expenseCategories[name] || 0) + amt;
       });
