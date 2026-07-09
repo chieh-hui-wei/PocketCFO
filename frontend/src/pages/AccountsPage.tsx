@@ -21,6 +21,8 @@ export default function AccountsPage() {
   const [pots, setPots] = useState<SavingsPot[]>([]);
   const [potsLoading, setPotsLoading] = useState(false);
   const [totalCash, setTotalCash] = useState<number>(0);
+  const [latestPeriod, setLatestPeriod] = useState<string | null>(null);
+  const [missingAccounts, setMissingAccounts] = useState<string[]>([]);
 
   const [showAddPotModal, setShowAddPotModal] = useState(false);
   const [showEditPotModal, setShowEditPotModal] = useState(false);
@@ -61,6 +63,8 @@ export default function AccountsPage() {
       const res = await getSavingsPots();
       setPots(res.pots);
       setTotalCash(res.total_cash);
+      setLatestPeriod(res.latest_period ?? null);
+      setMissingAccounts(res.missing_accounts || []);
     } catch (e) {
       console.error("Failed to fetch savings pots", e);
     } finally {
@@ -401,6 +405,19 @@ export default function AccountsPage() {
             </div>
           );
         })()}
+
+        {/* Missing statement warnings */}
+        {latestPeriod && missingAccounts.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
+            <span className="text-lg">⚠️</span>
+            <div className="text-xs text-amber-800 leading-relaxed">
+              <span className="font-bold">未全數更新餘額提醒：</span>
+              您目前看到的是 {latestPeriod.split('-')[0]} 年 {parseInt(latestPeriod.split('-')[1])} 月的活水總額。但此月份您尚未上傳
+              <span className="font-bold text-amber-900 mx-1">{missingAccounts.join("、")}</span>
+              的對帳單（暫以 $0 計算），請上傳對帳單以同步更新最新餘額。
+            </div>
+          </div>
+        )}
 
         {/* Pots list Grid */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">

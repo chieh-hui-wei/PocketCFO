@@ -60,7 +60,15 @@ async def list_pots(
         res = await db.execute(stmt)
         pots = res.scalars().all()
 
-        # 2. Fetch latest known balances of active bank accounts
+        # 2. Find the latest month where any bank snapshot exists
+        stmt_latest_period = select(AccountSnapshot.period_date).join(Account).where(
+            AccountSnapshot.user_id == current_user.id,
+            Account.account_type == AccountType.BANK
+        ).order_by(AccountSnapshot.period_date.desc()).limit(1)
+        res_latest_period = await db.execute(stmt_latest_period)
+        latest_period = res_latest_period.scalar_one_or_none()
+
+        # 3. Fetch latest known balances of active bank accounts strictly for that period
         stmt_accts = select(Account).where(
             Account.user_id == current_user.id,
             Account.account_type == AccountType.BANK
@@ -69,20 +77,28 @@ async def list_pots(
         bank_accounts = res_accts.scalars().all()
         
         total_cash = 0.0
-        for acct in bank_accounts:
-            stmt_snap = select(AccountSnapshot.balance).where(
-                AccountSnapshot.account_id == acct.id,
-                AccountSnapshot.user_id == current_user.id
-            ).order_by(AccountSnapshot.period_date.desc()).limit(1)
-            res_snap = await db.execute(stmt_snap)
-            bal = res_snap.scalar_one_or_none()
-            if bal is not None:
-                total_cash += bal
+        missing_accounts = []
+        
+        if latest_period:
+            for acct in bank_accounts:
+                stmt_snap = select(AccountSnapshot.balance).where(
+                    AccountSnapshot.account_id == acct.id,
+                    AccountSnapshot.user_id == current_user.id,
+                    AccountSnapshot.period_date == latest_period
+                )
+                res_snap = await db.execute(stmt_snap)
+                bal = res_snap.scalar_one_or_none()
+                if bal is not None:
+                    total_cash += bal
+                else:
+                    missing_accounts.append(acct.name)
 
         return {
             "status": "ok",
             "pots": [_pot_to_dict(p) for p in pots],
-            "total_cash": total_cash
+            "total_cash": total_cash,
+            "latest_period": latest_period.strftime("%Y-%m") if latest_period else None,
+            "missing_accounts": missing_accounts
         }
     except Exception as e:
         log.error(f"list_pots error: {e}")

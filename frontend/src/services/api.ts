@@ -579,7 +579,7 @@ export interface SavingsPot {
 
 export async function getSavingsPots() {
   const { data } = await api.get("/savings-pots/");
-  return data as { pots: SavingsPot[]; total_cash: number };
+  return data as { pots: SavingsPot[]; total_cash: number; latest_period?: string | null; missing_accounts?: string[] };
 }
 
 export async function createSavingsPot(name: string, targetAmount: number, allocatedAmount: number = 0) {
