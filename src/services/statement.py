@@ -373,8 +373,12 @@ class StatementService:
         txns = []
         raw_items = data.get("items") or data.get("transactions") or []
         for item in raw_items:
+            is_ref = bool(item.get("is_refund", False))
             amt_orig = float(item.get("amount") or 0)
-            amount = -abs(amt_orig) if amt_orig > 0 else amt_orig
+            if is_ref:
+                amount = abs(amt_orig)
+            else:
+                amount = -abs(amt_orig) if amt_orig > 0 else amt_orig
             
             txn_date = item.get("date")
             if isinstance(txn_date, str):

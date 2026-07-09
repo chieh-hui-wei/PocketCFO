@@ -204,22 +204,29 @@ export default function UploadPage() {
           avg_cost: h.avg_cost != null ? h.avg_cost : 0,
           current_price: h.current_price != null ? h.current_price : 0,
         })),
-        transactions: (rawData.transactions || rawData.items || []).map((t: any) => ({
-          date: t.date || "",
-          description: t.description || t.merchant || "",
-          merchant: t.merchant || t.description || "",
-          amount: t.amount != null ? t.amount : (parseFloat(t.credit || 0) - parseFloat(t.debit || 0)),
-          category: t.category || "",
-          is_refund: !!t.is_refund,
-          payment_method: t.payment_method || "",
-          invoice_number: t.invoice_number || "",
-          action: t.action || "",
-          ticker: t.ticker || "",
-          quantity: t.quantity != null ? t.quantity : 0,
-          price: t.price != null ? t.price : 0,
-          fee: t.fee != null ? t.fee : 0,
-          is_duplicate: !!t.is_duplicate
-        })),
+        transactions: (rawData.transactions || rawData.items || []).map((t: any) => {
+          let amt = t.amount != null ? t.amount : (parseFloat(t.credit || 0) - parseFloat(t.debit || 0));
+          if (kind === "credit_card") {
+            const isRefund = !!t.is_refund;
+            amt = isRefund ? Math.abs(amt) : -Math.abs(amt);
+          }
+          return {
+            date: t.date || "",
+            description: t.description || t.merchant || "",
+            merchant: t.merchant || t.description || "",
+            amount: amt,
+            category: t.category || "",
+            is_refund: !!t.is_refund,
+            payment_method: t.payment_method || "",
+            invoice_number: t.invoice_number || "",
+            action: t.action || "",
+            ticker: t.ticker || "",
+            quantity: t.quantity != null ? t.quantity : 0,
+            price: t.price != null ? t.price : 0,
+            fee: t.fee != null ? t.fee : 0,
+            is_duplicate: !!t.is_duplicate
+          };
+        }),
         accounts: accountsList
       });
 
