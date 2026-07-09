@@ -85,6 +85,8 @@ async def get_transactions(
             category_val = t.category.value if hasattr(t.category, 'value') else str(t.category)
             if t.is_internal_transfer:
                 display_category = "帳內互轉"
+            elif category_val == "OTHER":
+                display_category = "非固定收入" if t.amount > 0 else "非固定支出"
             else:
                 display_category = CATEGORY_TRANSLATION.get(category_val, category_val)
                 
@@ -369,6 +371,7 @@ async def create_transaction(
         reverse_cat["其他支出"] = "OTHER"
         reverse_cat["其他收入"] = "OTHER"
         reverse_cat["其他"] = "OTHER"
+        reverse_cat["支出"] = "EXPENSE"
         cat_val = reverse_cat.get(body.category, body.category)
         if isinstance(cat_val, str):
             cat_val = cat_val.upper()
@@ -479,6 +482,7 @@ async def update_transaction(
             reverse_cat["其他收入"] = "OTHER"
             reverse_cat["其他支出"] = "OTHER"
             reverse_cat["其他"] = "OTHER"
+            reverse_cat["支出"] = "EXPENSE"
             cat_val = reverse_cat.get(body.category, body.category)
             if isinstance(cat_val, str):
                 cat_val = cat_val.upper()
@@ -635,6 +639,7 @@ async def bulk_update_category(
         reverse_cat["其他收入"] = "OTHER"
         reverse_cat["其他支出"] = "OTHER"
         reverse_cat["其他"] = "OTHER"
+        reverse_cat["支出"] = "EXPENSE"
         cat_val = reverse_cat.get(body.category, body.category)
         if isinstance(cat_val, str):
             cat_val = cat_val.upper()

@@ -206,12 +206,18 @@ class StatementService:
             await self.snapshot_repo.upsert(snapshot)
 
             # Save transactions with transfer detection
+            is_credit_card = account.account_type == AccountType.CREDIT_CARD
             txns = []
             for raw in raw_txns:
                 if "amount" in raw:
                     amount_orig = float(raw["amount"])
                 else:
                     amount_orig = float(raw.get("credit") or 0) - float(raw.get("debit") or 0)
+
+                if is_credit_card:
+                    is_ref = bool(raw.get("is_refund", False))
+                    if not is_ref:
+                        amount_orig = -abs(amount_orig) if amount_orig > 0 else amount_orig
 
                 amount_twd = round(amount_orig * exchange_rate)
                 is_transfer = self.transfer_detector.is_internal_transfer(raw.get("description", ""))
