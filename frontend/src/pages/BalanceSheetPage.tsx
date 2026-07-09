@@ -79,39 +79,39 @@ export default function BalanceSheetPage() {
   const finalTrendData = trendData.length > 0 ? trendData : [];
 
   // Colors for charts
-  const ASSET_LIAB_COLORS = ["#3b82f6", "#ef4444"];
-  const ASSETS_COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#84cc16"];
+  const CASH_COLORS = ["#3b82f6", "#06b6d4", "#2563eb", "#0d9488", "#0284c7", "#34d399"];
+  const INVEST_COLORS = ["#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#84cc16", "#a78bfa", "#f43f5e"];
   const LIAB_COLORS = ["#ef4444", "#f97316", "#f43f5e", "#d97706", "#b91c1c"];
 
-  // 1. Assets vs Liabilities Data
-  const assetLiabData = latestBs ? [
-    { name: "總資產", value: latestBs.total_assets },
-    { name: "總負債", value: latestBs.total_liabilities }
-  ].filter(d => d.value > 0).sort((a, b) => b.value - a.value) : [];
-
-  // 2. Individual Assets Data (Cash & Securities by Ticker)
-  const assetsDetailData: Array<{ name: string, value: number }> = [];
+  // 1. Cash & Deposits Data
+  const cashDepositsData: Array<{ name: string, value: number }> = [];
   if (latestBs?.detail) {
     if (latestBs.detail.cash) {
       latestBs.detail.cash.forEach((c: any) => {
-        if (c.balance > 0) assetsDetailData.push({ name: c.name, value: c.balance });
+        if (c.balance > 0) cashDepositsData.push({ name: c.name, value: c.balance });
       });
     }
     if (latestBs.detail.brokerage_cash) {
       latestBs.detail.brokerage_cash.forEach((c: any) => {
-        if (c.balance > 0) assetsDetailData.push({ name: `${c.name} (現金)`, value: c.balance });
+        if (c.balance > 0) cashDepositsData.push({ name: `${c.name} (證券現金)`, value: c.balance });
       });
     }
+  }
+  cashDepositsData.sort((a, b) => b.value - a.value);
+
+  // 2. Investments Data (Securities by Ticker)
+  const investmentsData: Array<{ name: string, value: number }> = [];
+  if (latestBs?.detail) {
     if (latestBs.detail.securities) {
       latestBs.detail.securities.forEach((s: any) => {
-        const name = s.ticker || s.name || "其他股票";
+        const name = `${s.broker || ""} ${s.ticker || s.name || "其他股票"}`;
         if (s.market_value > 0) {
-          assetsDetailData.push({ name, value: s.market_value });
+          investmentsData.push({ name: name.trim(), value: s.market_value });
         }
       });
     }
   }
-  assetsDetailData.sort((a, b) => b.value - a.value);
+  investmentsData.sort((a, b) => b.value - a.value);
 
   // 3. Individual Liabilities Data
   const liabDetailData: Array<{ name: string, value: number }> = [];
@@ -271,23 +271,23 @@ export default function BalanceSheetPage() {
       {/* Analysis Charts Row (Redesigned) */}
       <div className="grid grid-cols-3 gap-6 mb-8">
         
-        {/* Chart 1: Assets vs Liabilities */}
+        {/* Chart 1: Cash & Deposits Breakdown */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">資產與負債比例</h3>
+          <h3 className="font-bold text-slate-800 text-sm mb-4">現金與存款佔比</h3>
           <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
-            {assetLiabData.length > 0 ? (
+            {cashDepositsData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={assetLiabData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 'bold' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(val) => `${val >= 1000 ? (val/1000) + 'K' : val}`} />
+                <BarChart data={cashDepositsData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={85} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "金額"]}
+                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "現金餘額"]}
                   />
-                  <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={32}>
-                    {assetLiabData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={ASSET_LIAB_COLORS[index % ASSET_LIAB_COLORS.length]} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
+                    {cashDepositsData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CASH_COLORS[index % CASH_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -297,17 +297,17 @@ export default function BalanceSheetPage() {
             )}
           </div>
           <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
-            {assetLiabData.map((d, i) => {
-              const total = assetLiabData.reduce((sum, item) => sum + item.value, 0);
+            {cashDepositsData.map((d, i) => {
+              const total = latestBs?.total_cash || 1;
               return (
                 <div key={i} className="flex justify-between items-center text-xs">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ASSET_LIAB_COLORS[i % ASSET_LIAB_COLORS.length] }} />
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CASH_COLORS[i % CASH_COLORS.length] }} />
                     <span className="text-slate-600 font-medium truncate">{d.name}</span>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / (total || 1)) * 100)}%)</span>
+                    <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / total) * 100)}%)</span>
                   </div>
                 </div>
               );
@@ -315,23 +315,23 @@ export default function BalanceSheetPage() {
           </div>
         </div>
 
-        {/* Chart 2: Individual Assets Breakdown */}
+        {/* Chart 2: Investments Breakdown */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">資產個別佔比</h3>
+          <h3 className="font-bold text-slate-800 text-sm mb-4">投資項目各佔比</h3>
           <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
-            {assetsDetailData.length > 0 ? (
+            {investmentsData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={assetsDetailData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                <BarChart data={investmentsData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={80} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={85} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "資產估值"]}
+                    formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "投資市值"]}
                   />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
-                    {assetsDetailData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={ASSETS_COLORS[index % ASSETS_COLORS.length]} />
+                    {investmentsData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={INVEST_COLORS[index % INVEST_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -341,12 +341,12 @@ export default function BalanceSheetPage() {
             )}
           </div>
           <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
-            {assetsDetailData.map((d, i) => {
-              const total = latestBs?.total_assets || 1;
+            {investmentsData.map((d, i) => {
+              const total = latestBs?.total_securities_market_value || 1;
               return (
                 <div key={i} className="flex justify-between items-center text-xs">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ASSETS_COLORS[i % ASSETS_COLORS.length] }} />
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: INVEST_COLORS[i % INVEST_COLORS.length] }} />
                     <span className="text-slate-600 font-medium truncate">{d.name}</span>
                   </div>
                   <div className="text-right shrink-0">
@@ -368,7 +368,7 @@ export default function BalanceSheetPage() {
                 <BarChart data={liabDetailData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={80} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={85} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "負債金額"]}
