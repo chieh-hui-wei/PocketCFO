@@ -42,7 +42,7 @@ _CLASSIFY_PROMPT = """\
 You are a financial transaction classifier for Taiwan.
 Classify each transaction into exactly ONE of these categories:
   food                – restaurants, supermarkets (全聯/全家/7-11), grocery, food delivery, drinks
-  transport           – gas stations, ride-hailing (Uber/Bolt), taxis, MRT, buses, trains, parking, toll
+  transport           – gas stations (加油站, 加油, 中油, 台亞), ride-hailing (Uber/Bolt), taxis, MRT, buses, trains, parking, toll
   medical             – hospitals, clinics, pharmacies, health checkups, dental, vision, skincare (excluding insurance premiums)
   salary              – salary / payroll / employer remittance deposits
   entertainment       – streaming (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
@@ -72,6 +72,17 @@ def _normalize(text: str) -> str:
 def _apply_override(merchant: str, description: str, rules: "list[CategoryRule]") -> str | None:
     """Check user-defined rules first (substring match on merchant+description). Returns category or None."""
     combined = _normalize(f"{merchant} {description}")
+    
+    # System default overrides for robust classification
+    if any(k in combined for k in ["高鐵", "台鐵", "中油", "捷運", "mrt", "uber", "yoxi", "line taxi", "計程車", "和運", "irent", "goshare", "wemo", "加油站", "加油"]):
+        return "transport"
+    if any(k in combined for k in ["7-11", "7-eleven", "全家", "萊爾富", "ok超商", "全聯", "家樂福", "foodpanda", "uber eats", "外送"]):
+        return "food"
+    if any(k in combined for k in ["netflix", "spotify", "youtube premium", "disney+", "klook", "kkday"]):
+        return "entertainment"
+    if any(k in combined for k in ["健保", "勞保", "國民年金"]):
+        return "insurance"
+        
     for rule in rules:
         if _normalize(rule.keyword) in combined:
             return rule.category
