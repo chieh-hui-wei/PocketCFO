@@ -94,11 +94,12 @@ export default function IncomeStatementPage() {
     SALARY: "薪資", INVESTMENT: "投資", TRANSFER_IN: "轉入", TRANSFER_OUT: "轉出",
     EXPENSE: "生活用品", FOOD: "餐飲美食", TRANSPORT: "交通運輸",
     MEDICAL: "醫療保健", ENTERTAINMENT: "娛樂休閒", INSURANCE: "保險",
-    EXERCISE: "運動", CREDIT_CARD_PAYMENT: "信用卡繳款", DEBT_REPAYMENT: "本金償還",
+    EXERCISE: "運動", SHOPPING: "購物", CREDIT_CARD_PAYMENT: "信用卡繳款", DEBT_REPAYMENT: "本金償還",
     DIVIDEND: "股利", INTEREST: "利息", OTHER: "其他",
     "食物": "餐飲美食", "餐飲": "餐飲美食", "餐飲美食": "餐飲美食",
     "交通": "交通運輸", "醫療": "醫療保健", "娛樂": "娛樂休閒",
     "支出": "生活用品", "生活用品": "生活用品",
+    "購物": "購物",
     "other": "其他",
   };
 
@@ -173,6 +174,8 @@ export default function IncomeStatementPage() {
           name = "保險";
         } else if (t.category === "運動" || t.category === "EXERCISE") {
           name = "運動";
+        } else if (t.category === "購物" || t.category === "SHOPPING") {
+          name = "購物";
         } else {
           name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他";
         }

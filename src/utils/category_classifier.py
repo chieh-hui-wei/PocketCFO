@@ -25,6 +25,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "entertainment": "娛樂",
     "insurance": "保險",
     "exercise": "運動",
+    "shopping": "購物",
     "expense": "支出",
     "investment": "投資",
     "dividend": "股利",
@@ -36,7 +37,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "other": "其他",
 }
 
-VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "credit_card_payment", "debt_repayment", "other"]
+VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "shopping", "credit_card_payment", "debt_repayment", "other"]
 
 _CLASSIFY_PROMPT = """\
 You are a financial transaction classifier for Taiwan.
@@ -48,6 +49,7 @@ Classify each transaction into exactly ONE of these categories:
   entertainment       – streaming (YouTube/Netflix/Disney+/Spotify), cinemas, KTV, gaming, concerts
   insurance           – health insurance, life insurance, car/scooter insurance, annual premiums (e.g. 南山人壽, 富邦產險)
   exercise            – gym membership, sports centers, sports equipment, fitness training
+  shopping            – shopping, department stores, clothes, shoes, bags, electronics, home decor (e.g. 蝦皮, 淘寶, momo, PChome, 宜得利, Uniqlo, MUJI)
   credit_card_payment – paying credit card bills or monthly payments to card issuers (e.g., 信用卡繳款, 繳卡費)
   debt_repayment      – principal repayments on bank loans, installments, or mortgages (e.g., 貸款本金, 分期還款)
   other               – anything that doesn't clearly fit the above
@@ -82,6 +84,8 @@ def _apply_override(merchant: str, description: str, rules: "list[CategoryRule]"
         return "entertainment"
     if any(k in combined for k in ["健保", "勞保", "國民年金"]):
         return "insurance"
+    if any(k in combined for k in ["蝦皮", "淘寶", "momo", "pchome", "宜得利", "uniqlo", "無印良品", "muji", "百貨", "服飾"]):
+        return "shopping"
         
     for rule in rules:
         if _normalize(rule.keyword) in combined:
@@ -175,6 +179,7 @@ def _category_to_enum(category: str):
         "entertainment": TransactionCategory.ENTERTAINMENT,
         "insurance": TransactionCategory.INSURANCE,
         "exercise": TransactionCategory.EXERCISE,
+        "shopping": TransactionCategory.SHOPPING,
         "salary": TransactionCategory.SALARY,
         "investment": TransactionCategory.INVESTMENT,
         "credit_card_payment": TransactionCategory.CREDIT_CARD_PAYMENT,

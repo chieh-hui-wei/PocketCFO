@@ -232,6 +232,7 @@ class StatementService:
                         "娛樂": "entertainment",
                         "保險": "insurance",
                         "運動": "exercise",
+                        "購物": "shopping",
                         "信用卡繳款": "credit_card_payment",
                         "本金償還": "debt_repayment",
                         "股利": "dividend",

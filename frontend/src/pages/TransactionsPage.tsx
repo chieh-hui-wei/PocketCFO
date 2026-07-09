@@ -134,14 +134,14 @@ export default function TransactionsPage() {
     setFormCategory(cat);
     if (["薪資", "轉入", "股利", "利息"].includes(cat)) {
       setFormType("income");
-    } else if (["支出", "轉出", "食物", "交通", "醫療", "娛樂"].includes(cat)) {
+    } else if (["支出", "轉出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物"].includes(cat)) {
       setFormType("expense");
     }
   };
 
   const handleTypeChange = (type: "income" | "expense") => {
     setFormType(type);
-    if (type === "income" && ["支出", "轉出", "食物", "交通", "醫療", "娛樂"].includes(formCategory)) {
+    if (type === "income" && ["支出", "轉出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物"].includes(formCategory)) {
       setFormCategory("其他");
     } else if (type === "expense" && ["薪資", "轉入", "股利", "利息"].includes(formCategory)) {
       setFormCategory("支出");
@@ -335,23 +335,15 @@ export default function TransactionsPage() {
                 <option value="">{isBulkUpdating ? "更新中..." : "批量修改類別..."}</option>
                 {!isBulkUpdating && (
                   <>
-                    <option value="薪資">薪資</option>
-                    <option value="投資">投資</option>
-                    <option value="轉入">轉入</option>
-                    <option value="轉出">轉出</option>
-                    <option value="支出">支出</option>
-                    <option value="食物">食物</option>
-                    <option value="交通">交通</option>
-                    <option value="醫療">醫療</option>
-                    <option value="娛樂">娛樂</option>
-                    <option value="保險">保險</option>
-                    <option value="運動">運動</option>
-                    <option value="信用卡繳款">信用卡繳款</option>
-                    <option value="本金償還">本金償還</option>
-                    <option value="股利">股利</option>
-                    <option value="利息">利息</option>
-                    <option value="帳內互轉">帳內互轉</option>
-                    <option value="其他">其他</option>
+                    <optgroup label="支出類別">
+                      {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </optgroup>
+                    <optgroup label="收入類別">
+                      {["薪資", "股利", "利息", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </optgroup>
+                    <optgroup label="通用類別">
+                      {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </optgroup>
                   </>
                 )}
               </select>
@@ -600,23 +592,25 @@ export default function TransactionsPage() {
                             onChange={e => setEditCategory(e.target.value)}
                             className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
                           >
-                            <option value="薪資">薪資</option>
-                            <option value="投資">投資</option>
-                            <option value="支出">支出</option>
-                            <option value="食物">食物</option>
-                            <option value="交通">交通</option>
-                            <option value="醫療">醫療</option>
-                            <option value="娛樂">娛樂</option>
-                            <option value="保險">保險</option>
-                            <option value="運動">運動</option>
-                            <option value="信用卡繳款">信用卡繳款</option>
-                            <option value="本金償還">本金償還</option>
-                            <option value="轉入">轉入</option>
-                            <option value="轉出">轉出</option>
-                            <option value="股利">股利</option>
-                            <option value="利息">利息</option>
-                            <option value="其他">其他</option>
-                            <option value="帳內互轉">帳內互轉</option>
+                            {t.amount > 0 ? (
+                              <>
+                                <optgroup label="收入類別">
+                                  {["薪資", "股利", "利息", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </optgroup>
+                                <optgroup label="通用類別">
+                                  {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </optgroup>
+                              </>
+                            ) : (
+                              <>
+                                <optgroup label="支出類別">
+                                  {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </optgroup>
+                                <optgroup label="通用類別">
+                                  {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </optgroup>
+                              </>
+                            )}
                           </select>
                         ) : (
                           t.category || '-'
@@ -782,23 +776,25 @@ export default function TransactionsPage() {
                     onChange={e => handleCategoryChange(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                   >
-                    <option value="支出">支出</option>
-                    <option value="食物">食物</option>
-                    <option value="交通">交通</option>
-                    <option value="醫療">醫療</option>
-                    <option value="娛樂">娛樂</option>
-                    <option value="保險">保險</option>
-                    <option value="運動">運動</option>
-                    <option value="信用卡繳款">信用卡繳款</option>
-                    <option value="本金償還">本金償還</option>
-                    <option value="薪資">薪資</option>
-                    <option value="投資">投資</option>
-                    <option value="轉入">轉入</option>
-                    <option value="轉出">轉出</option>
-                    <option value="股利">股利</option>
-                    <option value="利息">利息</option>
-                    <option value="帳內互轉">帳內互轉</option>
-                    <option value="其他">其他</option>
+                    {formType === "income" ? (
+                      <>
+                        <optgroup label="收入類別">
+                          {["薪資", "股利", "利息", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </optgroup>
+                        <optgroup label="通用類別">
+                          {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </optgroup>
+                      </>
+                    ) : (
+                      <>
+                        <optgroup label="支出類別">
+                          {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </optgroup>
+                        <optgroup label="通用類別">
+                          {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </optgroup>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
