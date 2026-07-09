@@ -428,7 +428,7 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
-              {latestBs?.detail?.cash?.map((c: any, i: number) => (
+              {latestBs?.detail?.cash?.filter((c: any) => c.balance !== 0)?.map((c: any, i: number) => (
                 <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {c.name}</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
@@ -437,7 +437,7 @@ export default function BalanceSheetPage() {
                   <td className="px-4 py-2 text-right text-slate-300">-</td>
                 </tr>
               ))}
-              {latestBs?.detail?.brokerage_cash?.map((c: any, i: number) => (
+              {latestBs?.detail?.brokerage_cash?.filter((c: any) => c.balance !== 0)?.map((c: any, i: number) => (
                 <tr key={`brokerage-cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                   <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {c.name}（現金部位）</td>
                   <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
