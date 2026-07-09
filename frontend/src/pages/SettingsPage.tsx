@@ -410,6 +410,7 @@ export default function SettingsPage() {
           {[
             { id: "profile", label: "個人帳戶設定" },
             { id: "general", label: "核心設定 & AI" },
+            { id: "rules", label: "記帳分類自動規則" },
             { id: "taishin", label: "台新證券設定" },
             { id: "sinopac", label: "永豐金證券設定" },
             { id: "esun", label: "玉山證券設定" },
