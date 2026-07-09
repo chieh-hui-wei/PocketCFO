@@ -532,6 +532,41 @@ export async function bulkUpdateTransactionCategories(ids: number[], category: s
   return data;
 }
 
+// ── Category Rules API ────────────────────────────────────────────────────────
+
+export interface CategoryRuleItem {
+  id: number;
+  keyword: string;
+  category: string;
+  category_label: string;
+  created_at?: string;
+}
+
+export async function listCategoryRules() {
+  const { data } = await api.get("/category-rules/");
+  return data as { rules: CategoryRuleItem[]; categories: { key: string; label: string }[] };
+}
+
+export async function createCategoryRule(keyword: string, category: string) {
+  const { data } = await api.post("/category-rules/", { keyword, category });
+  return data;
+}
+
+export async function updateCategoryRule(ruleId: number, keyword?: string, category?: string) {
+  const { data } = await api.put(`/category-rules/${ruleId}`, { keyword, category });
+  return data;
+}
+
+export async function deleteCategoryRule(ruleId: number) {
+  const { data } = await api.delete(`/category-rules/${ruleId}`);
+  return data;
+}
+
+export async function seedDefaultCategoryRules() {
+  const { data } = await api.post("/category-rules/seed-defaults");
+  return data;
+}
+
 
 
 

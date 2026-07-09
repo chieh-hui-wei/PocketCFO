@@ -78,7 +78,7 @@ def _apply_override(merchant: str, description: str, rules: "list[CategoryRule]"
     # System default overrides for robust classification
     if any(k in combined for k in ["高鐵", "台鐵", "中油", "捷運", "mrt", "uber", "yoxi", "line taxi", "計程車", "和運", "irent", "goshare", "wemo", "加油站", "加油"]):
         return "transport"
-    if any(k in combined for k in ["7-11", "7-eleven", "全家", "萊爾富", "ok超商", "全聯", "家樂福", "foodpanda", "uber eats", "外送"]):
+    if any(k in combined for k in ["7-11", "7-eleven", "全家", "萊爾富", "ok超商", "全聯", "家樂福", "foodpanda", "uber eats", "外送", "open錢包", "openpoint", "familymart"]):
         return "food"
     if any(k in combined for k in ["netflix", "spotify", "youtube premium", "disney+", "klook", "kkday"]):
         return "entertainment"

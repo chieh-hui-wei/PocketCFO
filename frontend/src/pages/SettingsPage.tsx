@@ -1,12 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, updateProfile, testConnection, getSchedulerStatus, triggerSchedulerSync } from "../services/api";
+import { 
+  getSettings, saveSettings, uploadCertificate, CredentialsSettings, inviteFriend, 
+  updateProfile, testConnection, getSchedulerStatus, triggerSchedulerSync,
+  listCategoryRules, createCategoryRule, updateCategoryRule, deleteCategoryRule, seedDefaultCategoryRules
+} from "../services/api";
 import { toast } from "../store/useToastStore";
 
 export default function SettingsPage() {
   const [settingsData, setSettingsData] = useState<CredentialsSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"profile" | "general" | "taishin" | "sinopac" | "esun" | "invite" | "scheduler">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "general" | "rules" | "taishin" | "sinopac" | "esun" | "invite" | "scheduler">("profile");
   const [userRole, setUserRole] = useState<string>("");
+
+  // Category Rules states
+  const [rules, setRules] = useState<any[]>([]);
+  const [isLoadingRules, setIsLoadingRules] = useState(false);
+  const [newRuleKeyword, setNewRuleKeyword] = useState("");
+  const [newRuleCategory, setNewRuleCategory] = useState("food");
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [editingRuleKeyword, setEditingRuleKeyword] = useState("");
+  const [editingRuleCategory, setEditingRuleCategory] = useState("");
 
   // Profile update states
   const [profileEmail, setProfileEmail] = useState("");
@@ -199,6 +212,84 @@ export default function SettingsPage() {
       setProfileError(detail);
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  // ── Category Rules Handlers ──────────────────────────────────────────
+
+  const fetchRules = async () => {
+    setIsLoadingRules(true);
+    try {
+      const data = await listCategoryRules();
+      setRules(data.rules || []);
+    } catch (e) {
+      console.error(e);
+      toast.error("無法載入分類規則");
+    } finally {
+      setIsLoadingRules(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "rules") {
+      fetchRules();
+    }
+  }, [activeTab]);
+
+  const handleCreateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRuleKeyword.trim()) return;
+    try {
+      await createCategoryRule(newRuleKeyword.trim(), newRuleCategory);
+      toast.success("規則新增成功！");
+      setNewRuleKeyword("");
+      fetchRules();
+    } catch (err: any) {
+      console.error(err);
+      const detail = err.response?.data?.detail || "新增失敗，關鍵字可能已存在。";
+      toast.error(detail);
+    }
+  };
+
+  const handleStartEditRule = (r: any) => {
+    setEditingRuleId(r.id);
+    setEditingRuleKeyword(r.keyword);
+    setEditingRuleCategory(r.category);
+  };
+
+  const handleSaveRuleEdit = async (id: number) => {
+    if (!editingRuleKeyword.trim()) return;
+    try {
+      await updateCategoryRule(id, editingRuleKeyword.trim(), editingRuleCategory);
+      toast.success("規則更新成功！");
+      setEditingRuleId(null);
+      fetchRules();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("更新規則失敗");
+    }
+  };
+
+  const handleDeleteRule = async (id: number) => {
+    if (!window.confirm("確定要刪除此規則嗎？")) return;
+    try {
+      await deleteCategoryRule(id);
+      toast.success("規則已刪除");
+      fetchRules();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("刪除規則失敗");
+    }
+  };
+
+  const handleSeedRules = async () => {
+    try {
+      const res = await seedDefaultCategoryRules();
+      toast.success(`成功匯入 ${res.added || 0} 筆預設規則！`);
+      fetchRules();
+    } catch (e) {
+      console.error(e);
+      toast.error("匯入預設規則失敗");
     }
   };
 
@@ -462,6 +553,207 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Category Rules Tab */}
+            {activeTab === "rules" && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">記帳分類自動規則</h3>
+                    <p className="text-xs text-slate-500">設定特定商家或摘要關鍵字自動對應的收支類別</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSeedRules}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors border border-blue-100"
+                  >
+                    ✨ 匯入系統預設自動規則
+                  </button>
+                </div>
+
+                {/* Add New Rule Form */}
+                <form onSubmit={handleCreateRule} className="bg-slate-50/80 rounded-2xl p-6 border border-slate-200/50 space-y-4">
+                  <h4 className="text-xs font-bold text-slate-700">➕ 新增自動分類規則</h4>
+                  <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1 w-full">
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1">關鍵字 (不分大小寫)</label>
+                      <input
+                        type="text"
+                        required
+                        value={newRuleKeyword}
+                        onChange={e => setNewRuleKeyword(e.target.value)}
+                        placeholder="例如：蝦皮、中油、宜得利..."
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="w-full sm:w-[200px]">
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1">自動歸類至</label>
+                      <select
+                        value={newRuleCategory}
+                        onChange={e => setNewRuleCategory(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500"
+                      >
+                        <optgroup label="支出類別">
+                          <option value="food">食物</option>
+                          <option value="transport">交通</option>
+                          <option value="medical">醫療</option>
+                          <option value="entertainment">娛樂</option>
+                          <option value="insurance">保險</option>
+                          <option value="exercise">運動</option>
+                          <option value="shopping">購物</option>
+                          <option value="other">其他支出 (OTHER)</option>
+                        </optgroup>
+                        <optgroup label="收入類別">
+                          <option value="salary">薪資</option>
+                          <option value="dividend">股利</option>
+                          <option value="interest">利息</option>
+                          <option value="other">其他收入 (OTHER)</option>
+                        </optgroup>
+                        <optgroup label="通用/轉帳類別">
+                          <option value="investment">投資</option>
+                          <option value="credit_card_payment">信用卡繳款</option>
+                          <option value="debt_repayment">本金償還</option>
+                          <option value="transfer_in">轉入</option>
+                          <option value="transfer_out">轉出</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors shadow-sm w-full sm:w-auto"
+                    >
+                      新增規則
+                    </button>
+                  </div>
+                </form>
+
+                {/* Rules Table */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-slate-700">📋 目前已設定的規則 ({rules.length} 筆)</h4>
+                  
+                  {isLoadingRules ? (
+                    <div className="text-center py-10 text-slate-500 font-bold text-sm">載入規則中...</div>
+                  ) : rules.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+                      尚未設定任何自訂規則，您可以自行新增或點擊右上角匯入預設規則。
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200/80 rounded-xl overflow-hidden shadow-sm">
+                      <table className="w-full text-left border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
+                            <th className="px-4 py-3">商家/摘要關鍵字</th>
+                            <th className="px-4 py-3">對應分類</th>
+                            <th className="px-4 py-3 text-right">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rules.map((rule) => {
+                            const isEditing = editingRuleId === rule.id;
+                            return (
+                              <tr key={rule.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                                <td className="px-4 py-3.5 font-medium text-slate-800">
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={editingRuleKeyword}
+                                      onChange={e => setEditingRuleKeyword(e.target.value)}
+                                      className="px-2 py-1 border border-slate-300 rounded text-xs w-full focus:outline-none focus:border-blue-500 bg-white"
+                                    />
+                                  ) : (
+                                    rule.keyword
+                                  )}
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  {isEditing ? (
+                                    <select
+                                      value={editingRuleCategory}
+                                      onChange={e => setEditingRuleCategory(e.target.value)}
+                                      className="px-2 py-1 border border-slate-300 rounded text-xs w-full focus:outline-none focus:border-blue-500 bg-white"
+                                    >
+                                      <optgroup label="支出類別">
+                                        <option value="food">食物</option>
+                                        <option value="transport">交通</option>
+                                        <option value="medical">醫療</option>
+                                        <option value="entertainment">娛樂</option>
+                                        <option value="insurance">保險</option>
+                                        <option value="exercise">運動</option>
+                                        <option value="shopping">購物</option>
+                                        <option value="other">其他支出 (OTHER)</option>
+                                      </optgroup>
+                                      <optgroup label="收入類別">
+                                        <option value="salary">薪資</option>
+                                        <option value="dividend">股利</option>
+                                        <option value="interest">利息</option>
+                                        <option value="other">其他收入 (OTHER)</option>
+                                      </optgroup>
+                                      <optgroup label="通用/轉帳類別">
+                                        <option value="investment">投資</option>
+                                        <option value="credit_card_payment">信用卡繳款</option>
+                                        <option value="debt_repayment">本金償還</option>
+                                        <option value="transfer_in">轉入</option>
+                                        <option value="transfer_out">轉出</option>
+                                      </optgroup>
+                                    </select>
+                                  ) : (
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                      ["food", "transport", "shopping", "entertainment", "medical", "exercise", "insurance"].includes(rule.category)
+                                        ? "bg-rose-50 text-rose-700 border border-rose-100"
+                                        : ["salary", "dividend", "interest"].includes(rule.category)
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                          : "bg-slate-50 text-slate-600 border border-slate-100"
+                                    }`}>
+                                      {rule.category_label || rule.category}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                  {isEditing ? (
+                                    <div className="flex justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveRuleEdit(rule.id)}
+                                        className="text-emerald-600 hover:text-emerald-800 text-xs font-bold cursor-pointer"
+                                      >
+                                        儲存
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingRuleId(null)}
+                                        className="text-slate-500 hover:text-slate-700 text-xs font-bold cursor-pointer"
+                                      >
+                                        取消
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex justify-end gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditRule(rule)}
+                                        className="text-blue-600 hover:text-blue-800 text-xs font-bold cursor-pointer"
+                                      >
+                                        編輯
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteRule(rule.id)}
+                                        className="text-rose-600 hover:text-rose-850 text-xs font-bold cursor-pointer"
+                                      >
+                                        刪除
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Taishin Tab */}
