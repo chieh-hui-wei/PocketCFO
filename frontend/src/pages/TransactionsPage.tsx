@@ -619,7 +619,7 @@ export default function TransactionsPage() {
                             <option value="帳內互轉">帳內互轉</option>
                           </select>
                         ) : (
-                          t.raw_category || t.category || '-'
+                          t.category || '-'
                         )}
                       </td>
 
