@@ -1,10 +1,34 @@
 import { useEffect, useState } from "react";
-import { getAccounts, createAccount, updateAccount, deleteAccount, Account } from "../services/api";
+import {
+  getAccounts,
+  createAccount,
+  updateAccount,
+  deleteAccount,
+  Account,
+  getSavingsPots,
+  createSavingsPot,
+  updateSavingsPot,
+  deleteSavingsPot,
+  SavingsPot
+} from "../services/api";
 import { toast } from "../store/useToastStore";
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Virtual Savings Pots States
+  const [pots, setPots] = useState<SavingsPot[]>([]);
+  const [potsLoading, setPotsLoading] = useState(false);
+  const [totalCash, setTotalCash] = useState<number>(0);
+
+  const [showAddPotModal, setShowAddPotModal] = useState(false);
+  const [showEditPotModal, setShowEditPotModal] = useState(false);
+  const [selectedPot, setSelectedPot] = useState<SavingsPot | null>(null);
+
+  const [potFormName, setPotFormName] = useState("");
+  const [potFormTarget, setPotFormTarget] = useState<number>(0);
+  const [potFormAllocated, setPotFormAllocated] = useState<number>(0);
 
   // Modals / Forms
   const [showAddModal, setShowAddModal] = useState(false);
@@ -25,14 +49,28 @@ export default function AccountsPage() {
       const data = await getAccounts();
       setAccounts(data);
     } catch (e) {
-      console.error(e);
+      console.error("Failed to fetch accounts", e);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchPots = async () => {
+    setPotsLoading(true);
+    try {
+      const res = await getSavingsPots();
+      setPots(res.pots);
+      setTotalCash(res.total_cash);
+    } catch (e) {
+      console.error("Failed to fetch savings pots", e);
+    } finally {
+      setPotsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
+    fetchPots();
   }, []);
 
   const handleOpenAdd = () => {
@@ -119,6 +157,90 @@ export default function AccountsPage() {
     } catch (e) {
       console.error(e);
       toast.error("刪除帳戶失敗");
+    }
+  };
+
+  // Savings Pots Handlers
+  const handleOpenAddPot = () => {
+    setPotFormName("");
+    setPotFormTarget(0);
+    setPotFormAllocated(0);
+    setShowAddPotModal(true);
+  };
+
+  const handleOpenEditPot = (p: SavingsPot) => {
+    setSelectedPot(p);
+    setPotFormName(p.name);
+    setPotFormTarget(p.target_amount);
+    setPotFormAllocated(p.allocated_amount);
+    setShowEditPotModal(true);
+  };
+
+  const handleAddPot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!potFormName.trim()) {
+      toast.warning("請填寫儲蓄桶名稱");
+      return;
+    }
+    if (potFormTarget <= 0) {
+      toast.warning("目標金額必須大於 0");
+      return;
+    }
+    try {
+      await createSavingsPot(potFormName, potFormTarget, potFormAllocated);
+      toast.success("儲蓄目標建立成功！");
+      setShowAddPotModal(false);
+      fetchPots();
+    } catch (e) {
+      console.error(e);
+      toast.error("建立儲蓄目標失敗");
+    }
+  };
+
+  const handleEditPotSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPot) return;
+    if (!potFormName.trim()) {
+      toast.warning("請填寫儲蓄桶名稱");
+      return;
+    }
+    if (potFormTarget <= 0) {
+      toast.warning("目標金額必須大於 0");
+      return;
+    }
+    try {
+      await updateSavingsPot(selectedPot.id, potFormName, potFormTarget, potFormAllocated);
+      toast.success("儲蓄目標修改成功！");
+      setShowEditPotModal(false);
+      fetchPots();
+    } catch (e) {
+      console.error(e);
+      toast.error("修改儲蓄目標失敗");
+    }
+  };
+
+  const handleDeletePot = async (id: number) => {
+    if (!window.confirm("確定要刪除此儲蓄桶嗎？已分配的金額將會釋回自由現金中。")) {
+      return;
+    }
+    try {
+      await deleteSavingsPot(id);
+      toast.success("儲蓄桶已成功刪除！");
+      fetchPots();
+    } catch (e) {
+      console.error(e);
+      toast.error("刪除儲蓄目標失敗");
+    }
+  };
+
+  const handleAdjustAllocation = async (pot: SavingsPot, delta: number) => {
+    const newVal = Math.max(0, pot.allocated_amount + delta);
+    try {
+      await updateSavingsPot(pot.id, undefined, undefined, newVal);
+      fetchPots();
+    } catch (e) {
+      console.error(e);
+      toast.error("調整分配額度失敗");
     }
   };
 
@@ -223,6 +345,158 @@ export default function AccountsPage() {
         )}
       </div>
 
+      {/* 🎯 Virtual Savings Pots Section */}
+      <div className="mt-10">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <span>🎯</span> 虛擬儲蓄分配桶
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">將您的實體活期存款分配給不同的儲蓄用途，專款專用不受轉帳影響</p>
+          </div>
+          <button 
+            type="button"
+            onClick={handleOpenAddPot}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition-colors text-xs"
+          >
+            + 新增儲蓄目標
+          </button>
+        </div>
+
+        {/* Pots Dashboard Stats */}
+        {(() => {
+          const totalAllocated = pots.reduce((sum, p) => sum + p.allocated_amount, 0);
+          const unallocated = totalCash - totalAllocated;
+          const isOverbudget = unallocated < 0;
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm animate-in fade-in duration-300">
+                <div className="text-xs font-bold text-slate-500 mb-1">🏦 活期現金總水庫</div>
+                <div className="text-xl font-extrabold text-slate-800">
+                  ${totalCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">所有實體銀行活存帳戶餘額加總</div>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm animate-in fade-in duration-300">
+                <div className="text-xs font-bold text-slate-500 mb-1">🔒 已分配儲蓄額度</div>
+                <div className="text-xl font-extrabold text-blue-600">
+                  ${totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">已鎖定在各個虛擬目標的總額</div>
+              </div>
+              <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-colors animate-in fade-in duration-300 ${
+                isOverbudget ? 'border-red-200 bg-red-50/10' : 'border-slate-200'
+              }`}>
+                <div className="text-xs font-bold text-slate-500 mb-1">💸 可自由支配現金</div>
+                <div className={`text-xl font-extrabold ${isOverbudget ? 'text-red-600' : 'text-emerald-600'}`}>
+                  ${unallocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                {isOverbudget ? (
+                  <div className="text-[10px] text-red-500 font-bold mt-1">⚠️ 警告：已分配額度超出可用實體餘額！</div>
+                ) : (
+                  <div className="text-[10px] text-slate-400 mt-1">尚未分配給任何目標的可用現金</div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Pots list Grid */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          {potsLoading ? (
+            <div className="py-10 text-center text-slate-400 text-sm">載入儲蓄桶中...</div>
+          ) : pots.length === 0 ? (
+            <div className="py-12 text-center text-slate-400">
+              <div className="font-bold text-sm mb-1.5">尚未建立任何儲蓄目標</div>
+              <div className="text-xs">點擊「新增儲蓄目標」開始為不同用途分配預算吧！</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pots.map((pot) => {
+                const percent = pot.target_amount > 0 ? (pot.allocated_amount / pot.target_amount) * 100 : 0;
+                return (
+                  <div key={pot.id} className="border border-slate-100 rounded-2xl p-5 hover:shadow-md hover:border-slate-200 transition-all duration-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-bold text-slate-800 text-sm">{pot.name}</h4>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditPot(pot)}
+                            className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                          >
+                            編輯
+                          </button>
+                          <span className="text-slate-200">|</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePot(pot.id)}
+                            className="text-red-400 hover:text-red-600 text-xs font-bold"
+                          >
+                            刪除
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-end mb-2">
+                        <span className="text-xs font-bold text-slate-600">
+                          ${pot.allocated_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          <span className="text-slate-400 font-normal"> / ${pot.target_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </span>
+                        <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                          {percent.toFixed(0)}%
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-5">
+                        <div 
+                          className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${Math.min(100, percent)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Allocation Quick Adjust Controls */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustAllocation(pot, -5000)}
+                        className="flex-1 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 text-[10px] font-bold py-1.5 rounded-lg border border-slate-200/50 transition-colors cursor-pointer"
+                      >
+                        -5k
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustAllocation(pot, -1000)}
+                        className="flex-1 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 text-[10px] font-bold py-1.5 rounded-lg border border-slate-200/50 transition-colors cursor-pointer"
+                      >
+                        -1k
+                      </button>
+                      <span className="text-slate-300 text-xs px-1 select-none">調整</span>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustAllocation(pot, 1000)}
+                        className="flex-1 bg-blue-50/50 hover:bg-blue-50 hover:text-blue-700 text-blue-600 text-[10px] font-bold py-1.5 rounded-lg border border-blue-100/50 transition-colors cursor-pointer"
+                      >
+                        +1k
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustAllocation(pot, 5000)}
+                        className="flex-1 bg-blue-50/50 hover:bg-blue-50 hover:text-blue-700 text-blue-600 text-[10px] font-bold py-1.5 rounded-lg border border-blue-100/50 transition-colors cursor-pointer"
+                      >
+                        +5k
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
@@ -309,6 +583,117 @@ export default function AccountsPage() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
                 >
                   確認新增
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Savings Pot Modal */}
+      {showAddPotModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-[450px] shadow-xl border border-slate-100 animate-in zoom-in-95 duration-200">
+            <h3 className="font-bold text-lg text-slate-800 mb-4">新增儲蓄目標</h3>
+            <form onSubmit={handleAddPot} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">儲蓄桶名稱 (如：緊急預備金、日本旅遊)</label>
+                <input 
+                  type="text" 
+                  value={potFormName}
+                  onChange={e => setPotFormName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  placeholder="請輸入目標名稱"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">目標總金額 (TWD)</label>
+                <input 
+                  type="number" 
+                  value={potFormTarget || ""}
+                  onChange={e => setPotFormTarget(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  placeholder="請輸入目標金額"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">已分配金額 (選填，可稍後調整)</label>
+                <input 
+                  type="number" 
+                  value={potFormAllocated || ""}
+                  onChange={e => setPotFormAllocated(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  placeholder="請輸入已分配金額"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddPotModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
+                >
+                  取消
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
+                >
+                  確認新增
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Savings Pot Modal */}
+      {showEditPotModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-[450px] shadow-xl border border-slate-100 animate-in zoom-in-95 duration-200">
+            <h3 className="font-bold text-lg text-slate-800 mb-4">修改儲蓄目標</h3>
+            <form onSubmit={handleEditPotSave} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">儲蓄桶名稱</label>
+                <input 
+                  type="text" 
+                  value={potFormName}
+                  onChange={e => setPotFormName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">目標總金額 (TWD)</label>
+                <input 
+                  type="number" 
+                  value={potFormTarget || ""}
+                  onChange={e => setPotFormTarget(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">已分配金額 (TWD)</label>
+                <input 
+                  type="number" 
+                  value={potFormAllocated || ""}
+                  onChange={e => setPotFormAllocated(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button 
+                  type="button"
+                  onClick={() => setShowEditPotModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
+                >
+                  取消
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
+                >
+                  儲存修改
                 </button>
               </div>
             </form>

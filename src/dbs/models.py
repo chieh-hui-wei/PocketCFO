@@ -317,3 +317,19 @@ class CategoryRule(Base):
     keyword: Mapped[str] = mapped_column(String(128), nullable=False)  # e.g. "全聯", "uber"
     category: Mapped[str] = mapped_column(String(32), nullable=False)  # food/transport/medical/entertainment/salary/other
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ── Savings Pots ───────────────────────────────────────────────────────────────
+
+
+class SavingsPot(Base):
+    """Virtual savings bucket for earmarking specific sums from the total cash pool."""
+
+    __tablename__ = "savings_pots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    allocated_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

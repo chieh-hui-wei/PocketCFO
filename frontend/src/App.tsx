@@ -14,6 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ToastContainer from "./components/ToastContainer";
+import { getDailyTip, getSavingsPots, SavingsPot } from "./services/api";
 
 const NAV_GROUPS = [
   {
@@ -124,6 +125,43 @@ export default function App() {
 
   const [userEmail, setUserEmail] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const [dailyTip, setDailyTip] = useState<string>("理財小妙招載入中...");
+  const [closestPot, setClosestPot] = useState<SavingsPot | null>(null);
+
+  const fetchDailyTipAndPots = async () => {
+    try {
+      const tipRes = await getDailyTip();
+      if (tipRes && tipRes.tip) {
+        setDailyTip(tipRes.tip);
+      }
+    } catch (e) {
+      console.error("Failed to fetch daily tip", e);
+      setDailyTip("先存錢、後消費：每月發薪後，先將預算存入儲蓄帳戶，剩下的才是可支配所得。");
+    }
+
+    try {
+      const potsRes = await getSavingsPots();
+      if (potsRes && potsRes.pots && potsRes.pots.length > 0) {
+        // Find the pot closest to 100% completion
+        const sorted = [...potsRes.pots].sort((a, b) => {
+          const ratioA = a.target_amount > 0 ? a.allocated_amount / a.target_amount : 0;
+          const ratioB = b.target_amount > 0 ? b.allocated_amount / b.target_amount : 0;
+          return ratioB - ratioA; // descending order
+        });
+        setClosestPot(sorted[0]);
+      } else {
+        setClosestPot(null);
+      }
+    } catch (e) {
+      console.error("Failed to fetch pots for sidebar", e);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchDailyTipAndPots();
+    }
+  }, [isAuthenticated]);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     return localStorage.getItem("pocketcfo_sidebar_collapsed") === "true";
@@ -286,15 +324,42 @@ export default function App() {
             </div>
           </nav>
 
-          {/* Bottom Widget: Monthly Goal */}
+          {/* Bottom Widget: Financial Tips & Closest Target Progress */}
           {!isCollapsed && (
-            <div className="p-5 border-t border-slate-100 bg-slate-50/50 m-3 rounded-2xl animate-in fade-in duration-300">
-              <div className="text-xs font-bold text-slate-600 mb-1">本月小目標</div>
-              <div className="text-sm font-bold text-slate-800 mb-3">存下 $15,000</div>
-              <div className="w-full bg-slate-200 rounded-full h-1.5 mb-1.5 overflow-hidden">
-                <div className="bg-blue-500 h-1.5 rounded-full w-[75%]" />
+            <div className="p-4 border border-slate-100 bg-slate-50/50 m-3 rounded-2xl animate-in fade-in duration-300 relative group">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-extrabold text-blue-600 flex items-center gap-1">
+                  <span>💡</span> 理財小妙招
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchDailyTipAndPots}
+                  title="重新整理"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer rounded-lg hover:bg-slate-100"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89" />
+                  </svg>
+                </button>
               </div>
-              <div className="text-right text-[10px] font-bold text-slate-400">75%</div>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                {dailyTip}
+              </p>
+
+              {closestPot && (
+                <div className="mt-3 pt-3 border-t border-slate-200/60">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 mb-1">
+                    <span className="truncate max-w-[80px]" title={closestPot.name}>🎯 {closestPot.name}</span>
+                    <span>{((closestPot.allocated_amount / closestPot.target_amount) * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-300" 
+                      style={{ width: `${Math.min(100, (closestPot.allocated_amount / closestPot.target_amount) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

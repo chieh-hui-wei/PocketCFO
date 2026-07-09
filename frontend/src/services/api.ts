@@ -567,6 +567,50 @@ export async function seedDefaultCategoryRules() {
   return data;
 }
 
+// ── Savings Pots & Daily Tip API ────────────────────────────────────────────────
 
+export interface SavingsPot {
+  id: number;
+  name: string;
+  target_amount: number;
+  allocated_amount: number;
+  created_at?: string;
+}
 
+export async function getSavingsPots() {
+  const { data } = await api.get("/savings-pots/");
+  return data as { pots: SavingsPot[]; total_cash: number };
+}
 
+export async function createSavingsPot(name: string, targetAmount: number, allocatedAmount: number = 0) {
+  const { data } = await api.post("/savings-pots/", {
+    name,
+    target_amount: targetAmount,
+    allocated_amount: allocatedAmount,
+  });
+  return data;
+}
+
+export async function updateSavingsPot(
+  potId: number,
+  name?: string,
+  targetAmount?: number,
+  allocatedAmount?: number
+) {
+  const { data } = await api.put(`/savings-pots/${potId}`, {
+    name,
+    target_amount: targetAmount,
+    allocated_amount: allocatedAmount,
+  });
+  return data;
+}
+
+export async function deleteSavingsPot(potId: number) {
+  const { data } = await api.delete(`/savings-pots/${potId}`);
+  return data;
+}
+
+export async function getDailyTip() {
+  const { data } = await api.get("/settings/daily-tip");
+  return data as { status: string; date: string; tip: string };
+}
