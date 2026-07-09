@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const INCOME_COLORS = ["#10b981", "#f59e0b", "#64748b"];
-const EXPENSE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"];
+const EXPENSE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#f97316", "#14b8a6", "#84cc16", "#64748b"];
 
 export default function IncomeStatementPage() {
   const [history, setHistory] = useState<IncomeStatementRecord[]>([]);
@@ -94,13 +94,14 @@ export default function IncomeStatementPage() {
     SALARY: "薪資", INVESTMENT: "投資", TRANSFER_IN: "轉入", TRANSFER_OUT: "轉出",
     EXPENSE: "生活用品", FOOD: "餐飲美食", TRANSPORT: "交通運輸",
     MEDICAL: "醫療保健", ENTERTAINMENT: "娛樂休閒", INSURANCE: "保險",
-    EXERCISE: "運動", SHOPPING: "購物", CREDIT_CARD_PAYMENT: "信用卡繳款", DEBT_REPAYMENT: "本金償還",
-    DIVIDEND: "股利", INTEREST: "利息", OTHER: "其他",
+    EXERCISE: "運動", SHOPPING: "購物", TRAVEL: "旅遊", STUDY: "學習",
+    CREDIT_CARD_PAYMENT: "信用卡繳款", DEBT_REPAYMENT: "本金償還",
+    DIVIDEND: "股利", INTEREST: "利息", OTHER: "非固定支出",
     "食物": "餐飲美食", "餐飲": "餐飲美食", "餐飲美食": "餐飲美食",
     "交通": "交通運輸", "醫療": "醫療保健", "娛樂": "娛樂休閒",
     "支出": "生活用品", "生活用品": "生活用品",
-    "購物": "購物",
-    "other": "其他",
+    "購物": "購物", "旅遊": "旅遊", "學習": "學習",
+    "other": "非固定支出",
   };
 
   // Build the permanent set of excluded categories for income statement
@@ -130,14 +131,14 @@ export default function IncomeStatementPage() {
       .filter(t => !t.is_duplicate)
       .filter(t => t.amount > 0)
       .forEach(t => {
-        let name = "其他收入";
+        let name = "非固定收入";
         if (t.category === "SALARY" || t.category === "薪資") {
           name = "薪資收入";
         } else if (t.category === "INVESTMENT" || t.category === "投資" || t.category === "DIVIDEND" || t.category === "股利") {
           name = "投資收入";
         } else {
-          name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他收入";
-          if (name === "其他") name = "其他收入";
+          name = CATEGORY_LABEL[t.category] ?? t.category ?? "非固定收入";
+          if (name === "其他" || name === "其他收入") name = "非固定收入";
         }
         incomeCategories[name] = (incomeCategories[name] || 0) + t.amount;
       });
@@ -159,7 +160,7 @@ export default function IncomeStatementPage() {
       .filter(t => t.amount < 0) // Only negative amounts are expenses
       .forEach(t => {
         const amt = Math.abs(t.amount);
-        let name = "其他支出";
+        let name = "非固定支出";
         if (t.category === "食物" || t.category === "餐飲" || t.category === "餐飲美食" || t.category === "FOOD") {
           name = "餐飲美食";
         } else if (t.category === "交通" || t.category === "交通運輸" || t.category === "TRANSPORT") {
@@ -176,9 +177,13 @@ export default function IncomeStatementPage() {
           name = "運動";
         } else if (t.category === "購物" || t.category === "SHOPPING") {
           name = "購物";
+        } else if (t.category === "旅遊" || t.category === "TRAVEL") {
+          name = "旅遊";
+        } else if (t.category === "學習" || t.category === "STUDY") {
+          name = "學習";
         } else {
-          name = CATEGORY_LABEL[t.category] ?? t.category ?? "其他支出";
-          if (name === "其他") name = "其他支出";
+          name = CATEGORY_LABEL[t.category] ?? t.category ?? "非固定支出";
+          if (name === "其他" || name === "其他支出") name = "非固定支出";
         }
         expenseCategories[name] = (expenseCategories[name] || 0) + amt;
       });
@@ -187,7 +192,7 @@ export default function IncomeStatementPage() {
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .slice(0, 10);
   })();
 
   // Calculate dynamic total income and expenses from the filtered lists

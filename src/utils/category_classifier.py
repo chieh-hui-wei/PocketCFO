@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# Unified categories — these match TransactionCategory enum values exactly
 CATEGORY_LABELS: dict[str, str] = {
     "food": "食物",
     "transport": "交通",
@@ -26,7 +25,9 @@ CATEGORY_LABELS: dict[str, str] = {
     "insurance": "保險",
     "exercise": "運動",
     "shopping": "購物",
-    "expense": "支出",
+    "travel": "旅遊",
+    "study": "學習",
+    "expense": "固定支出",
     "investment": "投資",
     "dividend": "股利",
     "interest": "利息",
@@ -34,10 +35,10 @@ CATEGORY_LABELS: dict[str, str] = {
     "transfer_out": "轉出",
     "credit_card_payment": "信用卡繳款",
     "debt_repayment": "本金償還",
-    "other": "其他",
+    "other": "非固定支出",
 }
 
-VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "shopping", "credit_card_payment", "debt_repayment", "other"]
+VALID_CATEGORIES = ["food", "transport", "medical", "salary", "entertainment", "insurance", "exercise", "shopping", "travel", "study", "credit_card_payment", "debt_repayment", "other"]
 
 _CLASSIFY_PROMPT = """\
 You are a financial transaction classifier for Taiwan.
@@ -50,6 +51,8 @@ Classify each transaction into exactly ONE of these categories:
   insurance           – health insurance, life insurance, car/scooter insurance, annual premiums (e.g. 南山人壽, 富邦產險)
   exercise            – gym membership, sports centers, sports equipment, fitness training
   shopping            – shopping, department stores, clothes, shoes, bags, electronics, home decor (e.g. 蝦皮, 淘寶, momo, PChome, 宜得利, Uniqlo, MUJI)
+  travel              – hotels, lodging, flights, travel bookings, tours, travel agencies (e.g. Klook, KKday, Agoda, Booking.com, Airbnb, travel agency bookings)
+  study               – tuition, training courses, education, books, e-books, online learning platforms (e.g. Hahow, Udemy, Coursera, bookstore purchases)
   credit_card_payment – paying credit card bills or monthly payments to card issuers (e.g., 信用卡繳款, 繳卡費)
   debt_repayment      – principal repayments on bank loans, installments, or mortgages (e.g., 貸款本金, 分期還款)
   other               – anything that doesn't clearly fit the above
@@ -80,12 +83,16 @@ def _apply_override(merchant: str, description: str, rules: "list[CategoryRule]"
         return "transport"
     if any(k in combined for k in ["7-11", "7-eleven", "全家", "萊爾富", "ok超商", "全聯", "家樂福", "foodpanda", "uber eats", "外送", "open錢包", "openpoint", "familymart"]):
         return "food"
-    if any(k in combined for k in ["netflix", "spotify", "youtube premium", "disney+", "klook", "kkday"]):
+    if any(k in combined for k in ["netflix", "spotify", "youtube premium", "disney+"]):
         return "entertainment"
     if any(k in combined for k in ["健保", "勞保", "國民年金"]):
         return "insurance"
     if any(k in combined for k in ["蝦皮", "淘寶", "momo", "pchome", "宜得利", "uniqlo", "無印良品", "muji", "百貨", "服飾"]):
         return "shopping"
+    if any(k in combined for k in ["klook", "kkday", "agoda", "booking.com", "airbnb", "飯店", "酒店", "旅館", "民宿", "旅行社", "機票"]):
+        return "travel"
+    if any(k in combined for k in ["udemy", "hahow", "coursera", "補習班", "書局", "書店", "課程", "大專", "大學", "學費"]):
+        return "study"
         
     for rule in rules:
         if _normalize(rule.keyword) in combined:
@@ -180,6 +187,8 @@ def _category_to_enum(category: str):
         "insurance": TransactionCategory.INSURANCE,
         "exercise": TransactionCategory.EXERCISE,
         "shopping": TransactionCategory.SHOPPING,
+        "travel": TransactionCategory.TRAVEL,
+        "study": TransactionCategory.STUDY,
         "salary": TransactionCategory.SALARY,
         "investment": TransactionCategory.INVESTMENT,
         "credit_card_payment": TransactionCategory.CREDIT_CARD_PAYMENT,

@@ -18,7 +18,7 @@ CATEGORY_TRANSLATION = {
     "INVESTMENT": "投資",
     "TRANSFER_IN": "轉入",
     "TRANSFER_OUT": "轉出",
-    "EXPENSE": "支出",
+    "EXPENSE": "固定支出",
     "FOOD": "食物",
     "TRANSPORT": "交通",
     "MEDICAL": "醫療",
@@ -26,11 +26,13 @@ CATEGORY_TRANSLATION = {
     "INSURANCE": "保險",
     "EXERCISE": "運動",
     "SHOPPING": "購物",
+    "TRAVEL": "旅遊",
+    "STUDY": "學習",
     "CREDIT_CARD_PAYMENT": "信用卡繳款",
     "DEBT_REPAYMENT": "本金償還",
     "DIVIDEND": "股利",
     "INTEREST": "利息",
-    "OTHER": "其他"
+    "OTHER": "非固定支出"
 }
 
 @router.get("/")
@@ -362,6 +364,11 @@ async def create_transaction(
         # Category mapping
         reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
         reverse_cat["帳內互轉"] = "TRANSFER_IN"
+        reverse_cat["非固定支出"] = "OTHER"
+        reverse_cat["非固定收入"] = "OTHER"
+        reverse_cat["其他支出"] = "OTHER"
+        reverse_cat["其他收入"] = "OTHER"
+        reverse_cat["其他"] = "OTHER"
         cat_val = reverse_cat.get(body.category, body.category)
         if isinstance(cat_val, str):
             cat_val = cat_val.upper()
@@ -467,8 +474,11 @@ async def update_transaction(
         if body.category is not None:
             reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
             reverse_cat["帳內互轉"] = "TRANSFER_IN"
+            reverse_cat["非固定支出"] = "OTHER"
+            reverse_cat["非固定收入"] = "OTHER"
             reverse_cat["其他收入"] = "OTHER"
             reverse_cat["其他支出"] = "OTHER"
+            reverse_cat["其他"] = "OTHER"
             cat_val = reverse_cat.get(body.category, body.category)
             if isinstance(cat_val, str):
                 cat_val = cat_val.upper()
@@ -620,8 +630,11 @@ async def bulk_update_category(
         # Parse category
         reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
         reverse_cat["帳內互轉"] = "TRANSFER_IN"
+        reverse_cat["非固定支出"] = "OTHER"
+        reverse_cat["非固定收入"] = "OTHER"
         reverse_cat["其他收入"] = "OTHER"
         reverse_cat["其他支出"] = "OTHER"
+        reverse_cat["其他"] = "OTHER"
         cat_val = reverse_cat.get(body.category, body.category)
         if isinstance(cat_val, str):
             cat_val = cat_val.upper()

@@ -603,13 +603,15 @@ export default function SettingsPage() {
                           <option value="insurance">保險</option>
                           <option value="exercise">運動</option>
                           <option value="shopping">購物</option>
-                          <option value="other">其他支出 (OTHER)</option>
+                          <option value="travel">旅遊</option>
+                          <option value="study">學習</option>
+                          <option value="other">非固定支出 (OTHER)</option>
                         </optgroup>
                         <optgroup label="收入類別">
                           <option value="salary">薪資</option>
                           <option value="dividend">股利</option>
                           <option value="interest">利息</option>
-                          <option value="other">其他收入 (OTHER)</option>
+                          <option value="other">非固定收入 (OTHER)</option>
                         </optgroup>
                         <optgroup label="通用/轉帳類別">
                           <option value="investment">投資</option>
@@ -681,13 +683,15 @@ export default function SettingsPage() {
                                         <option value="insurance">保險</option>
                                         <option value="exercise">運動</option>
                                         <option value="shopping">購物</option>
-                                        <option value="other">其他支出 (OTHER)</option>
+                                        <option value="travel">旅遊</option>
+                                        <option value="study">學習</option>
+                                        <option value="other">非固定支出 (OTHER)</option>
                                       </optgroup>
                                       <optgroup label="收入類別">
                                         <option value="salary">薪資</option>
                                         <option value="dividend">股利</option>
                                         <option value="interest">利息</option>
-                                        <option value="other">其他收入 (OTHER)</option>
+                                        <option value="other">非固定收入 (OTHER)</option>
                                       </optgroup>
                                       <optgroup label="通用/轉帳類別">
                                         <option value="investment">投資</option>
@@ -699,7 +703,7 @@ export default function SettingsPage() {
                                     </select>
                                   ) : (
                                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                      ["food", "transport", "shopping", "entertainment", "medical", "exercise", "insurance"].includes(rule.category)
+                                      ["food", "transport", "shopping", "entertainment", "medical", "exercise", "insurance", "travel", "study"].includes(rule.category)
                                         ? "bg-rose-50 text-rose-700 border border-rose-100"
                                         : ["salary", "dividend", "interest"].includes(rule.category)
                                           ? "bg-emerald-50 text-emerald-700 border border-emerald-100"

@@ -1041,14 +1041,14 @@ export default function UploadPage() {
                             </td>
                             <td className="px-3 py-1.5">
                               <select
-                                value={t.category === "其他" ? (t.amount > 0 ? "其他收入" : "其他支出") : (t.category || "其他支出")}
+                                value={t.category === "其他" ? (t.amount > 0 ? "非固定收入" : "非固定支出") : (t.category || "非固定支出")}
                                 onChange={e => updateTransactionRow(idx, "category", e.target.value)}
                                 className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
                               >
                                 {t.amount > 0 ? (
                                   <>
                                     <optgroup label="收入類別">
-                                      {["薪資", "股利", "利息", "其他收入"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                      {["薪資", "股利", "利息", "非固定收入"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </optgroup>
                                     <optgroup label="通用類別">
                                       {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -1057,7 +1057,7 @@ export default function UploadPage() {
                                 ) : (
                                   <>
                                     <optgroup label="支出類別">
-                                      {["支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "其他支出"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                      {["固定支出", "食物", "交通", "醫療", "娛樂", "保險", "運動", "購物", "旅遊", "學習", "非固定支出"].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </optgroup>
                                     <optgroup label="通用類別">
                                       {["投資", "信用卡繳款", "本金償還", "轉入", "轉出", "帳內互轉"].map(cat => <option key={cat} value={cat}>{cat}</option>)}

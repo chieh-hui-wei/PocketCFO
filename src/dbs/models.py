@@ -68,6 +68,8 @@ class TransactionCategory(str, enum.Enum):
     DEBT_REPAYMENT = "DEBT_REPAYMENT"           # paying off loan principal
     DIVIDEND = "DIVIDEND"
     INTEREST = "INTEREST"
+    TRAVEL = "TRAVEL"
+    STUDY = "STUDY"
     OTHER = "OTHER"
 
 

@@ -91,6 +91,8 @@ export default function TransactionsPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState<number>(0);
 
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
   // Manual Transaction Adding States
   const [showAddModal, setShowAddModal] = useState(false);
   const [formDate, setFormDate] = useState("");
@@ -98,7 +100,7 @@ export default function TransactionsPage() {
   const [formMerchant, setFormMerchant] = useState("");
   const [formAmount, setFormAmount] = useState<number>(0);
   const [formType, setFormType] = useState<"income" | "expense">("expense");
-  const [formCategory, setFormCategory] = useState("支出");
+  const [formCategory, setFormCategory] = useState("固定支出");
   const [formSource, setFormSource] = useState("bank");
   const [formAccountId, setFormAccountId] = useState<number | "">("");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -319,6 +321,74 @@ export default function TransactionsPage() {
     window.open(url, "_blank");
   };
 
+  const EXPENSE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#f97316", "#14b8a6", "#84cc16", "#64748b"];
+
+  const filteredTxns = transactions
+    .filter(t => {
+      if (excludeTransfers && (
+        t.category === "帳內互轉" || 
+        t.category === "轉入" || 
+        t.category === "轉出" || 
+        t.category === "TRANSFER_IN" || 
+        t.category === "TRANSFER_OUT"
+      )) return false;
+      if (excludeInvestments && (
+        t.category === "投資" || 
+        t.category === "INVESTMENT"
+      )) return false;
+      if (excludeCardPayments && (
+        t.category === "信用卡繳款" || 
+        t.category === "本金償還" || 
+        t.category === "CREDIT_CARD_PAYMENT" || 
+        t.category === "DEBT_REPAYMENT"
+      )) return false;
+      return true;
+    })
+    .filter(t => {
+      if (typeFilter === "income") return t.amount > 0;
+      if (typeFilter === "expense") return t.amount < 0;
+      return true;
+    })
+    .filter(t => {
+      if (selectedAccountId === "all") return true;
+      if (selectedAccountId === "source:credit_card") return t.source === "credit_card";
+      if (selectedAccountId === "source:e_invoice") return t.source === "e_invoice";
+      if (selectedAccountId === "source:brokerage") return t.source === "brokerage";
+      if (selectedAccountId === "source:bank") return t.source === "bank";
+      return t.account_id === parseInt(selectedAccountId);
+    });
+
+  const categoryStats = (() => {
+    const stats: Record<string, { income: number; expense: number }> = {};
+    filteredTxns.forEach(t => {
+      let cat = t.category;
+      if (cat === "其他") {
+        cat = t.amount > 0 ? "非固定收入" : "非固定支出";
+      } else if (cat === "其他支出") {
+        cat = "非固定支出";
+      } else if (cat === "其他收入") {
+        cat = "非固定收入";
+      } else if (cat === "支出") {
+        cat = "固定支出";
+      }
+      if (!stats[cat]) stats[cat] = { income: 0, expense: 0 };
+      if (t.amount > 0) {
+        stats[cat].income += t.amount;
+      } else {
+        stats[cat].expense += Math.abs(t.amount);
+      }
+    });
+    return Object.entries(stats).map(([name, val]) => ({
+      name,
+      income: val.income,
+      expense: val.expense,
+      total: val.income + val.expense
+    })).sort((a, b) => b.expense - a.expense);
+  })();
+
+  const totalExpenseFiltered = categoryStats.reduce((sum, item) => sum + item.expense, 0);
+  const totalIncomeFiltered = categoryStats.reduce((sum, item) => sum + item.income, 0);
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* Header */}
@@ -482,51 +552,141 @@ export default function TransactionsPage() {
             />
             排除信用卡繳款
           </label>
-          <div className="flex items-center gap-4 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
-            {formatMonth(currentDate)}
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
+              <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
+              {formatMonth(currentDate)}
+              <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowBreakdown(!showBreakdown)}
+              className={`flex items-center gap-2 border px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                showBreakdown
+                  ? "bg-blue-50 border-blue-200 text-blue-600 shadow-blue-100"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <span>📊</span>
+              <span>分類收支統計</span>
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Collapsible Category Breakdown Panel */}
+      {showBreakdown && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+              <span>📊</span>
+              <span>分類收支統計分析 ({formatMonth(currentDate)})</span>
+            </h3>
+            <span className="text-[10px] text-slate-400 font-bold">資料依目前篩選條件連動</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Expense Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100/30">
+                <span className="text-xs font-bold text-rose-700">🔴 支出類別統計</span>
+                <span className="text-xs font-bold text-rose-800">
+                  總計: ${totalExpenseFiltered.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              
+              {categoryStats.filter(c => c.expense > 0).length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-100 rounded-xl">
+                  此篩選條件下無支出資料
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {categoryStats
+                    .filter(c => c.expense > 0)
+                    .map((c, idx) => {
+                      const percent = totalExpenseFiltered > 0 ? (c.expense / totalExpenseFiltered) * 100 : 0;
+                      const colorIndex = idx % EXPENSE_COLORS.length;
+                      const barColor = EXPENSE_COLORS[colorIndex];
+                      
+                      return (
+                        <div key={c.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-bold">
+                            <span className="text-slate-600 flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: barColor }} />
+                              {c.name}
+                            </span>
+                            <span className="text-slate-800">
+                              ${c.expense.toLocaleString(undefined, { maximumFractionDigits: 0 })}{" "}
+                              <span className="text-slate-400 font-bold ml-1">({percent.toFixed(1)}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${percent}%`, backgroundColor: barColor }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* Income Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-emerald-50/50 px-3 py-2 rounded-lg border border-emerald-100/30">
+                <span className="text-xs font-bold text-emerald-700">🟢 收入類別統計</span>
+                <span className="text-xs font-bold text-emerald-800">
+                  總計: ${totalIncomeFiltered.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+
+              {categoryStats.filter(c => c.income > 0).length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-100 rounded-xl">
+                  此篩選條件下無收入資料
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {categoryStats
+                    .filter(c => c.income > 0)
+                    .sort((a, b) => b.income - a.income)
+                    .map((c) => {
+                      const percent = totalIncomeFiltered > 0 ? (c.income / totalIncomeFiltered) * 100 : 0;
+                      const barColor = "#10b981";
+                      
+                      return (
+                        <div key={c.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-bold">
+                            <span className="text-slate-600 flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0 bg-emerald-500" />
+                              {c.name}
+                            </span>
+                            <span className="text-slate-800">
+                              ${c.income.toLocaleString(undefined, { maximumFractionDigits: 0 })}{" "}
+                              <span className="text-slate-400 font-bold ml-1">({percent.toFixed(1)}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${percent}%`, backgroundColor: barColor }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {(() => {
-          const filteredTxns = transactions
-            .filter(t => {
-              if (excludeTransfers && (
-                t.category === "帳內互轉" || 
-                t.category === "轉入" || 
-                t.category === "轉出" || 
-                t.category === "TRANSFER_IN" || 
-                t.category === "TRANSFER_OUT"
-              )) return false;
-              if (excludeInvestments && (
-                t.category === "投資" || 
-                t.category === "INVESTMENT"
-              )) return false;
-              if (excludeCardPayments && (
-                t.category === "信用卡繳款" || 
-                t.category === "本金償還" || 
-                t.category === "CREDIT_CARD_PAYMENT" || 
-                t.category === "DEBT_REPAYMENT"
-              )) return false;
-              return true;
-            })
-            .filter(t => {
-              if (typeFilter === "income") return t.amount > 0;
-              if (typeFilter === "expense") return t.amount < 0;
-              return true;
-            })
-            .filter(t => {
-              if (selectedAccountId === "all") return true;
-              if (selectedAccountId === "source:credit_card") return t.source === "credit_card";
-              if (selectedAccountId === "source:e_invoice") return t.source === "e_invoice";
-              if (selectedAccountId === "source:brokerage") return t.source === "brokerage";
-              if (selectedAccountId === "source:bank") return t.source === "bank";
-              return t.account_id === parseInt(selectedAccountId);
-            });
+          // Use precalculated filteredTxns
           return isLoading ? (
             <div className="py-20 text-center text-slate-500 font-bold">載入中...</div>
           ) : filteredTxns.length === 0 ? (
