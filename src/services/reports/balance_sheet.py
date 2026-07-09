@@ -81,7 +81,11 @@ class BalanceSheetService:
                 # snap.balance = total_market_value + cash_balance (both converted to TWD)
                 # Subtract individual securities MV to get the cash portion
                 snap_stocks_mv = securities_mv_by_account.get(snap.account_id, 0.0)
-                broker_cash_twd = max(snap.balance - snap_stocks_mv, 0.0)
+                
+                # Check if it is Firstrade (overseas broker)
+                is_firstrade = "firstrade" in (acct.name or "").lower() or "firstrade" in (acct.institution or "").lower()
+                
+                broker_cash_twd = max(snap.balance - snap_stocks_mv, 0.0) if is_firstrade else 0.0
                 total_securities_mv += snap_stocks_mv
                 total_brokerage_cash += broker_cash_twd
                 if broker_cash_twd > 0:
