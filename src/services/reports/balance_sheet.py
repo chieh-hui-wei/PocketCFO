@@ -87,11 +87,17 @@ class BalanceSheetService:
                 is_firstrade = "firstrade" in (acct.name or "").lower() or "firstrade" in (acct.institution or "").lower()
                 
                 broker_cash_twd = max(snap.balance - snap_stocks_mv, 0.0) if is_firstrade else 0.0
-                total_securities_mv += snap_stocks_mv
-                total_brokerage_cash += broker_cash_twd
+                total_securities_mv += snap_stocks_mv + broker_cash_twd
                 if broker_cash_twd > 0:
                     detail["brokerage_cash"].append(
-                        {"name": acct.name, "balance": round(broker_cash_twd)}
+                        {
+                            "name": f"{acct.name} (閒置現金)",
+                            "balance": round(broker_cash_twd),
+                            # Keep original USD cash balance if available
+                            "original_balance": snap.original_balance if hasattr(snap, 'original_balance') else round(broker_cash_twd / snap.exchange_rate) if snap.exchange_rate > 1 else None,
+                            "currency": snap.currency or "USD",
+                            "exchange_rate": snap.exchange_rate,
+                        }
                     )
             else:
                 total_cash += snap.balance
@@ -125,8 +131,7 @@ class BalanceSheetService:
                 }
             )
 
-        # Merge brokerage cash into total_cash so it shows in 現金與存款
-        total_cash += total_brokerage_cash
+        # Do NOT merge brokerage cash into total_cash. Keep total_cash strictly bank accounts.
         total_assets = total_cash + total_securities_mv
         total_liabilities = abs(total_cc_payable) + total_other_liabilities
         net_worth = total_assets - total_liabilities
@@ -216,11 +221,11 @@ class BalanceSheetService:
                 allocated_live_ids = set()
                 deduped_cash = []
                 for item in detail["cash"]:
-                    # Match by checking both institution and checking if the name aligns, AND ensuring we do not double-bind
-                    matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    # Match by checking both institution and checking if the name aligns, AND ensuring we do not double-bind, STRICTLY restricted to BANK accounts
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     # Fallback to institution match if only one such account exists
                     if not matched:
-                        matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids), None)
+                        matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids), None)
                         
                     if matched:
                         allocated_live_ids.add(matched.id)
