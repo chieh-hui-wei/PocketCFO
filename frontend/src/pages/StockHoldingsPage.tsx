@@ -46,28 +46,8 @@ export default function StockHoldingsPage() {
 
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
   const [securitiesHistory, setSecuritiesHistory] = useState<SecurityRecord[]>([]);
-  const [versionDates, setVersionDates] = useState<string[]>([]);
   const [selectedVersionDate, setSelectedVersionDate] = useState<string>("");
 
-  const handlePrevMonth = () => setCurrentDate(d => { 
-    const nd = new Date(d); 
-    if (viewMode === "year") {
-      nd.setFullYear(d.getFullYear() - 1);
-    } else {
-      nd.setMonth(d.getMonth() - 1); 
-    }
-    return nd; 
-  });
-  const handleNextMonth = () => setCurrentDate(d => { 
-    const nd = new Date(d); 
-    if (viewMode === "year") {
-      nd.setFullYear(d.getFullYear() + 1);
-    } else {
-      nd.setMonth(d.getMonth() + 1); 
-    }
-    return nd; 
-  });
-  const formatMonth = (d: Date) => viewMode === "year" ? `${d.getFullYear()}年` : `${d.getFullYear()}年${d.getMonth() + 1}月`;
   const targetPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-01`;
 
   // Reset edit state when account or date changes
@@ -93,24 +73,6 @@ export default function StockHoldingsPage() {
     loadAccounts();
     loadHistory();
   }, []);
-
-  // Fetch update dates when month changes
-  useEffect(() => {
-    if (viewMode === "year") return;
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1;
-    
-    getSecurityUpdateDates(year, month)
-      .then(dates => {
-        setVersionDates(dates);
-        if (dates.length > 0) {
-          setSelectedVersionDate(dates[0]);
-        } else {
-          setSelectedVersionDate("");
-        }
-      })
-      .catch(console.error);
-  }, [currentDate, viewMode]);
 
   // Fetch securities when date, selection or version changes
   useEffect(() => {
