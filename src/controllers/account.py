@@ -722,6 +722,10 @@ async def reclassify_and_recompute_all(db: AsyncSession, user_id: int):
             else:
                 txn.category = TransactionCategory.TRANSFER_OUT
         else:
+            # If it is no longer an internal transfer, ONLY reset to default if the category
+            # was previously TRANSFER_IN or TRANSFER_OUT.
+            # If the user (or Gemini) had classified it into a specific category like FOOD, MEDICAL, etc.,
+            # we MUST preserve the user's classification!
             if old_category in (TransactionCategory.TRANSFER_IN, TransactionCategory.TRANSFER_OUT):
                 if txn.amount < 0:
                     txn.category = TransactionCategory.EXPENSE
