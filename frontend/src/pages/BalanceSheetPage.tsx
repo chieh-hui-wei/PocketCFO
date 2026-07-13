@@ -447,14 +447,18 @@ export default function BalanceSheetPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              <tr className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-800">現金與存款</td>
-                <td className="px-4 py-3 text-slate-500">流動資產</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_cash ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-              </tr>
               {(() => {
+                // Helper to find previous month's balance sheet
+                const prevMonthDate = new Date(currentDate);
+                prevMonthDate.setMonth(currentDate.getMonth() - 1);
+                const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+                const prevBs = history.find(b => b.period === prevPeriod) || null;
+
+                // Cash
+                const prevTotalCash = prevBs?.total_cash ?? 0;
+                const diffCash = (latestBs?.total_cash ?? 0) - prevTotalCash;
+                const pctCash = prevTotalCash > 0 ? (diffCash / prevTotalCash) * 100 : 0;
+
                 // Combine bank cash + brokerage cash into one grouped list
                 const cashItems: any[] = [
                   ...(latestBs?.detail?.cash?.filter((c: any) => c.balance !== 0) || []),
@@ -465,86 +469,251 @@ export default function BalanceSheetPage() {
                 // Sort by balance descending
                 cashItems.sort((a, b) => b.balance - a.balance);
 
-                return cashItems.map((c: any, i: number) => {
-                  const bankLabel = c.institution ? c.institution : "";
-                  const displayName = bankLabel ? `${bankLabel} - ${c.name}` : c.name;
-                  return (
-                    <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                      <td className="px-4 py-2 pl-8 text-sm text-slate-600">
-                        <span>↳ {displayName}</span>
-                        {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
-                          <span className="ml-2 text-[11px] text-slate-400">
-                            {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                          </span>
-                        )}
+                // Try to build a mapping of previous month's individual cash item balances
+                const prevCashItemsMap: Record<string, number> = {};
+                if (prevBs?.detail) {
+                  const prevCash = prevBs.detail.cash || [];
+                  const prevBrokerageCash = prevBs.detail.brokerage_cash || [];
+                  prevCash.forEach((c: any) => {
+                    const label = c.institution ? `${c.institution} - ${c.name}` : c.name;
+                    prevCashItemsMap[label] = c.balance;
+                  });
+                  prevBrokerageCash.forEach((c: any) => {
+                    const label = c.institution ? `${c.institution} - ${c.name} (證券現金)` : `${c.name} (證券現金)`;
+                    prevCashItemsMap[label] = c.balance;
+                  });
+                }
+
+                return (
+                  <>
+                    <tr className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-800">現金與存款</td>
+                      <td className="px-4 py-3 text-slate-500">流動資產</td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_cash ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffCash >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs ? `${diffCash >= 0 ? '+' : ''}${diffCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                       </td>
-                      <td className="px-4 py-2 text-sm text-slate-400">
-                        {c.currency && c.currency !== 'TWD' ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{c.currency}</span>
-                        ) : '子項目'}
+                      <td className={`px-4 py-3 text-right font-medium ${diffCash >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs && prevTotalCash > 0 ? `${diffCash >= 0 ? '▲' : '▼'} ${Math.abs(pctCash).toFixed(1)}%` : '-'}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-4 py-2 text-right text-slate-300">-</td>
-                      <td className="px-4 py-2 text-right text-slate-300">-</td>
                     </tr>
-                  );
-                });
+                    {cashItems.map((c: any, i: number) => {
+                      const bankLabel = c.institution ? c.institution : "";
+                      const displayName = bankLabel ? `${bankLabel} - ${c.name}` : c.name;
+                      const prevVal = prevCashItemsMap[displayName] ?? 0;
+                      const diff = c.balance - prevVal;
+                      const pct = prevVal > 0 ? (diff / prevVal) * 100 : 0;
+
+                      return (
+                        <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">
+                            <span>↳ {displayName}</span>
+                            {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
+                              <span className="ml-2 text-[11px] text-slate-400">
+                                {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-slate-400">
+                            {c.currency && c.currency !== 'TWD' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{c.currency}</span>
+                            ) : ''}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                          </td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
               })()}
               
-              <tr className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-800">投資</td>
-                <td className="px-4 py-3 text-slate-500">流動資產</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_securities_market_value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-              </tr>
-              {latestBs?.detail?.securities?.filter((s: any) => s.market_value !== 0)?.map((s: any, i: number) => (
-                <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                  <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {s.broker} - {s.name}</td>
-                  <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                </tr>
-              ))}
-              
-              <tr className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-800">信用卡負債</td>
-                <td className="px-4 py-3 text-slate-500">流動負債</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">
-                  ${(latestBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-              </tr>
-              {latestBs?.detail?.credit_cards?.filter((cc: any) => cc.payable !== 0)?.map((cc: any, i: number) => (
-                <tr key={`cc-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                  <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {cc.name}</td>
-                  <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                </tr>
-              ))}
+              {(() => {
+                // Helper to find previous month's balance sheet
+                const prevMonthDate = new Date(currentDate);
+                prevMonthDate.setMonth(currentDate.getMonth() - 1);
+                const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+                const prevBs = history.find(b => b.period === prevPeriod) || null;
 
-              <tr className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-800">分期與其他負債</td>
-                <td className="px-4 py-3 text-slate-500">流動負債</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">
-                  ${(latestBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-                <td className="px-4 py-3 text-right text-slate-300">-</td>
-              </tr>
-              {latestBs?.detail?.liabilities?.filter((l: any) => l.balance !== 0)?.map((l: any, i: number) => (
-                <tr key={`liab-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                  <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {l.name}</td>
-                  <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                </tr>
-              ))}
+                // Securities
+                const prevSecMv = prevBs?.total_securities_market_value ?? 0;
+                const diffSec = (latestBs?.total_securities_market_value ?? 0) - prevSecMv;
+                const pctSec = prevSecMv > 0 ? (diffSec / prevSecMv) * 100 : 0;
+
+                // Build mapping of previous month's individual securities
+                const prevSecsMap: Record<string, number> = {};
+                if (prevBs?.detail?.securities) {
+                  prevBs.detail.securities.forEach((s: any) => {
+                    const label = `${s.broker} - ${s.name}`;
+                    prevSecsMap[label] = s.market_value;
+                  });
+                }
+
+                const securitiesItems = latestBs?.detail?.securities?.filter((s: any) => s.market_value !== 0) || [];
+
+                return (
+                  <>
+                    <tr className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-800">投資</td>
+                      <td className="px-4 py-3 text-slate-500">流動資產</td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-800">${(latestBs?.total_securities_market_value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffSec >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs ? `${diffSec >= 0 ? '+' : ''}${diffSec.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffSec >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs && prevSecMv > 0 ? `${diffSec >= 0 ? '▲' : '▼'} ${Math.abs(pctSec).toFixed(1)}%` : '-'}
+                      </td>
+                    </tr>
+                    {securitiesItems.map((s: any, i: number) => {
+                      const displayName = `${s.broker} - ${s.name}`;
+                      const prevVal = prevSecsMap[displayName] ?? 0;
+                      const diff = s.market_value - prevVal;
+                      const pct = prevVal > 0 ? (diff / prevVal) * 100 : 0;
+
+                      return (
+                        <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {s.broker} - {s.name}</td>
+                          <td className="px-4 py-2 text-sm text-slate-400"></td>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                          </td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+              
+              {(() => {
+                // Helper to find previous month's balance sheet
+                const prevMonthDate = new Date(currentDate);
+                prevMonthDate.setMonth(currentDate.getMonth() - 1);
+                const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+                const prevBs = history.find(b => b.period === prevPeriod) || null;
+
+                // Credit Cards
+                const latestCcPayable = latestBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0;
+                const prevCcPayable = prevBs?.detail?.credit_cards?.reduce((acc: number, item: any) => acc + item.payable, 0) ?? 0;
+                const diffCc = latestCcPayable - prevCcPayable;
+                const pctCc = prevCcPayable > 0 ? (diffCc / prevCcPayable) * 100 : 0;
+
+                // Build mapping of previous month's credit cards
+                const prevCcMap: Record<string, number> = {};
+                if (prevBs?.detail?.credit_cards) {
+                  prevBs.detail.credit_cards.forEach((cc: any) => {
+                    prevCcMap[cc.name] = cc.payable;
+                  });
+                }
+
+                const creditCardItems = latestBs?.detail?.credit_cards?.filter((cc: any) => cc.payable !== 0) || [];
+
+                return (
+                  <>
+                    <tr className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-800">信用卡負債</td>
+                      <td className="px-4 py-3 text-slate-500">流動負債</td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-800">
+                        ${latestCcPayable.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffCc <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs ? `${diffCc >= 0 ? '+' : ''}${diffCc.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffCc <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs && prevCcPayable > 0 ? `${diffCc >= 0 ? '▲' : '▼'} ${Math.abs(pctCc).toFixed(1)}%` : '-'}
+                      </td>
+                    </tr>
+                    {creditCardItems.map((cc: any, i: number) => {
+                      const prevVal = prevCcMap[cc.name] ?? 0;
+                      const diff = cc.payable - prevVal;
+                      const pct = prevVal > 0 ? (diff / prevVal) * 100 : 0;
+
+                      return (
+                        <tr key={`cc-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {cc.name}</td>
+                          <td className="px-4 py-2 text-sm text-slate-400"></td>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                          </td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+
+              {(() => {
+                // Helper to find previous month's balance sheet
+                const prevMonthDate = new Date(currentDate);
+                prevMonthDate.setMonth(currentDate.getMonth() - 1);
+                const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+                const prevBs = history.find(b => b.period === prevPeriod) || null;
+
+                // Liabilities
+                const latestLiabVal = latestBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0;
+                const prevLiabVal = prevBs?.detail?.liabilities?.reduce((acc: number, item: any) => acc + item.balance, 0) ?? 0;
+                const diffLiab = latestLiabVal - prevLiabVal;
+                const pctLiab = prevLiabVal > 0 ? (diffLiab / prevLiabVal) * 100 : 0;
+
+                // Build mapping of previous month's liabilities
+                const prevLiabMap: Record<string, number> = {};
+                if (prevBs?.detail?.liabilities) {
+                  prevBs.detail.liabilities.forEach((l: any) => {
+                    prevLiabMap[l.name] = l.balance;
+                  });
+                }
+
+                const liabilitiesItems = latestBs?.detail?.liabilities?.filter((l: any) => l.balance !== 0) || [];
+
+                return (
+                  <>
+                    <tr className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-800">分期與其他負債</td>
+                      <td className="px-4 py-3 text-slate-500">流動負債</td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-800">
+                        ${latestLiabVal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffLiab <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs ? `${diffLiab >= 0 ? '+' : ''}${diffLiab.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${diffLiab <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {prevBs && prevLiabVal > 0 ? `${diffLiab >= 0 ? '▲' : '▼'} ${Math.abs(pctLiab).toFixed(1)}%` : '-'}
+                      </td>
+                    </tr>
+                    {liabilitiesItems.map((l: any, i: number) => {
+                      const prevVal = prevLiabMap[l.name] ?? 0;
+                      const diff = l.balance - prevVal;
+                      const pct = prevVal > 0 ? (diff / prevVal) * 100 : 0;
+
+                      return (
+                        <tr key={`liab-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {l.name}</td>
+                          <td className="px-4 py-2 text-sm text-slate-400"></td>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                          </td>
+                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                            {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </tbody>
           </table>
         </div>
