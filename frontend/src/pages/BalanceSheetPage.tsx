@@ -23,6 +23,8 @@ export default function BalanceSheetPage() {
   const [newAccName, setNewAccName] = useState("");
   const [newAccType, setNewAccType] = useState("liability");
   const [newAccInst, setNewAccInst] = useState("");
+  const [newAccIsInstallment, setNewAccIsInstallment] = useState(false);
+  const [newAccInstallmentAmount, setNewAccInstallmentAmount] = useState<number>(0);
 
   // Snapshot balances state being edited
   const [editBalances, setEditBalances] = useState<Record<number, string>>({});
@@ -177,9 +179,19 @@ export default function BalanceSheetPage() {
     e.preventDefault();
     if (!newAccName || !newAccInst) return;
     try {
-      await createAccount(newAccName, newAccType, newAccInst);
+      await createAccount(
+        newAccName,
+        newAccType,
+        newAccInst,
+        "TWD",
+        undefined,
+        newAccIsInstallment,
+        newAccInstallmentAmount
+      );
       setNewAccName("");
       setNewAccInst("");
+      setNewAccIsInstallment(false);
+      setNewAccInstallmentAmount(0);
       setIsAddingAccount(false);
       fetchSnapshots();
     } catch (err) {
@@ -813,6 +825,35 @@ export default function BalanceSheetPage() {
                       <option value="brokerage">證券投資帳戶 (Brokerage)</option>
                     </select>
                   </div>
+                  {newAccType === "liability" && (
+                    <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="new_acc_is_installment"
+                          checked={newAccIsInstallment}
+                          onChange={e => setNewAccIsInstallment(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="new_acc_is_installment" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                          這是「定期定額分期付款」
+                        </label>
+                      </div>
+                      {newAccIsInstallment && (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">每期應繳/扣除金額 (TWD)</label>
+                          <input
+                            type="number"
+                            value={newAccInstallmentAmount || ""}
+                            onChange={e => setNewAccInstallmentAmount(parseFloat(e.target.value) || 0)}
+                            placeholder="例如: 5000"
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500"
+                          />
+                          <span className="block text-xxs text-slate-400 mt-1 font-normal">啟用後，系統每月份會自動從您的負債餘額中扣減此金額，直到餘額歸零。</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex justify-end gap-2 text-sm pt-2">
                     <button 
                       type="button"

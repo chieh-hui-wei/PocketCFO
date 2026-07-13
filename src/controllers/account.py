@@ -24,6 +24,8 @@ class CreateAccountRequest(BaseModel):
     currency: str = "TWD"
     is_internal: bool = True
     notes: str | None = None
+    is_installment: bool = False
+    installment_amount: float = 0.0
 
 
 class SaveSnapshotRequest(BaseModel):
@@ -48,6 +50,8 @@ async def list_accounts(
             "institution": a.institution,
             "currency": a.currency,
             "is_internal": a.is_internal,
+            "is_installment": getattr(a, "is_installment", False),
+            "installment_amount": getattr(a, "installment_amount", 0.0),
         }
         for a in accounts
         if include_all or a.account_type not in (AccountType.CREDIT_CARD, AccountType.LIABILITY)
@@ -82,6 +86,8 @@ async def create_account(
         "institution": created.institution,
         "currency": created.currency,
         "is_internal": created.is_internal,
+        "is_installment": getattr(created, "is_installment", False),
+        "installment_amount": getattr(created, "installment_amount", 0.0),
     }
 
 
@@ -681,6 +687,8 @@ class UpdateAccountRequest(BaseModel):
     is_internal: bool | None = None
     code: str | None = None
     notes: str | None = None
+    is_installment: bool | None = None
+    installment_amount: float | None = None
 
 
 async def reclassify_and_recompute_all(db: AsyncSession, user_id: int):
@@ -804,6 +812,12 @@ async def update_account(
     if body.notes is not None and body.notes != account.notes:
         account.notes = body.notes
         transfer_rules_changed = True
+    if body.is_installment is not None and body.is_installment != account.is_installment:
+        account.is_installment = body.is_installment
+        name_or_institution_changed = True
+    if body.installment_amount is not None and body.installment_amount != account.installment_amount:
+        account.installment_amount = body.installment_amount
+        name_or_institution_changed = True
 
     await db.flush()
 

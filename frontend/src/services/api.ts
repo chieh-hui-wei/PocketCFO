@@ -149,7 +149,9 @@ export async function createAccount(
   type: string,
   institution: string,
   currency: string = "TWD",
-  code?: string
+  code?: string,
+  isInstallment: boolean = false,
+  installmentAmount: number = 0.0
 ) {
   const { data } = await api.post("/accounts/", {
     name,
@@ -157,6 +159,8 @@ export async function createAccount(
     institution,
     currency,
     code,
+    is_installment: isInstallment,
+    installment_amount: installmentAmount,
   });
   return data;
 }
@@ -225,6 +229,8 @@ export interface Account {
   institution: string;
   currency: string;
   is_internal: boolean;
+  is_installment?: boolean;
+  installment_amount?: number;
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────
@@ -394,6 +400,8 @@ export async function updateAccount(
     is_internal?: boolean;
     code?: string;
     notes?: string;
+    is_installment?: boolean;
+    installment_amount?: number;
   }
 ) {
   const { data } = await api.put(`/accounts/${accountId}`, payload);

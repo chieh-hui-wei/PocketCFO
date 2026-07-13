@@ -44,6 +44,8 @@ export default function AccountsPage() {
   const [formCurrency, setFormCurrency] = useState("TWD");
   const [formCode, setFormCode] = useState("");
   const [formIsInternal, setFormIsInternal] = useState(true);
+  const [formIsInstallment, setFormIsInstallment] = useState(false);
+  const [formInstallmentAmount, setFormInstallmentAmount] = useState<number>(0);
 
   const fetchAccounts = async () => {
     setIsLoading(true);
@@ -84,6 +86,8 @@ export default function AccountsPage() {
     setFormCurrency("TWD");
     setFormCode("");
     setFormIsInternal(true);
+    setFormIsInstallment(false);
+    setFormInstallmentAmount(0);
     setShowAddModal(true);
   };
 
@@ -95,6 +99,8 @@ export default function AccountsPage() {
     setFormCurrency(a.currency);
     setFormCode(a.code || "");
     setFormIsInternal(a.is_internal);
+    setFormIsInstallment(a.is_installment || false);
+    setFormInstallmentAmount(a.installment_amount || 0);
     setShowEditModal(true);
   };
 
@@ -110,15 +116,18 @@ export default function AccountsPage() {
         formType,
         formInstitution,
         formCurrency,
-        formCode || undefined
+        formCode || undefined,
+        formIsInstallment,
+        formInstallmentAmount
       );
-      // If manually created, we might need to set is_internal if it differed from default.
-      // But let's check: createAccount in api.ts doesn't take is_internal directly.
-      // So we can update it immediately if needed.
       const list = await getAccounts();
       const created = list.find(x => x.name === formName && x.institution === formInstitution);
-      if (created && created.is_internal !== formIsInternal) {
-        await updateAccount(created.id, { is_internal: formIsInternal });
+      if (created) {
+        await updateAccount(created.id, {
+          is_internal: formIsInternal,
+          is_installment: formIsInstallment,
+          installment_amount: formInstallmentAmount
+        });
       }
       toast.success("帳戶建立成功！");
       setShowAddModal(false);
@@ -139,7 +148,9 @@ export default function AccountsPage() {
         account_type: formType,
         currency: formCurrency,
         is_internal: formIsInternal,
-        code: formCode
+        code: formCode,
+        is_installment: formIsInstallment,
+        installment_amount: formInstallmentAmount
       });
       toast.success("帳戶修改已儲存！");
       setShowEditModal(false);
@@ -572,6 +583,9 @@ export default function AccountsPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                   >
                     <option value="bank">銀行帳戶</option>
+                    <option value="liability">分期負債</option>
+                    <option value="credit_card">信用卡</option>
+                    <option value="brokerage">證券帳戶</option>
                   </select>
                 </div>
                 <div>
@@ -609,6 +623,36 @@ export default function AccountsPage() {
                   <span className="block text-xs font-normal text-slate-400 mt-0.5">勾選後，此帳戶與其他內部帳戶之間的互轉交易將自動被損益表排除</span>
                 </label>
               </div>
+
+              {formType === "liability" && (
+                <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="add_is_installment"
+                      checked={formIsInstallment}
+                      onChange={e => setFormIsInstallment(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="add_is_installment" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                      這是「定期定額分期付款」
+                    </label>
+                  </div>
+                  {formIsInstallment && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5">每期應繳/扣除金額 (TWD)</label>
+                      <input
+                        type="number"
+                        value={formInstallmentAmount || ""}
+                        onChange={e => setFormInstallmentAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="例如: 5000"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="block text-xxs text-slate-400 mt-1 font-normal">啟用後，系統每月份會自動從您的負債餘額中扣減此金額，直到餘額歸零。</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button 
@@ -774,6 +818,9 @@ export default function AccountsPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                   >
                     <option value="bank">銀行帳戶</option>
+                    <option value="liability">分期負債</option>
+                    <option value="credit_card">信用卡</option>
+                    <option value="brokerage">證券帳戶</option>
                   </select>
                 </div>
                 <div>
@@ -810,6 +857,36 @@ export default function AccountsPage() {
                   <span className="block text-xs font-normal text-slate-400 mt-0.5">勾選後，此帳戶與其他內部帳戶之間的互轉交易將自動被損益表排除</span>
                 </label>
               </div>
+
+              {formType === "liability" && (
+                <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit_is_installment"
+                      checked={formIsInstallment}
+                      onChange={e => setFormIsInstallment(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="edit_is_installment" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                      這是「定期定額分期付款」
+                    </label>
+                  </div>
+                  {formIsInstallment && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5">每期應繳/扣除金額 (TWD)</label>
+                      <input
+                        type="number"
+                        value={formInstallmentAmount || ""}
+                        onChange={e => setFormInstallmentAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="例如: 5000"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="block text-xxs text-slate-400 mt-1 font-normal">啟用後，系統每月份會自動從您的負債餘額中扣減此金額，直到餘額歸零。</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button 
