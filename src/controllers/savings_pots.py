@@ -91,7 +91,8 @@ async def list_pots(
                 if bal is not None:
                     total_cash += bal
                 else:
-                    missing_accounts.append(acct.name)
+                    label = f"{acct.institution} - {acct.name}" if acct.institution else acct.name
+                    missing_accounts.append(label)
 
         return {
             "status": "ok",
