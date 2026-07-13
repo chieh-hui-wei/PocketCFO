@@ -28,8 +28,8 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
-  const [excludeInvestments, setExcludeInvestments] = useState(false);
-  const [excludeCardPayments, setExcludeCardPayments] = useState(false);
+  const [excludeInvestments, setExcludeInvestments] = useState(true);
+  const [excludeCardPayments, setExcludeCardPayments] = useState(true);
   const [selectedTxnIds, setSelectedTxnIds] = useState<number[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
