@@ -128,15 +128,32 @@ export default function App() {
   const [dailyTip, setDailyTip] = useState<string>("理財小妙招載入中...");
   const [closestPot, setClosestPot] = useState<SavingsPot | null>(null);
 
-  const fetchDailyTipAndPots = async () => {
-    try {
-      const tipRes = await getDailyTip();
-      if (tipRes && tipRes.tip) {
-        setDailyTip(tipRes.tip);
+  const fetchDailyTipAndPots = async (forceRefresh: boolean = false) => {
+    // Get YYYY-MM-DD date in Taipei timezone
+    const todayStr = new Date().toLocaleDateString("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).replace(/\//g, "-");
+
+    const cachedTip = localStorage.getItem("pocketcfo_daily_tip");
+    const cachedDate = localStorage.getItem("pocketcfo_daily_tip_date");
+
+    if (!forceRefresh && cachedTip && cachedDate === todayStr) {
+      setDailyTip(cachedTip);
+    } else {
+      try {
+        const tipRes = await getDailyTip();
+        if (tipRes && tipRes.tip) {
+          setDailyTip(tipRes.tip);
+          localStorage.setItem("pocketcfo_daily_tip", tipRes.tip);
+          localStorage.setItem("pocketcfo_daily_tip_date", todayStr);
+        }
+      } catch (e) {
+        console.error("Failed to fetch daily tip", e);
+        setDailyTip("先存錢、後消費：每月發薪後，先將預算存入儲蓄帳戶，剩下的才是可支配所得。");
       }
-    } catch (e) {
-      console.error("Failed to fetch daily tip", e);
-      setDailyTip("先存錢、後消費：每月發薪後，先將預算存入儲蓄帳戶，剩下的才是可支配所得。");
     }
 
     try {
@@ -333,7 +350,7 @@ export default function App() {
                 </span>
                 <button
                   type="button"
-                  onClick={fetchDailyTipAndPots}
+                  onClick={() => fetchDailyTipAndPots(true)}
                   title="重新整理"
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer rounded-lg hover:bg-slate-100"
                 >
