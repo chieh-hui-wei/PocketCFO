@@ -114,6 +114,10 @@ export default function BalanceSheetPage() {
     }
     if (latestBs.detail.brokerage_cash) {
       latestBs.detail.brokerage_cash.forEach((c: any) => {
+        // Exclude Firstrade from Cash & Deposits since it is an investment vehicle
+        if (c.name && c.name.toLowerCase().includes("firstrade")) {
+          return;
+        }
         if (c.balance > 0) cashDepositsData.push({ name: `${c.name} (證券現金)`, value: c.balance });
       });
     }
