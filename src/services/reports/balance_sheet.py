@@ -119,6 +119,9 @@ class BalanceSheetService:
                     "quantity": sec.quantity,
                     "market_value": sec.market_value,
                     "unrealized_pnl": sec.unrealized_pnl,
+                    "original_market_value": sec.original_market_value,
+                    "currency": sec.currency or "TWD",
+                    "exchange_rate": sec.exchange_rate,
                 }
             )
 

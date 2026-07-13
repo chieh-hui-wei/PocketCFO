@@ -578,9 +578,19 @@ export default function BalanceSheetPage() {
 
                       return (
                         <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">{s.broker} - {s.name}</td>
-
-                          <td className="px-4 py-2 text-sm text-slate-400"></td>
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">
+                            <span>{s.broker} - {s.name}</span>
+                            {s.currency && s.currency !== 'TWD' && s.original_market_value != null && (
+                              <span className="ml-2 text-[11px] text-slate-400">
+                                {s.currency} {s.original_market_value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-slate-400">
+                            {s.currency && s.currency !== 'TWD' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{s.currency}</span>
+                            ) : ''}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                           <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
