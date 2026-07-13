@@ -303,9 +303,9 @@ class BalanceSheetService:
                 total_cc = sum(cc.get("payable", 0.0) for cc in detail.get("credit_cards", []))
                 total_liab = sum(l.get("balance", 0.0) for l in detail.get("liabilities", []))
 
-                bs.total_cash = total_cash + total_brokerage
-                bs.total_securities_market_value = total_securities
-                bs.total_assets = bs.total_cash + total_securities
+                bs.total_cash = total_cash
+                bs.total_securities_market_value = total_securities + total_brokerage
+                bs.total_assets = bs.total_cash + bs.total_securities_market_value
                 bs.total_credit_card_payable = -total_cc
                 bs.total_liabilities = total_cc + total_liab
                 bs.net_worth = bs.total_assets - bs.total_liabilities
