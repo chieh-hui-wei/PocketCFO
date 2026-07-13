@@ -6,8 +6,7 @@ import {
   saveSecuritiesForAccount,
   Account,
   SecurityRecord,
-  getSecuritiesHistory,
-  getSecurityUpdateDates
+  getSecuritiesHistory
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "../store/useToastStore";
@@ -46,8 +45,8 @@ export default function StockHoldingsPage() {
 
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
   const [securitiesHistory, setSecuritiesHistory] = useState<SecurityRecord[]>([]);
-  const [selectedVersionDate, setSelectedVersionDate] = useState<string>("");
 
+  const formatMonth = (d: Date) => viewMode === "year" ? `${d.getFullYear()}年` : `${d.getFullYear()}年${d.getMonth() + 1}月`;
   const targetPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-01`;
 
   // Reset edit state when account or date changes
@@ -74,13 +73,12 @@ export default function StockHoldingsPage() {
     loadHistory();
   }, []);
 
-  // Fetch securities when date, selection or version changes
   useEffect(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     setIsLoading(true);
     
-    getSecuritiesForPeriod(year, month, selectedVersionDate || undefined)
+    getSecuritiesForPeriod(year, month, undefined)
       .then(all => {
         setAllSecurities(all);
         
@@ -99,7 +97,7 @@ export default function StockHoldingsPage() {
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [currentDate, selectedAccountId, selectedVersionDate]);
+  }, [currentDate, selectedAccountId]);
 
   const handleAddRow = () => {
     setSecurities(prev => [
