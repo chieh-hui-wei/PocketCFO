@@ -180,7 +180,7 @@ class BalanceSheetService:
         return results
 
     async def get_history(self, months: int = 12) -> list[dict[str, Any]]:
-        """Return balance sheet history for charting, automatically syncing account names from live DB."""
+        """Return balance sheet history for charting, dynamically syncing account names and balances from live DB snapshots."""
         all_bs = await self.bs_repo.list_all()
         accounts = {a.id: a for a in await self.account_repo.get_all()}
         
@@ -188,6 +188,15 @@ class BalanceSheetService:
         db_needs_commit = False
 
         for bs in all_bs[:months]:
+            # Fetch actual snapshots in the database for this specific month
+            month_snaps_res = await self.db.execute(
+                select(AccountSnapshot).where(
+                    AccountSnapshot.user_id == self.user_id,
+                    AccountSnapshot.period_date == bs.period_date
+                )
+            )
+            db_snaps = {s.account_id: s for s in month_snaps_res.scalars().all()}
+
             detail = {}
             if bs.detail_json:
                 try:
@@ -195,37 +204,70 @@ class BalanceSheetService:
                 except Exception:
                     pass
 
-            # Dynamically sync names in the detail dict with live DB accounts
             detail_changed = False
             
-            # 1. Sync cash accounts names
+            # 1. Sync cash accounts (names & balances)
             if "cash" in detail:
                 for item in detail["cash"]:
-                    # Match by finding account with matching name in current DB accounts
                     matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency")), None)
-                    if matched and item.get("name") != matched.name:
-                        item["name"] = matched.name
-                        detail_changed = True
-            
-            # 2. Sync brokerage cash names
+                    if matched:
+                        if item.get("name") != matched.name:
+                            item["name"] = matched.name
+                            detail_changed = True
+                        # Cross-reference live snapshot balance
+                        snap = db_snaps.get(matched.id)
+                        if snap and item.get("balance") != snap.balance:
+                            item["balance"] = snap.balance
+                            if snap.original_balance is not None:
+                                item["original_balance"] = snap.original_balance
+                            detail_changed = True
+
+            # 2. Sync brokerage cash (names & balances)
             if "brokerage_cash" in detail:
                 for item in detail["brokerage_cash"]:
-                    # Try fuzzy matching by name (brokerage accounts are fewer, match by start name)
                     matched = next((a for a in accounts.values() if a.account_type == AccountType.BROKERAGE and (a.name in item.get("name") or item.get("name") in a.name)), None)
-                    if matched and item.get("name") != matched.name:
-                        item["name"] = matched.name
-                        detail_changed = True
+                    if matched:
+                        if item.get("name") != matched.name:
+                            item["name"] = matched.name
+                            detail_changed = True
+                        # If Firstrade, check dynamic balance
+                        snap = db_snaps.get(matched.id)
+                        if snap and item.get("balance") != snap.balance:
+                            # Recalculate cash portion (balance - stocks)
+                            # We keep it simple: if snap balance differs, update it
+                            item["balance"] = snap.balance
+                            detail_changed = True
 
-            # 3. Sync credit cards names
+            # 3. Sync credit cards (names & balances)
             if "credit_cards" in detail:
                 for item in detail["credit_cards"]:
                     matched = next((a for a in accounts.values() if a.account_type == AccountType.CREDIT_CARD and (a.name in item.get("name") or item.get("name") in a.name)), None)
-                    if matched and item.get("name") != matched.name:
-                        item["name"] = matched.name
-                        detail_changed = True
+                    if matched:
+                        if item.get("name") != matched.name:
+                            item["name"] = matched.name
+                            detail_changed = True
+                        snap = db_snaps.get(matched.id)
+                        # Store as absolute value in detail
+                        if snap and item.get("payable") != abs(snap.balance):
+                            item["payable"] = abs(snap.balance)
+                            detail_changed = True
 
-            # If names changed, update the DB record to avoid doing it next time
+            # If any names or balances were edited directly in DB, recompute total fields of the BalanceSheet record
             if detail_changed:
+                # Recalculate sheet sums
+                total_cash = sum(c.get("balance", 0.0) for c in detail.get("cash", []))
+                total_brokerage = sum(b.get("balance", 0.0) for b in detail.get("brokerage_cash", []))
+                total_securities = sum(s.get("market_value", 0.0) for s in detail.get("securities", []))
+                total_cc = sum(cc.get("payable", 0.0) for cc in detail.get("credit_cards", []))
+                total_liab = sum(l.get("balance", 0.0) for l in detail.get("liabilities", []))
+
+                bs.total_cash = total_cash + total_brokerage
+                bs.total_securities_market_value = total_securities
+                bs.total_assets = bs.total_cash + total_securities
+                bs.total_credit_card_payable = -total_cc
+                bs.total_liabilities = total_cc + total_liab
+                bs.net_worth = bs.total_assets - bs.total_liabilities
+
                 bs.detail_json = json.dumps(detail, ensure_ascii=False)
                 self.db.add(bs)
                 db_needs_commit = True
@@ -243,7 +285,8 @@ class BalanceSheetService:
         if db_needs_commit:
             try:
                 await self.db.commit()
+                log.info("Auto-committed database-synchronized balances & names in balance sheet history.")
             except Exception as _e:
-                log.warning(f"Failed to auto-commit synced account names in balance sheet history: {_e}")
+                log.warning(f"Failed to auto-commit synced balances in balance sheet history: {_e}")
 
         return result
