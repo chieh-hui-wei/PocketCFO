@@ -210,32 +210,51 @@ class BalanceSheetService:
 
             detail_changed = False
             
-            # 1. Sync cash accounts (names & balances)
+            # 1. Sync cash accounts (names & balances) with deduplication and unique binding
             if "cash" in detail:
+                seen_ids = set()
+                allocated_live_ids = set()
+                deduped_cash = []
                 for item in detail["cash"]:
-                    # Match by checking both institution and checking if the name aligns
-                    matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency") and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    # Match by checking both institution and checking if the name aligns, AND ensuring we do not double-bind
+                    matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     # Fallback to institution match if only one such account exists
                     if not matched:
-                        matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency")), None)
+                        matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids), None)
                         
                     if matched:
+                        allocated_live_ids.add(matched.id)
+                        if matched.id in seen_ids:
+                            detail_changed = True
+                            continue # Skip duplicate rows
+                        seen_ids.add(matched.id)
+
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
-                        # Cross-reference live snapshot balance
                         snap = db_snaps.get(matched.id)
                         if snap and item.get("balance") != snap.balance:
                             item["balance"] = snap.balance
                             if snap.original_balance is not None:
                                 item["original_balance"] = snap.original_balance
                             detail_changed = True
+                    deduped_cash.append(item)
+                detail["cash"] = deduped_cash
 
-            # 2. Sync brokerage cash (names & balances)
+            # 2. Sync brokerage cash (names & balances) with deduplication and unique binding
             if "brokerage_cash" in detail:
+                seen_ids = set()
+                allocated_live_ids = set()
+                deduped_brokerage = []
                 for item in detail["brokerage_cash"]:
-                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BROKERAGE and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BROKERAGE and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     if matched:
+                        allocated_live_ids.add(matched.id)
+                        if matched.id in seen_ids:
+                            detail_changed = True
+                            continue
+                        seen_ids.add(matched.id)
+
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
@@ -243,12 +262,23 @@ class BalanceSheetService:
                         if snap and item.get("balance") != snap.balance:
                             item["balance"] = snap.balance
                             detail_changed = True
+                    deduped_brokerage.append(item)
+                detail["brokerage_cash"] = deduped_brokerage
 
-            # 3. Sync credit cards (names & balances)
+            # 3. Sync credit cards (names & balances) with deduplication and unique binding
             if "credit_cards" in detail:
+                seen_ids = set()
+                allocated_live_ids = set()
+                deduped_cc = []
                 for item in detail["credit_cards"]:
-                    matched = next((a for a in accounts.values() if a.account_type == AccountType.CREDIT_CARD and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.CREDIT_CARD and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     if matched:
+                        allocated_live_ids.add(matched.id)
+                        if matched.id in seen_ids:
+                            detail_changed = True
+                            continue
+                        seen_ids.add(matched.id)
+
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
@@ -256,6 +286,8 @@ class BalanceSheetService:
                         if snap and item.get("payable") != abs(snap.balance):
                             item["payable"] = abs(snap.balance)
                             detail_changed = True
+                    deduped_cc.append(item)
+                detail["credit_cards"] = deduped_cc
 
             # If any names or balances were edited directly in DB, recompute total fields of the BalanceSheet record
             if detail_changed:
