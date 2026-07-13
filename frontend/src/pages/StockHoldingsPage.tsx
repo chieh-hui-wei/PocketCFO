@@ -641,32 +641,6 @@ export default function StockHoldingsPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handlePrevMonth}>{"<"}</span>
-            {formatMonth(currentDate)}
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800 font-bold" onClick={handleNextMonth}>{">"}</span>
-          </div>
-
-          {viewMode === "month" && versionDates.length > 0 && (
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
-              <span className="text-xxs text-slate-400 font-sans font-normal">更新版本：</span>
-              <select
-                value={selectedVersionDate}
-                onChange={e => setSelectedVersionDate(e.target.value)}
-                className="bg-transparent border-none text-slate-700 font-bold text-xs focus:outline-none cursor-pointer pr-1"
-              >
-                {versionDates.map(d => {
-                  const parts = d.split("-");
-                  const label = `${parts[1]}月${parts[2]}日`;
-                  return (
-                    <option key={d} value={d}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          )}
         </div>
       </div>
 
