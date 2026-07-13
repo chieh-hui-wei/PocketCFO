@@ -41,20 +41,7 @@ export default function BalanceSheetPage() {
     fetchHistory();
   }, []);
 
-  const [allDbAccounts, setAllDbAccounts] = useState<any[]>([]);
-  useEffect(() => {
-    // Fetch all active accounts once
-    getAccountsWithSnapshots(currentDate.getFullYear(), currentDate.getMonth() + 1)
-      .then(setAllDbAccounts)
-      .catch(console.error);
-  }, [currentDate]);
-
   const targetPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-01`;
-
-  // Filter accounts that are active bank or credit cards but don't have snapshots for the current target period
-  const missingAccounts = allDbAccounts
-    .filter(a => (a.type === 'bank' || a.type === 'credit_card') && !a.has_snapshot)
-    .map(a => a.name);
 
   const fetchSnapshots = () => {
     const year = currentDate.getFullYear();
@@ -224,21 +211,6 @@ export default function BalanceSheetPage() {
           </button>
         </div>
       </div>
-
-      {/* Missing statement warnings */}
-      {missingAccounts.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <span className="text-lg">⚠️</span>
-          <div className="text-xs text-amber-800 leading-relaxed">
-            <span className="font-bold">未上傳對帳單提醒：</span>
-            您目前查看的 {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月數據中，尚未上傳
-            <span className="font-bold text-amber-900 mx-1">{missingAccounts.join("、")}</span>
-            的對帳單或未登錄餘額（系統暫以 $0 計算，不自動承接上月餘額）。請至
-            <a href="/upload" className="text-blue-600 font-bold underline mx-1 hover:text-blue-700">「上傳對帳單」</a>
-            或點選右上方手動調整金額以利補齊。
-          </div>
-        </div>
-      )}
 
       {/* Top Cards (3 Pillars) */}
       <div className="grid grid-cols-3 gap-6 mb-6">
