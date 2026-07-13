@@ -459,12 +459,9 @@ export default function BalanceSheetPage() {
                 const diffCash = (latestBs?.total_cash ?? 0) - prevTotalCash;
                 const pctCash = prevTotalCash > 0 ? (diffCash / prevTotalCash) * 100 : 0;
 
-                // Combine bank cash + brokerage cash into one grouped list
+                // Cash items strictly from bank accounts
                 const cashItems: any[] = [
                   ...(latestBs?.detail?.cash?.filter((c: any) => c.balance !== 0) || []),
-                  ...(latestBs?.detail?.brokerage_cash?.filter((c: any) => c.balance !== 0)?.map((c: any) => ({
-                    ...c, name: `${c.name} (證券現金)`, institution: c.institution || c.name
-                  })) || []),
                 ];
                 // Sort by balance descending
                 cashItems.sort((a, b) => b.balance - a.balance);
@@ -473,13 +470,8 @@ export default function BalanceSheetPage() {
                 const prevCashItemsMap: Record<string, number> = {};
                 if (prevBs?.detail) {
                   const prevCash = prevBs.detail.cash || [];
-                  const prevBrokerageCash = prevBs.detail.brokerage_cash || [];
                   prevCash.forEach((c: any) => {
                     const label = c.institution ? `${c.institution} - ${c.name}` : c.name;
-                    prevCashItemsMap[label] = c.balance;
-                  });
-                  prevBrokerageCash.forEach((c: any) => {
-                    const label = c.institution ? `${c.institution} - ${c.name} (證券現金)` : `${c.name} (證券現金)`;
                     prevCashItemsMap[label] = c.balance;
                   });
                 }
@@ -545,16 +537,34 @@ export default function BalanceSheetPage() {
                 const diffSec = (latestBs?.total_securities_market_value ?? 0) - prevSecMv;
                 const pctSec = prevSecMv > 0 ? (diffSec / prevSecMv) * 100 : 0;
 
-                // Build mapping of previous month's individual securities
+                // Build mapping of previous month's individual securities and brokerage cash
                 const prevSecsMap: Record<string, number> = {};
-                if (prevBs?.detail?.securities) {
-                  prevBs.detail.securities.forEach((s: any) => {
-                    const label = `${s.broker} - ${s.name}`;
-                    prevSecsMap[label] = s.market_value;
-                  });
+                if (prevBs?.detail) {
+                  if (prevBs.detail.securities) {
+                    prevBs.detail.securities.forEach((s: any) => {
+                      const label = `${s.broker} - ${s.name}`;
+                      prevSecsMap[label] = s.market_value;
+                    });
+                  }
+                  if (prevBs.detail.brokerage_cash) {
+                    prevBs.detail.brokerage_cash.forEach((b: any) => {
+                      const label = b.name.includes("閒置現金") ? b.name : `${b.name} (閒置現金)`;
+                      prevSecsMap[label] = b.balance;
+                    });
+                  }
                 }
 
-                const securitiesItems = latestBs?.detail?.securities?.filter((s: any) => s.market_value !== 0) || [];
+                // Combine stocks + brokerage cash (Firstrade idle cash) under Securities
+                const securitiesItems = [
+                  ...(latestBs?.detail?.securities?.filter((s: any) => s.market_value !== 0) || []),
+                  ...(latestBs?.detail?.brokerage_cash?.filter((b: any) => b.balance !== 0)?.map((b: any) => ({
+                    broker: b.name.split(" ")[0],
+                    name: b.name.includes("閒置現金") ? b.name : `${b.name} (閒置現金)`,
+                    market_value: b.balance,
+                    currency: b.currency or "USD",
+                    original_market_value: b.original_balance,
+                  })) || []),
+                ];
 
                 return (
                   <>
@@ -570,17 +580,18 @@ export default function BalanceSheetPage() {
                       </td>
                     </tr>
                     {securitiesItems.map((s: any, i: number) => {
-                      const displayName = `${s.broker} - ${s.name}`;
-                      const prevVal = prevSecsMap[displayName] ?? 0;
+                      const displayName = s.name.includes("閒置現金") ? s.name : `${s.broker} - ${s.name}`;
+                      const keyLabel = s.name.includes("閒置現金") ? s.name : `${s.broker} - ${s.name}`;
+                      const prevVal = prevSecsMap[keyLabel] ?? 0;
                       const diff = s.market_value - prevVal;
                       const pct = prevVal > 0 ? (diff / prevVal) * 100 : 0;
 
                       return (
                         <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">
-                            <span>{s.broker} - {s.name}</span>
+                            <span>{s.name.includes("閒置現金") ? s.name : `${s.broker} - ${s.name}`}</span>
                             {s.currency && s.currency !== 'TWD' && s.original_market_value != null && (
-                              <span className="ml-2 text-[11px] text-slate-400">
+                              <span className="ml-2 text-[11px] text-slate-400 font-mono">
                                 {s.currency} {s.original_market_value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </span>
                             )}
@@ -603,6 +614,7 @@ export default function BalanceSheetPage() {
                   </>
                 );
               })()}
+
               
               {(() => {
                 // Helper to find previous month's balance sheet
