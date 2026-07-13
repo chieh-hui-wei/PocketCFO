@@ -210,7 +210,12 @@ class BalanceSheetService:
             # 1. Sync cash accounts (names & balances)
             if "cash" in detail:
                 for item in detail["cash"]:
-                    matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency")), None)
+                    # Match by checking both institution and checking if the name aligns
+                    matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency") and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    # Fallback to institution match if only one such account exists
+                    if not matched:
+                        matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency")), None)
+                        
                     if matched:
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
@@ -231,11 +236,8 @@ class BalanceSheetService:
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
-                        # If Firstrade, check dynamic balance
                         snap = db_snaps.get(matched.id)
                         if snap and item.get("balance") != snap.balance:
-                            # Recalculate cash portion (balance - stocks)
-                            # We keep it simple: if snap balance differs, update it
                             item["balance"] = snap.balance
                             detail_changed = True
 
@@ -248,7 +250,6 @@ class BalanceSheetService:
                             item["name"] = matched.name
                             detail_changed = True
                         snap = db_snaps.get(matched.id)
-                        # Store as absolute value in detail
                         if snap and item.get("payable") != abs(snap.balance):
                             item["payable"] = abs(snap.balance)
                             detail_changed = True
