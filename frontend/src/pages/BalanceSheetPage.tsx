@@ -462,45 +462,33 @@ export default function BalanceSheetPage() {
                     ...c, name: `${c.name} (證券現金)`, institution: c.institution || c.name
                   })) || []),
                 ];
-                // Group by institution
-                const groups: Record<string, any[]> = {};
-                cashItems.forEach((c: any) => {
-                  const key = c.institution || c.name;
-                  if (!groups[key]) groups[key] = [];
-                  groups[key].push(c);
+                // Sort by balance descending
+                cashItems.sort((a, b) => b.balance - a.balance);
+
+                return cashItems.map((c: any, i: number) => {
+                  const bankLabel = c.institution ? c.institution : "";
+                  const displayName = bankLabel ? `${bankLabel} - ${c.name}` : c.name;
+                  return (
+                    <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
+                      <td className="px-4 py-2 pl-8 text-sm text-slate-600">
+                        <span>↳ {displayName}</span>
+                        {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
+                          <span className="ml-2 text-[11px] text-slate-400">
+                            {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-slate-400">
+                        {c.currency && c.currency !== 'TWD' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{c.currency}</span>
+                        ) : '子項目'}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      <td className="px-4 py-2 text-right text-slate-300">-</td>
+                      <td className="px-4 py-2 text-right text-slate-300">-</td>
+                    </tr>
+                  );
                 });
-                const groupEntries = Object.entries(groups);
-                return groupEntries.map(([inst, items], gi) => (
-                  <React.Fragment key={`grp-${gi}`}>
-                    {groupEntries.length > 1 && (
-                      <tr>
-                        <td colSpan={5} className="px-4 pt-3 pb-0.5 pl-8">
-                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{inst}</span>
-                        </td>
-                      </tr>
-                    )}
-                    {items.map((c: any, i: number) => (
-                      <tr key={`cash-${gi}-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                        <td className="px-4 py-2 pl-10 text-sm text-slate-600">
-                          <span>↳ {c.name}</span>
-                          {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
-                            <span className="ml-2 text-[11px] text-slate-400">
-                              {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-slate-400">
-                          {c.currency && c.currency !== 'TWD' ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{c.currency}</span>
-                          ) : '子項目'}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                        <td className="px-4 py-2 text-right text-slate-300">-</td>
-                        <td className="px-4 py-2 text-right text-slate-300">-</td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ));
               })()}
               
               <tr className="hover:bg-slate-50 transition-colors">

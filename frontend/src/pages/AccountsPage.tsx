@@ -288,7 +288,6 @@ export default function AccountsPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4">金融機構</th>
                 <th className="px-6 py-4">帳戶名稱</th>
                 <th className="px-6 py-4">帳號</th>
                 <th className="px-6 py-4">帳戶類型</th>
@@ -310,13 +309,12 @@ export default function AccountsPage() {
                 return Object.entries(groups).map(([inst, list]) => (
                   <React.Fragment key={inst}>
                     <tr className="bg-slate-50/50">
-                      <td colSpan={7} className="px-6 py-2.5 font-bold text-slate-500 text-xs uppercase tracking-wider bg-slate-100/50">
+                      <td colSpan={6} className="px-6 py-2.5 font-bold text-slate-500 text-xs uppercase tracking-wider bg-slate-100/50">
                         🏛️ {inst}
                       </td>
                     </tr>
                     {list.map((a) => (
                       <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 text-slate-400 pl-10 text-xs font-medium">↳ {a.institution}</td>
                         <td className="px-6 py-4 font-semibold text-slate-800">{a.name}</td>
                         <td className="px-6 py-4 font-mono text-xs text-slate-500">{a.code}</td>
                         <td className="px-6 py-4 text-slate-500">
