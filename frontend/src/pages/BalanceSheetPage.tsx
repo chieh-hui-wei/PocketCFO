@@ -561,7 +561,7 @@ export default function BalanceSheetPage() {
                     broker: b.name.split(" ")[0],
                     name: b.name.includes("閒置現金") ? b.name : `${b.name} (閒置現金)`,
                     market_value: b.balance,
-                    currency: b.currency or "USD",
+                    currency: b.currency || "USD",
                     original_market_value: b.original_balance,
                   })) || []),
                 ];
