@@ -580,7 +580,6 @@ export default function BalanceSheetPage() {
                       </td>
                     </tr>
                     {securitiesItems.map((s: any, i: number) => {
-                      const displayName = s.name.includes("閒置現金") ? s.name : `${s.broker} - ${s.name}`;
                       const keyLabel = s.name.includes("閒置現金") ? s.name : `${s.broker} - ${s.name}`;
                       const prevVal = prevSecsMap[keyLabel] ?? 0;
                       const diff = s.market_value - prevVal;
