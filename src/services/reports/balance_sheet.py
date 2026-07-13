@@ -180,17 +180,70 @@ class BalanceSheetService:
         return results
 
     async def get_history(self, months: int = 12) -> list[dict[str, Any]]:
-        """Return balance sheet history for charting."""
+        """Return balance sheet history for charting, automatically syncing account names from live DB."""
         all_bs = await self.bs_repo.list_all()
-        return [
-            {
+        accounts = {a.id: a for a in await self.account_repo.get_all()}
+        
+        result = []
+        db_needs_commit = False
+
+        for bs in all_bs[:months]:
+            detail = {}
+            if bs.detail_json:
+                try:
+                    detail = json.loads(bs.detail_json)
+                except Exception:
+                    pass
+
+            # Dynamically sync names in the detail dict with live DB accounts
+            detail_changed = False
+            
+            # 1. Sync cash accounts names
+            if "cash" in detail:
+                for item in detail["cash"]:
+                    # Match by finding account with matching name in current DB accounts
+                    matched = next((a for a in accounts.values() if a.institution == item.get("institution") and a.currency == item.get("currency")), None)
+                    if matched and item.get("name") != matched.name:
+                        item["name"] = matched.name
+                        detail_changed = True
+            
+            # 2. Sync brokerage cash names
+            if "brokerage_cash" in detail:
+                for item in detail["brokerage_cash"]:
+                    # Try fuzzy matching by name (brokerage accounts are fewer, match by start name)
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BROKERAGE and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    if matched and item.get("name") != matched.name:
+                        item["name"] = matched.name
+                        detail_changed = True
+
+            # 3. Sync credit cards names
+            if "credit_cards" in detail:
+                for item in detail["credit_cards"]:
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.CREDIT_CARD and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    if matched and item.get("name") != matched.name:
+                        item["name"] = matched.name
+                        detail_changed = True
+
+            # If names changed, update the DB record to avoid doing it next time
+            if detail_changed:
+                bs.detail_json = json.dumps(detail, ensure_ascii=False)
+                self.db.add(bs)
+                db_needs_commit = True
+
+            result.append({
                 "period": bs.period_date.isoformat(),
                 "total_assets": bs.total_assets,
                 "total_liabilities": bs.total_liabilities,
                 "net_worth": bs.net_worth,
                 "total_cash": bs.total_cash,
                 "total_securities_market_value": bs.total_securities_market_value,
-                "detail": __import__("json").loads(bs.detail_json) if bs.detail_json else {},
-            }
-            for bs in all_bs[:months]
-        ]
+                "detail": detail,
+            })
+
+        if db_needs_commit:
+            try:
+                await self.db.commit()
+            except Exception as _e:
+                log.warning(f"Failed to auto-commit synced account names in balance sheet history: {_e}")
+
+        return result
