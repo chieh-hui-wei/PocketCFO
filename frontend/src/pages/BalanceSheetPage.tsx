@@ -507,7 +507,8 @@ export default function BalanceSheetPage() {
                       return (
                         <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">
-                            <span>↳ {displayName}</span>
+                            <span>{displayName}</span>
+
                             {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
                               <span className="ml-2 text-[11px] text-slate-400">
                                 {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -577,7 +578,8 @@ export default function BalanceSheetPage() {
 
                       return (
                         <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {s.broker} - {s.name}</td>
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">{s.broker} - {s.name}</td>
+
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
                           <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                           <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
@@ -638,7 +640,8 @@ export default function BalanceSheetPage() {
 
                       return (
                         <tr key={`cc-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {cc.name}</td>
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">{cc.name}</td>
+
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
                           <td className="px-4 py-2 text-sm text-right text-slate-600">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                           <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
@@ -699,7 +702,8 @@ export default function BalanceSheetPage() {
 
                       return (
                         <tr key={`liab-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {l.name}</td>
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">{l.name}</td>
+
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
                           <td className="px-4 py-2 text-sm text-right text-slate-600">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                           <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
