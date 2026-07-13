@@ -188,11 +188,21 @@ export default function IncomeStatementPage() {
         expenseCategories[name] = (expenseCategories[name] || 0) + amt;
       });
 
-    return Object.entries(expenseCategories)
+    const sortedList = Object.entries(expenseCategories)
       .map(([name, value]) => ({ name, value }))
       .filter(d => d.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
+      .sort((a, b) => b.value - a.value);
+
+    if (sortedList.length <= 5) {
+      return sortedList;
+    }
+
+    const topFive = sortedList.slice(0, 5);
+    const othersValue = sortedList.slice(5).reduce((sum, item) => sum + item.value, 0);
+    if (othersValue > 0) {
+      topFive.push({ name: "其他支出", value: othersValue });
+    }
+    return topFive;
   })();
 
   // Calculate dynamic total income and expenses from the filtered lists
