@@ -759,21 +759,30 @@ async def update_account(
     if not account:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Account not found")
-        
-    if body.name is not None:
+
+    # Track if fields that affect transfer detection rules actually changed
+    transfer_rules_changed = False
+    name_or_institution_changed = False
+
+    if body.name is not None and body.name != account.name:
         account.name = body.name
-    if body.account_type is not None:
+        name_or_institution_changed = True
+    if body.account_type is not None and body.account_type != account.account_type:
         account.account_type = body.account_type
-    if body.institution is not None:
+        name_or_institution_changed = True
+    if body.institution is not None and body.institution != account.institution:
         account.institution = body.institution
-    if body.currency is not None:
+        name_or_institution_changed = True
+    if body.currency is not None and body.currency != account.currency:
         account.currency = body.currency
-    if body.is_internal is not None:
+        name_or_institution_changed = True
+    if body.is_internal is not None and body.is_internal != account.is_internal:
         account.is_internal = body.is_internal
+        transfer_rules_changed = True
     if body.code is not None:
         import re
         clean_code = re.sub(r'[^0-9]', '', str(body.code))
-        if clean_code:
+        if clean_code and clean_code != account.code:
             # Check if the code is already used by another account for this user
             from sqlalchemy import select
             stmt = select(Account).where(
@@ -787,11 +796,37 @@ async def update_account(
                 from fastapi import HTTPException
                 raise HTTPException(status_code=400, detail="Account number/code already exists")
             account.code = clean_code
-    if body.notes is not None:
+            transfer_rules_changed = True
+    if body.notes is not None and body.notes != account.notes:
         account.notes = body.notes
-        
+        transfer_rules_changed = True
+
     await db.flush()
-    await reclassify_and_recompute_all(db, current_user.id)
+
+    # Reclassify/recompute only what is necessary
+    if transfer_rules_changed:
+        # Full scan required because internal transfer filtering rules changed
+        await reclassify_and_recompute_all(db, current_user.id)
+    elif name_or_institution_changed:
+        # Only recompute balance sheets / income statements for months that have snapshots for THIS specific account
+        from sqlalchemy import select
+        from src.dbs.models import AccountSnapshot
+        from src.services.reports.income_statement import IncomeStatementService
+        from src.services.reports.balance_sheet import BalanceSheetService
+
+        stmt = select(AccountSnapshot.period_date).where(
+            AccountSnapshot.user_id == current_user.id,
+            AccountSnapshot.account_id == account_id
+        )
+        res = await db.execute(stmt)
+        periods = res.scalars().all()
+        if periods:
+            is_service = IncomeStatementService(db, current_user.id)
+            bs_service = BalanceSheetService(db, current_user.id)
+            for period in sorted(set(periods)):
+                await is_service.compute(period.year, period.month)
+                await bs_service.compute(period.year, period.month)
+
     await db.commit()
     return {"status": "success"}
 
