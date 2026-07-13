@@ -508,9 +508,8 @@ export default function BalanceSheetPage() {
                         <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">
                             <span>{displayName}</span>
-
                             {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
-                              <span className="ml-2 text-[11px] text-slate-400">
+                              <span className="ml-2 text-[11px] text-slate-400 font-mono">
                                 {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </span>
                             )}
@@ -520,11 +519,11 @@ export default function BalanceSheetPage() {
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{c.currency}</span>
                             ) : ''}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600 font-mono">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                           </td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
                           </td>
                         </tr>
@@ -591,11 +590,11 @@ export default function BalanceSheetPage() {
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{s.currency}</span>
                             ) : ''}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right text-slate-600">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600 font-mono">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                           </td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff >= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
                           </td>
                         </tr>
@@ -653,11 +652,11 @@ export default function BalanceSheetPage() {
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">{cc.name}</td>
 
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
-                          <td className="px-4 py-2 text-sm text-right text-slate-600">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600 font-mono">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                           </td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
                           </td>
                         </tr>
@@ -715,11 +714,11 @@ export default function BalanceSheetPage() {
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">{l.name}</td>
 
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
-                          <td className="px-4 py-2 text-sm text-right text-slate-600">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className="px-4 py-2 text-sm text-right text-slate-600 font-mono">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                           </td>
-                          <td className={`px-4 py-2 text-sm text-right ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
+                          <td className={`px-4 py-2 text-sm text-right font-mono ${diff <= 0 ? 'text-emerald-600/80' : 'text-red-600/80'}`}>
                             {prevBs && prevVal > 0 ? `${diff >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%` : '-'}
                           </td>
                         </tr>
