@@ -38,13 +38,70 @@ from src.services.parsers.bank_statement_parser import (
     parse_einvoice_csv,
 )
 from src.services.parsers.firstrade_statement_parser import parse_firstrade_statement
-from src.services.exchange_rate import get_usd_twd_rate
+from src.services.exchange_rate import get_usd_twd_rate, get_currency_twd_rate
 from src.utils.date_utils import first_of_month, parse_tw_date_robust
 from src.utils.stock_utils import normalize_stock_name, normalize_transaction_description
 from src.utils.transfer_detector import TransferDetector
 
 log = logging.getLogger(__name__)
 settings = get_settings()
+
+# Short bank-name mapping used for display names
+_BANK_SHORT: dict[str, str] = {
+    "台新": "台新", "taishin": "台新", "richart": "台新",
+    "玉山": "玉山", "esun": "玉山",
+    "永豐": "永豐", "sinopac": "永豐",
+    "國泰世華": "國泰", "國泰": "國泰", "cathay": "國泰",
+    "中信": "中信", "中國信託": "中信", "ctbc": "中信",
+    "第一": "第一", "first bank": "第一",
+    "富邦": "富邦", "fubon": "富邦",
+    "華南": "華南", "huanan": "華南",
+    "星展": "星展", "dbs": "星展",
+    "聯邦": "聯邦", "union": "聯邦",
+    "將來": "將來",
+    "連線": "LINE Bank", "line bank": "LINE Bank",
+    "firstrade": "Firstrade",
+}
+
+
+def _smart_account_display_name(
+    institution: str,
+    account_type_label: str | None,
+    currency: str,
+) -> str:
+    """
+    Generate a human-readable account display name.
+    Format: "[短銀行名] [帳戶類型] [幣別(if non-TWD)]"
+    Examples:
+      台新 Richart 台幣 / 台新 台幣活存 / 台新 外幣 USD / 玉山 台幣活存
+    """
+    inst_lower = institution.lower()
+    short = institution  # fallback to full name
+    for key, val in _BANK_SHORT.items():
+        if key.lower() in inst_lower or key in institution:
+            short = val
+            break
+
+    label = account_type_label or ""
+    is_foreign = currency and currency != "TWD"
+
+    if "母帳戶" in label:
+        type_part = "Richart 台幣"
+    elif is_foreign or "外幣" in label:
+        ccy_str = currency if is_foreign else ""
+        type_part = f"外幣 {ccy_str}".strip()
+    elif "活存" in label or "活期" in label or "新臺幣" in label or "台幣" in label:
+        type_part = "台幣活存"
+    else:
+        # fallback: use currency hint
+        type_part = "台幣活存" if not is_foreign else f"外幣 {currency}"
+
+    # Firstrade is always identified by name alone
+    if short == "Firstrade":
+        return f"Firstrade ({currency})" if is_foreign else "Firstrade"
+
+    return f"{short} {type_part}"
+
 
 
 def is_merchant_overlap(m1: str, m2: str) -> bool:
@@ -117,6 +174,7 @@ class StatementService:
         self, data: dict[str, Any], upload_history_id: int | None = None
     ) -> dict[str, Any]:
         import re
+        import calendar
         period = first_of_month(data["period_year"], data["period_month"])
 
         # Resolve accounts. If not present in nested form, construct using top-level flat fields for backward compatibility.
@@ -129,6 +187,18 @@ class StatementService:
                 "closing_balance": data.get("closing_balance"),
                 "transactions": data.get("transactions", [])
             }]
+
+        # Defensive filter: skip any Taishin 子帳戶 rows that Gemini may have accidentally included
+        _SKIP_LABELS = {"新臺幣活存_子帳戶"}
+        accounts_data = [
+            a for a in accounts_data
+            if a.get("account_type_label", "") not in _SKIP_LABELS
+        ]
+
+        # Pre-compute end-of-month date for exchange rate lookups
+        last_day = calendar.monthrange(data["period_year"], data["period_month"])[1]
+        from datetime import date as _date
+        eom_date = _date(data["period_year"], data["period_month"], last_day)
 
         # Dynamically build internal accounts transfer detector from database once
         db_accounts = await self.account_repo.get_all()
@@ -151,18 +221,39 @@ class StatementService:
             # For storage as code: digits only (preserve leading zeros)
             acc_num_digits = re.sub(r'[^0-9]', '', str(acc_num_raw)) if acc_num_raw else None
             currency = acc_data.get("currency") or "TWD"
-            exchange_rate = float(acc_data.get("exchange_rate") or data.get("exchange_rate") or 1.0)
+
+            # Resolve exchange rate:
+            # 1. Use value from payload if already provided (e.g. from confirm step)
+            # 2. For non-TWD accounts, fetch the end-of-month rate automatically
+            # 3. Default to 1.0 for TWD
+            exchange_rate = float(acc_data.get("exchange_rate") or data.get("exchange_rate") or 0)
+            if exchange_rate <= 1.0 and currency != "TWD":
+                try:
+                    exchange_rate = await get_currency_twd_rate(eom_date, from_currency=currency)
+                    log.info(f"Fetched {currency}/TWD rate for {eom_date}: {exchange_rate}")
+                except Exception as _e:
+                    log.warning(f"Could not fetch {currency}/TWD rate: {_e}, using 1.0")
+                    exchange_rate = 1.0
+            elif currency == "TWD":
+                exchange_rate = 1.0
 
             # Generate unique code for this specific account
             account_code = data.get("account_code") if len(accounts_data) == 1 else None
             display_name = None
+            account_type_label = acc_data.get("account_type_label")
+            inst = data.get("institution", "unknown").strip()
+
             if not account_code:
                 # Attempt to fuzzy match against existing accounts using the masked pattern
-                inst = data.get("institution", "unknown").strip()
                 matching_acc = self._find_matching_db_account(inst, acc_num_match, AccountType.BANK, db_accounts)
                 if matching_acc:
                     account_code = matching_acc.code
-                    display_name = matching_acc.name
+                    # Keep existing custom name; only overwrite if it looks like a bare institution name
+                    existing_name = matching_acc.name or ""
+                    if existing_name == inst or existing_name == inst + "銀行" or not existing_name:
+                        display_name = _smart_account_display_name(inst, account_type_label, currency)
+                    else:
+                        display_name = existing_name
                 else:
                     # New account — code is digits-only account number
                     if acc_num_digits:
@@ -171,7 +262,7 @@ class StatementService:
                         account_code = f"bank_{inst}"
 
             if not display_name:
-                display_name = data.get("institution", "Unknown Bank")
+                display_name = _smart_account_display_name(inst, account_type_label, currency)
 
             account = await self._resolve_or_create_account(
                 code=account_code,
@@ -314,7 +405,16 @@ class StatementService:
                 ]
             })
 
-        return results[0] if results else {"status": "empty"}
+        if not results:
+            return {"status": "empty"}
+        if len(results) == 1:
+            return results[0]
+        # Multi-account: return all results, exposing first account_id at top level for compatibility
+        return {
+            "account_id": results[0]["account_id"],
+            "period": results[0]["period"],
+            "accounts": results,
+        }
 
     # ── Credit card statement ──────────────────────────────────────────────
 
@@ -868,6 +968,23 @@ class StatementService:
         if kind == "bank":
             data = await parse_bank_statement(pdf_path)
             data["kind"] = "bank"
+            # Inject end-of-month exchange rate for any non-TWD accounts during preview
+            if data.get("accounts"):
+                import calendar
+                from datetime import date as _date
+                py = data.get("period_year")
+                pm = data.get("period_month")
+                if py and pm:
+                    last_day = calendar.monthrange(py, pm)[1]
+                    eom_date = _date(py, pm, last_day)
+                    for acc in data["accounts"]:
+                        ccy = acc.get("currency", "TWD")
+                        if ccy and ccy != "TWD":
+                            try:
+                                rate = await get_currency_twd_rate(eom_date, from_currency=ccy)
+                                acc["exchange_rate"] = rate
+                            except Exception as _e:
+                                log.warning(f"Could not fetch {ccy}/TWD rate during parse: {_e}")
         elif kind == "credit_card":
             data = await parse_credit_card_statement(pdf_path)
             data["kind"] = "credit_card"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   getAccounts,
   createAccount,
@@ -298,52 +298,77 @@ export default function AccountsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {accounts.filter(a => a.type === 'bank').map((a) => (
-                <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-700">{a.institution}</td>
-                  <td className="px-6 py-4 font-medium text-slate-800">{a.name}</td>
-                  <td className="px-6 py-4 font-mono text-xs text-slate-500">{a.code}</td>
-                  <td className="px-6 py-4 text-slate-500">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                      a.type === 'bank' ? 'bg-green-50 text-green-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
-                      {getAccountTypeLabel(a.type)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600 font-bold">{a.currency}</td>
-                  <td className="px-6 py-4">
-                    {a.is_internal ? (
-                      <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                        啟用 (內部帳戶)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full text-xs font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                        停用 (外部來源)
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button 
-                        onClick={() => handleOpenEdit(a)}
-                        className="text-blue-600 hover:text-blue-700 font-bold text-xs"
-                      >
-                        編輯
-                      </button>
-                      <span className="text-slate-300">|</span>
-                      <button 
-                        onClick={() => handleDelete(a.id)}
-                        className="text-red-600 hover:text-red-700 font-bold text-xs"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                const bankAccounts = accounts.filter(a => a.type === 'bank');
+                const groups: Record<string, typeof bankAccounts> = {};
+                bankAccounts.forEach(a => {
+                  const key = a.institution || "其他機構";
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(a);
+                });
+
+                return Object.entries(groups).map(([inst, list]) => (
+                  <React.Fragment key={inst}>
+                    <tr className="bg-slate-50/50">
+                      <td colSpan={7} className="px-6 py-2.5 font-bold text-slate-500 text-xs uppercase tracking-wider bg-slate-100/50">
+                        🏛️ {inst}
+                      </td>
+                    </tr>
+                    {list.map((a) => (
+                      <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 text-slate-400 pl-10 text-xs font-medium">↳ {a.institution}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-800">{a.name}</td>
+                        <td className="px-6 py-4 font-mono text-xs text-slate-500">{a.code}</td>
+                        <td className="px-6 py-4 text-slate-500">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-extrabold ${
+                            a.type === 'bank' ? 'bg-green-50 text-green-700 border border-green-200' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {getAccountTypeLabel(a.type)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 font-bold">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            a.currency !== 'TWD' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {a.currency}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {a.is_internal ? (
+                            <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              啟用 (內部帳戶)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full text-xs font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              停用 (外部來源)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center gap-2">
+                            <button 
+                              onClick={() => handleOpenEdit(a)}
+                              className="text-blue-600 hover:text-blue-700 font-bold text-xs"
+                            >
+                              編輯
+                            </button>
+                            <span className="text-slate-300">|</span>
+                            <button 
+                              onClick={() => handleDelete(a.id)}
+                              className="text-red-600 hover:text-red-700 font-bold text-xs"
+                            >
+                              刪除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ));
+              })()}
             </tbody>
           </table>
         )}

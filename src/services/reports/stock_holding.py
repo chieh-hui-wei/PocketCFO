@@ -51,38 +51,57 @@ class StockHoldingService:
         
         if is_first_of_month:
             import calendar
-            start_date = period_date
+            start_date = period_date.replace(day=1)
             last_day = calendar.monthrange(period_date.year, period_date.month)[1]
             end_date = period_date.replace(day=last_day)
             
             for acct in all_accounts:
-                latest_snap_stmt = (
-                    select(AccountSnapshot)
-                    .where(
-                        AccountSnapshot.user_id == self.user_id,
-                        AccountSnapshot.account_id == acct.id,
-                        AccountSnapshot.period_date <= end_date
-                    )
-                    .order_by(AccountSnapshot.period_date.desc())
-                    .limit(1)
-                )
-                res = await self.db.execute(latest_snap_stmt)
-                snap = res.scalar_one_or_none()
-                if snap:
-                    if acct.institution.lower() == "firstrade":
-                        has_db_firstrade = True
-                    existing_snapshots[acct.id] = snap
-                    
-                    sec_stmt = (
-                        select(Security)
+                # If bank or credit card, we only look for snapshots created EXACTLY in this month.
+                # If none exists, we don't carry over (it will be missing / 0).
+                if acct.account_type in (AccountType.BANK, AccountType.CREDIT_CARD):
+                    exact_snap_stmt = (
+                        select(AccountSnapshot)
                         .where(
-                            Security.user_id == self.user_id,
-                            Security.account_id == acct.id,
-                            Security.period_date == snap.period_date
+                            AccountSnapshot.user_id == self.user_id,
+                            AccountSnapshot.account_id == acct.id,
+                            AccountSnapshot.period_date >= start_date,
+                            AccountSnapshot.period_date <= end_date
                         )
+                        .limit(1)
                     )
-                    sec_res = await self.db.execute(sec_stmt)
-                    existing_securities.extend(sec_res.scalars().all())
+                    res = await self.db.execute(exact_snap_stmt)
+                    snap = res.scalar_one_or_none()
+                    if snap:
+                        existing_snapshots[acct.id] = snap
+                else:
+                    # Brokerage or liabilities carry over latest historical snapshot
+                    latest_snap_stmt = (
+                        select(AccountSnapshot)
+                        .where(
+                            AccountSnapshot.user_id == self.user_id,
+                            AccountSnapshot.account_id == acct.id,
+                            AccountSnapshot.period_date <= end_date
+                        )
+                        .order_by(AccountSnapshot.period_date.desc())
+                        .limit(1)
+                    )
+                    res = await self.db.execute(latest_snap_stmt)
+                    snap = res.scalar_one_or_none()
+                    if snap:
+                        if acct.institution.lower() == "firstrade":
+                            has_db_firstrade = True
+                        existing_snapshots[acct.id] = snap
+                        
+                        sec_stmt = (
+                            select(Security)
+                            .where(
+                                Security.user_id == self.user_id,
+                                Security.account_id == acct.id,
+                                Security.period_date == snap.period_date
+                            )
+                        )
+                        sec_res = await self.db.execute(sec_stmt)
+                        existing_securities.extend(sec_res.scalars().all())
         else:
             snaps = await self.snapshot_repo.get_by_period(period_date)
             for s in snaps:

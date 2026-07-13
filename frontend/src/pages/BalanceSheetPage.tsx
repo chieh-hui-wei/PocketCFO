@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   getBalanceSheetHistory, 
   BalanceSheetRecord,
@@ -318,13 +318,18 @@ export default function BalanceSheetPage() {
             )}
           </div>
           <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
-            {cashDepositsData.map((d, i) => {
+            {cashDepositsData.map((d: any, i: number) => {
               const total = latestBs?.total_cash || 1;
               return (
                 <div key={i} className="flex justify-between items-center text-xs">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CASH_COLORS[i % CASH_COLORS.length] }} />
-                    <span className="text-slate-600 font-medium truncate">{d.name}</span>
+                    <div className="min-w-0">
+                      <span className="text-slate-600 font-medium truncate block">{d.name}</span>
+                      {d.currency && d.currency !== 'TWD' && d.original_balance != null && (
+                        <span className="text-slate-400 text-[10px]">{d.currency} {d.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
@@ -449,24 +454,54 @@ export default function BalanceSheetPage() {
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
                 <td className="px-4 py-3 text-right text-slate-300">-</td>
               </tr>
-              {latestBs?.detail?.cash?.filter((c: any) => c.balance !== 0)?.map((c: any, i: number) => (
-                <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                  <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {c.name}</td>
-                  <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                </tr>
-              ))}
-              {latestBs?.detail?.brokerage_cash?.filter((c: any) => c.balance !== 0)?.map((c: any, i: number) => (
-                <tr key={`brokerage-cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                  <td className="px-4 py-2 pl-8 text-sm text-slate-600">↳ {c.name}（現金部位）</td>
-                  <td className="px-4 py-2 text-sm text-slate-400">子項目</td>
-                  <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                  <td className="px-4 py-2 text-right text-slate-300">-</td>
-                </tr>
-              ))}
+              {(() => {
+                // Combine bank cash + brokerage cash into one grouped list
+                const cashItems: any[] = [
+                  ...(latestBs?.detail?.cash?.filter((c: any) => c.balance !== 0) || []),
+                  ...(latestBs?.detail?.brokerage_cash?.filter((c: any) => c.balance !== 0)?.map((c: any) => ({
+                    ...c, name: `${c.name} (證券現金)`, institution: c.institution || c.name
+                  })) || []),
+                ];
+                // Group by institution
+                const groups: Record<string, any[]> = {};
+                cashItems.forEach((c: any) => {
+                  const key = c.institution || c.name;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(c);
+                });
+                const groupEntries = Object.entries(groups);
+                return groupEntries.map(([inst, items], gi) => (
+                  <React.Fragment key={`grp-${gi}`}>
+                    {groupEntries.length > 1 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 pt-3 pb-0.5 pl-8">
+                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{inst}</span>
+                        </td>
+                      </tr>
+                    )}
+                    {items.map((c: any, i: number) => (
+                      <tr key={`cash-${gi}-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
+                        <td className="px-4 py-2 pl-10 text-sm text-slate-600">
+                          <span>↳ {c.name}</span>
+                          {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
+                            <span className="ml-2 text-[11px] text-slate-400">
+                              {c.currency} {c.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-slate-400">
+                          {c.currency && c.currency !== 'TWD' ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">{c.currency}</span>
+                          ) : '子項目'}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right text-slate-600">${c.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="px-4 py-2 text-right text-slate-300">-</td>
+                        <td className="px-4 py-2 text-right text-slate-300">-</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ));
+              })()}
               
               <tr className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-800">投資</td>

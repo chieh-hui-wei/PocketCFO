@@ -94,9 +94,14 @@ class BalanceSheetService:
                     )
             else:
                 total_cash += snap.balance
-                detail["cash"].append(
-                    {"name": acct.name, "balance": snap.balance}
-                )
+                detail["cash"].append({
+                    "name": acct.name,
+                    "institution": acct.institution or "",
+                    "currency": snap.currency or "TWD",
+                    "balance": snap.balance,
+                    "original_balance": snap.original_balance,
+                    "exchange_rate": snap.exchange_rate,
+                })
 
         for sec in securities:
             acct = accounts.get(sec.account_id)
