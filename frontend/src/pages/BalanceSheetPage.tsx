@@ -35,6 +35,8 @@ export default function BalanceSheetPage() {
     return d;
   });
 
+  const [activeTab, setActiveTab] = useState<"sheet" | "projection">("sheet");
+
   const fetchHistory = () => {
     getBalanceSheetHistory().then(setHistory).catch(console.error);
   };
@@ -213,20 +215,52 @@ export default function BalanceSheetPage() {
           <h1 className="text-2xl font-bold text-slate-800">資產負債表</h1>
           <p className="text-sm text-slate-500 mt-1">了解你的財務狀況與資產負債結構</p>
         </div>
-        <div className="flex gap-3">
-          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
-            {formatMonth(currentDate)}
-            <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
-          </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg border border-blue-700 shadow-sm text-sm font-bold hover:bg-blue-700 transition-colors"
+        
+        {/* Tab Switcher */}
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+          <button
+            onClick={() => setActiveTab("sheet")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
+              activeTab === "sheet"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
           >
-            手動調整金額
+            📋 歷史資產負債表
+          </button>
+          <button
+            onClick={() => setActiveTab("projection")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
+              activeTab === "projection"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            🔮 未來淨值預測模擬
           </button>
         </div>
+
+        <div className="flex gap-3">
+          {activeTab === "sheet" && (
+            <>
+              <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+                <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
+                {formatMonth(currentDate)}
+                <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg border border-blue-700 shadow-sm text-sm font-bold hover:bg-blue-700 transition-colors"
+              >
+                手動調整金額
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {activeTab === "sheet" ? (
+        <>
 
       {/* Top Cards (3 Pillars) */}
       <div className="grid grid-cols-3 gap-6 mb-6">
@@ -750,14 +784,15 @@ export default function BalanceSheetPage() {
                           </td>
                         </tr>
                       );
-                    })}
-                  </>
-                );
               })()}
             </tbody>
           </table>
         </div>
       </div>
+        </>
+      ) : (
+        <ProjectionDashboard latestBs={latestBs} history={history} />
+      )}
 
       {/* Manual adjustments Modal */}
       {isModalOpen && (
@@ -932,6 +967,218 @@ export default function BalanceSheetPage() {
           </div>
         </div>
       )}
+
+    </div>
+  );
+}
+
+interface ProjectionDashboardProps {
+  latestBs: BalanceSheetRecord | null;
+  history: BalanceSheetRecord[];
+}
+
+function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
+  // 1. Calculate default historical savings rate
+  const averageMonthlySavings = (() => {
+    if (history.length <= 1) return 15000; // fallback default
+    // Calculate difference in net worth over months
+    const sorted = [...history].sort((a, b) => new Date(a.period).getTime() - new Date(b.period).getTime());
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const elapsedMonths = Math.max(1, (new Date(last.period).getFullYear() - new Date(first.period).getFullYear()) * 12 + (new Date(last.period).getMonth() - new Date(first.period).getMonth()));
+    const totalGrowth = last.net_worth - first.net_worth;
+    return Math.max(0, Math.round(totalGrowth / elapsedMonths));
+  })();
+
+  // 2. Setup interactive slider states
+  const [projectedSavings, setProjectedSavings] = useState<number>(averageMonthlySavings);
+  const [expectedRoi, setExpectedRoi] = useState<number>(6); // default 6% annual ROI
+
+  // 3. Current assets baseline
+  const currentCash = latestBs?.total_cash ?? 0;
+  const currentInvestments = latestBs?.total_securities_market_value ?? 0;
+  const currentLiabilities = latestBs?.total_liabilities ?? 0;
+  const currentNetWorth = currentCash + currentInvestments - currentLiabilities;
+
+  // 4. Generate 12-month forecast data
+  const forecastData = (() => {
+    const data = [{
+      name: "目前",
+      "歷史實績": currentNetWorth,
+      "模擬預測": currentNetWorth,
+      type: "actual"
+    }];
+
+    let tempCash = currentCash;
+    let tempInvest = currentInvestments;
+    // For liabilities auto-amortization inside simulation: find all manual installment liabilities
+    // and deduct their monthly payment until they reach 0.
+    let tempLiab = currentLiabilities;
+
+    const monthlyRoi = (expectedRoi / 100) / 12;
+
+    for (let i = 1; i <= 12; i++) {
+      // Apply ROI compound growth to investments
+      tempInvest = tempInvest * (1 + monthlyRoi);
+      // Add monthly savings to cash
+      tempCash += projectedSavings;
+      // Auto-reduce liabilities by simulated $5000 per month (for demo/existing rules)
+      tempLiab = Math.max(0, tempLiab - 5000);
+
+      const netWorth = Math.round(tempCash + tempInvest - tempLiab);
+      data.push({
+        name: `+${i}月`,
+        "歷史實績": null as any,
+        "模擬預測": netWorth,
+        type: "forecast"
+      });
+    }
+    return data;
+  })();
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      
+      {/* Simulation Config Panel */}
+      <div className="grid grid-cols-3 gap-6">
+        
+        {/* Baseline Info */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">🎯 當前資產基準</div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">現金存款：</span>
+                <span className="font-bold text-slate-700">${currentCash.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">證券投資：</span>
+                <span className="font-bold text-slate-700">${currentInvestments.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm pb-2 border-b border-slate-100">
+                <span className="text-slate-500">未償負債：</span>
+                <span className="font-bold text-red-500">-${currentLiabilities.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-base pt-1">
+                <span className="font-bold text-slate-800">當前總淨值：</span>
+                <span className="font-extrabold text-blue-600">${currentNetWorth.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg mt-4 leading-normal">
+            💡 系統分析您過去的資產歷史，算出平均每月淨存入金額為 <strong>${averageMonthlySavings.toLocaleString()}</strong> 元。
+          </div>
+        </div>
+
+        {/* Monthly Savings Slider */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">💸 每月預計淨儲蓄金</div>
+            <div className="text-3xl font-extrabold text-slate-800 mb-6">
+              ${projectedSavings.toLocaleString()} <span className="text-xs text-slate-400 font-normal">/ 月</span>
+            </div>
+            <input 
+              type="range"
+              min="0"
+              max="100000"
+              step="1000"
+              value={projectedSavings}
+              onChange={e => setProjectedSavings(parseInt(e.target.value) || 0)}
+              className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none"
+            />
+            <div className="flex justify-between text-xxs text-slate-400 mt-2">
+              <span>$0</span>
+              <span>$50,000</span>
+              <span>$100,000</span>
+            </div>
+          </div>
+          <div className="text-[10px] text-slate-400 mt-4 leading-normal">
+            調整您未來每個月預期能留在帳戶中的「收入減支出」金額。
+          </div>
+        </div>
+
+        {/* Investment ROI Slider */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">📈 預估證券年化報酬率</div>
+            <div className="text-3xl font-extrabold text-slate-800 mb-6">
+              {expectedRoi}% <span className="text-xs text-slate-400 font-normal">/ 年</span>
+            </div>
+            <input 
+              type="range"
+              min="0"
+              max="15"
+              step="0.5"
+              value={expectedRoi}
+              onChange={e => setExpectedRoi(parseFloat(e.target.value) || 0)}
+              className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none"
+            />
+            <div className="flex justify-between text-xxs text-slate-400 mt-2">
+              <span>0%</span>
+              <span>7.5%</span>
+              <span>15%</span>
+            </div>
+          </div>
+          <div className="text-[10px] text-slate-400 mt-4 leading-normal">
+            調整您持有美股、台股等投資組合的年化回報率，系統將以月複利複滾計算。
+          </div>
+        </div>
+
+      </div>
+
+      {/* Projection Chart Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="font-bold text-slate-800 text-sm">🔮 未來 12 個月資產淨值模擬折線圖</h3>
+            <p className="text-xxs text-slate-400 mt-0.5">以當月為基準，結合儲蓄與複利公式計算出未來一年的資產軌跡</p>
+          </div>
+          <div className="flex gap-4 text-xs">
+            <span className="inline-flex items-center gap-1.5 font-bold text-slate-700">
+              <span className="w-3 h-0.5 bg-blue-600 inline-block" />
+              目前實績
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-bold text-blue-500">
+              <span className="w-3 h-0.5 border-t-2 border-dashed border-blue-400 inline-block" />
+              模擬預測 (12個月)
+            </span>
+          </div>
+        </div>
+
+        <div className="h-[320px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={forecastData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+              <YAxis 
+                stroke="#94a3b8" 
+                fontSize={11} 
+                tickLine={false} 
+                tickFormatter={(value) => `$${(value / 10000).toFixed(0)}萬`} 
+              />
+              <Tooltip 
+                formatter={(value: any) => [`$${value.toLocaleString()}`, "預估淨值"]} 
+                contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)" }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="歷史實績" 
+                stroke="#2563eb" 
+                strokeWidth={3} 
+                dot={{ r: 4, stroke: "#2563eb", strokeWidth: 2, fill: "#fff" }} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="模擬預測" 
+                stroke="#3b82f6" 
+                strokeWidth={3} 
+                strokeDasharray="5 5" 
+                dot={{ r: 3, stroke: "#3b82f6", strokeWidth: 1, fill: "#fff" }} 
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
     </div>
   );
