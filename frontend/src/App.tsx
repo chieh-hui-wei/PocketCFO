@@ -193,10 +193,24 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Check if the token has expired (24 hours)
+    const loginTime = localStorage.getItem("pocketcfo_login_time");
+    if (loginTime) {
+      const elapsed = Date.now() - parseInt(loginTime);
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      if (elapsed > TWENTY_FOUR_HOURS) {
+        handleLogout();
+      }
+    } else if (localStorage.getItem("pocketcfo_token")) {
+      // If token exists but no login time was saved (old session), set current time as baseline
+      localStorage.setItem("pocketcfo_login_time", String(Date.now()));
+    }
+
     const handleUnauthorized = () => {
       setIsAuthenticated(false);
       localStorage.removeItem("pocketcfo_token");
       localStorage.removeItem("pocketcfo_user");
+      localStorage.removeItem("pocketcfo_login_time");
     };
     window.addEventListener("pocketcfo_unauthorized", handleUnauthorized);
     return () => {
@@ -227,6 +241,7 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem("pocketcfo_token");
     localStorage.removeItem("pocketcfo_user");
+    localStorage.removeItem("pocketcfo_login_time");
     setIsAuthenticated(false);
   };
 

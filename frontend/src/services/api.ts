@@ -477,6 +477,7 @@ export async function login(email: string, password: string) {
   const { data } = await api.post("/auth/login", { email, password });
   if (data.token) {
     localStorage.setItem("pocketcfo_token", data.token);
+    localStorage.setItem("pocketcfo_login_time", String(Date.now()));
     if (data.user) {
       localStorage.setItem("pocketcfo_user", JSON.stringify(data.user));
     }
