@@ -55,92 +55,112 @@ class StockHoldingService:
             last_day = calendar.monthrange(period_date.year, period_date.month)[1]
             end_date = period_date.replace(day=last_day)
             
-            for acct in all_accounts:
-                # If bank or credit card, we only look for snapshots created EXACTLY in this month.
-                # If none exists, we don't carry over (it will be missing / 0).
-                if acct.account_type in (AccountType.BANK, AccountType.CREDIT_CARD):
-                    exact_snap_stmt = (
-                        select(AccountSnapshot)
-                        .where(
-                            AccountSnapshot.user_id == self.user_id,
-                            AccountSnapshot.account_id == acct.id,
-                            AccountSnapshot.period_date >= start_date,
-                            AccountSnapshot.period_date <= end_date
-                        )
-                        .limit(1)
+            # 2.1 Fetch all snapshots for BANK and CREDIT_CARD accounts in this month in bulk
+            bank_card_ids = [a.id for a in all_accounts if a.account_type in (AccountType.BANK, AccountType.CREDIT_CARD)]
+            if bank_card_ids:
+                stmt_bulk_exact = select(AccountSnapshot).where(
+                    AccountSnapshot.user_id == self.user_id,
+                    AccountSnapshot.account_id.in_(bank_card_ids),
+                    AccountSnapshot.period_date >= start_date,
+                    AccountSnapshot.period_date <= end_date
+                )
+                res_bulk = await self.db.execute(stmt_bulk_exact)
+                for snap in res_bulk.scalars().all():
+                    existing_snapshots[snap.account_id] = snap
+
+            # 2.2 For Brokerage/Liabilities, batch-load their latest snapshot up to end_date
+            other_accounts = [a for a in all_accounts if a.account_type not in (AccountType.BANK, AccountType.CREDIT_CARD)]
+            if other_accounts:
+                # Perform a subquery to find the maximum (latest) period_date per account_id <= end_date
+                subq = (
+                    select(AccountSnapshot.account_id, func.max(AccountSnapshot.period_date).label("max_date"))
+                    .where(
+                        AccountSnapshot.user_id == self.user_id,
+                        AccountSnapshot.account_id.in_([a.id for a in other_accounts]),
+                        AccountSnapshot.period_date <= end_date
                     )
-                    res = await self.db.execute(exact_snap_stmt)
-                    snap = res.scalar_one_or_none()
-                    if snap:
-                        existing_snapshots[acct.id] = snap
-                else:
-                    # Brokerage or liabilities carry over latest historical snapshot
-                    latest_snap_stmt = (
-                        select(AccountSnapshot)
-                        .where(
-                            AccountSnapshot.user_id == self.user_id,
-                            AccountSnapshot.account_id == acct.id,
-                            AccountSnapshot.period_date <= end_date
+                    .group_by(AccountSnapshot.account_id)
+                    .subquery()
+                )
+                
+                stmt_bulk_latest = (
+                    select(AccountSnapshot)
+                    .join(subq, (AccountSnapshot.account_id == subq.c.account_id) & (AccountSnapshot.period_date == subq.c.max_date))
+                    .where(AccountSnapshot.user_id == self.user_id)
+                )
+                res_latest = await self.db.execute(stmt_bulk_latest)
+                latest_snapshots = res_latest.scalars().all()
+                
+                acct_map = {a.id: a for a in other_accounts}
+                latest_snap_dates = []
+                
+                for snap in latest_snapshots:
+                    acct = acct_map.get(snap.account_id)
+                    if not acct:
+                        continue
+                        
+                    # Apply auto-reduction for installment liabilities
+                    if getattr(acct, 'is_installment', False) and getattr(acct, 'installment_amount', 0.0) > 0:
+                        months_diff = (end_date.year - snap.period_date.year) * 12 + (end_date.month - snap.period_date.month)
+                        adjusted_balance = min(0.0, snap.balance + (months_diff * getattr(acct, 'installment_amount', 0.0)))
+                        snap = AccountSnapshot(
+                            id=snap.id,
+                            user_id=snap.user_id,
+                            account_id=snap.account_id,
+                            period_date=end_date.replace(day=1),
+                            balance=adjusted_balance,
+                            currency=snap.currency,
+                            exchange_rate=snap.exchange_rate,
+                            source=snap.source
                         )
-                        .order_by(AccountSnapshot.period_date.desc())
-                        .limit(1)
+                        
+                    if acct.institution.lower() == "firstrade":
+                        has_db_firstrade = True
+                    existing_snapshots[acct.id] = snap
+                    latest_snap_dates.append((snap.account_id, snap.period_date))
+                
+                # Batch load existing securities for the matched snapshots
+                if latest_snap_dates:
+                    from sqlalchemy import or_
+                    sec_clauses = [
+                        (Security.account_id == aid) & (Security.period_date == pdate)
+                        for aid, pdate in latest_snap_dates
+                    ]
+                    sec_stmt = select(Security).where(
+                        Security.user_id == self.user_id,
+                        or_(*sec_clauses)
                     )
-                    res = await self.db.execute(latest_snap_stmt)
-                    snap = res.scalar_one_or_none()
-                    if snap:
-                        # Auto-reduction demo: if it is '除毛分期', deduct 5000 TWD per month difference
-                        if "除毛分期" in (acct.name or "") and snap.period_date < end_date:
-                            # Calculate months difference
-                            months_diff = (end_date.year - snap.period_date.year) * 12 + (end_date.month - snap.period_date.month)
-                            # Deduct 5000 per month (balance is negative for liabilities, so we ADD to bring it closer to 0)
-                            adjusted_balance = min(0.0, snap.balance + (months_diff * 5000.0))
-                            # We create a temporary snapshot object with the adjusted balance to show on the sheet
-                            snap = AccountSnapshot(
-                                id=snap.id,
-                                user_id=snap.user_id,
-                                account_id=snap.account_id,
-                                period_date=end_date.replace(day=1),
-                                balance=adjusted_balance,
-                                currency=snap.currency,
-                                exchange_rate=snap.exchange_rate,
-                                source=snap.source
-                            )
-                        
-                        if acct.institution.lower() == "firstrade":
-                            has_db_firstrade = True
-                        existing_snapshots[acct.id] = snap
-                        
-                        sec_stmt = (
-                            select(Security)
-                            .where(
-                                Security.user_id == self.user_id,
-                                Security.account_id == acct.id,
-                                Security.period_date == snap.period_date
-                            )
-                        )
-                        sec_res = await self.db.execute(sec_stmt)
-                        existing_securities.extend(sec_res.scalars().all())
+                    sec_res = await self.db.execute(sec_stmt)
+                    existing_securities.extend(sec_res.scalars().all())
         else:
             snaps = await self.snapshot_repo.get_by_period(period_date)
             for s in snaps:
                 # Apply same auto-reduction if we load directly by period
-                if s.account and "除毛分期" in (s.account.name or ""):
-                    # Deduct 5000 per month from the original snapshot stored in DB (we find the latest stored snap before this date to calculate elapsed months)
-                    # For simplicity, we know the baseline snapshot was 2026-05-01 at -35000.
-                    # Let's dynamically compute based on period_date
-                    months_diff = (period_date.year - 2026) * 12 + (period_date.month - 5)
-                    adjusted_balance = min(0.0, -35000.0 + (months_diff * 5000.0))
-                    s = AccountSnapshot(
-                        id=s.id,
-                        user_id=s.user_id,
-                        account_id=s.account_id,
-                        period_date=s.period_date,
-                        balance=adjusted_balance,
-                        currency=s.currency,
-                        exchange_rate=s.exchange_rate,
-                        source=s.source,
-                        account=s.account
+                if s.account and getattr(s.account, 'is_installment', False) and getattr(s.account, 'installment_amount', 0.0) > 0:
+                    # Dynamically calculate the monthly deduction based on baseline snapshots
+                    # We look up the oldest snapshot for this account to act as baseline
+                    base_stmt = (
+                        select(AccountSnapshot)
+                        .where(AccountSnapshot.account_id == s.account_id)
+                        .order_by(AccountSnapshot.period_date.asc())
+                        .limit(1)
                     )
+                    base_res = await self.db.execute(base_stmt)
+                    base_snap = base_res.scalar_one_or_none()
+                    if base_snap:
+                        months_diff = (period_date.year - base_snap.period_date.year) * 12 + (period_date.month - base_snap.period_date.month)
+                        adjusted_balance = min(0.0, base_snap.balance + (months_diff * getattr(s.account, 'installment_amount', 0.0)))
+                        s = AccountSnapshot(
+                            id=s.id,
+                            user_id=s.user_id,
+                            account_id=s.account_id,
+                            period_date=s.period_date,
+                            balance=adjusted_balance,
+                            currency=s.currency,
+                            exchange_rate=s.exchange_rate,
+                            source=s.source,
+                            account=s.account
+                        )
                 if s.account and s.account.institution.lower() == "firstrade":
                     has_db_firstrade = True
                 existing_snapshots[s.account_id] = s
