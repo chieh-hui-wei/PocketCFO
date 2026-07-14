@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr
 from jose import jwt
 from sqlalchemy import select
@@ -28,11 +28,37 @@ class RegisterRequest(BaseModel):
     password: str
     pin_code: str
 
+# In-memory dictionary to track login attempts: IP -> list of timestamps
+login_attempts: dict[str, list[float]] = {}
+
 @router.post("/login")
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    request: Request,
+    body: LoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Authenticate user using email and password, returning a JWT token.
     """
+    import time
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Clean up old attempts
+    now = time.time()
+    if client_ip in login_attempts:
+        login_attempts[client_ip] = [t for t in login_attempts[client_ip] if now - t < 60]
+        
+    # Check limit (max 5 attempts per minute)
+    attempts = login_attempts.get(client_ip, [])
+    if len(attempts) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="登入嘗試次數過多，請於一分鐘後再試。"
+        )
+        
+    # Record current attempt
+    login_attempts.setdefault(client_ip, []).append(now)
+
     stmt = select(User).where(User.email == body.email.strip().lower())
     res = await db.execute(stmt)
     user = res.scalar_one_or_none()
@@ -56,8 +82,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="帳號或密碼錯誤"
         )
         
-    # Generate token
-    expiration = datetime.utcnow() + timedelta(days=7)
+    # Generate token (expires in 24 hours)
+    expiration = datetime.utcnow() + timedelta(hours=24)
     payload = {
         "sub": str(user.id),
         "exp": expiration
