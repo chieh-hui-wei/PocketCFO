@@ -192,6 +192,13 @@ export default function App() {
     });
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("pocketcfo_token");
+    localStorage.removeItem("pocketcfo_user");
+    localStorage.removeItem("pocketcfo_login_time");
+    setIsAuthenticated(false);
+  };
+
   useEffect(() => {
     // Check if the token has expired (24 hours)
     const loginTime = localStorage.getItem("pocketcfo_login_time");
@@ -237,13 +244,6 @@ export default function App() {
       setUserRole("");
     }
   }, [isAuthenticated]);
-
-  const handleLogout = () => {
-    localStorage.removeItem("pocketcfo_token");
-    localStorage.removeItem("pocketcfo_user");
-    localStorage.removeItem("pocketcfo_login_time");
-    setIsAuthenticated(false);
-  };
 
   if (!isAuthenticated) {
     return (
