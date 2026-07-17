@@ -265,6 +265,7 @@ class StockHoldingService:
                 
                 for ticker, pos in active_positions.items():
                     sec = Security(
+                        user_id=self.user_id,
                         account_id=firstrade_acct.id,
                         period_date=query_end_date,
                         ticker=ticker,
@@ -308,6 +309,7 @@ class StockHoldingService:
                 total_balance_twd = cash_balance_twd + total_sec_mv_twd
                 
                 ft_snap = AccountSnapshot(
+                    user_id=self.user_id,
                     account_id=firstrade_acct.id,
                     period_date=query_end_date,
                     balance=round(total_balance_twd),

@@ -3,6 +3,21 @@ from datetime import datetime, date, timedelta
 import logging
 import calendar
 import json
+import re
+
+def _is_duplicate_transaction(raw_data: str, ord_no: str, seq: str) -> bool:
+    if not raw_data or not ord_no:
+        return False
+    # Matches "ord_no": "value" or 'ord_no': 'value' or 'ord_no': value
+    ord_pattern = rf"['\"]ord_no['\"]\s*:\s*['\"]?{re.escape(str(ord_no))}['\"]?"
+    if not re.search(ord_pattern, raw_data):
+        return False
+    if seq:
+        seq_pattern = rf"['\"](mat_seq|match_seq|match_no|ord_seq|t_time)['\"]\s*:\s*['\"]?{re.escape(str(seq))}['\"]?"
+        if not re.search(seq_pattern, raw_data):
+            return False
+    return True
+
 
 from sqlalchemy import select, delete
 from src.instances.database import AsyncSessionLocal
@@ -153,11 +168,10 @@ async def sync_taishin_trades(year: int, month: int, user_id: int = 1) -> None:
                 # Check for duplicates in memory
                 ord_no = getattr(row, "ord_no", "")
                 mat_seq = getattr(row, "mat_seq", getattr(row, "match_seq", ""))
-                sig = f"ORD:{ord_no}_SEQ:{mat_seq}" if (ord_no or mat_seq) else None
                 
                 is_dup = False
                 for txn in existing_txns:
-                    if sig and sig in txn.raw_data:
+                    if ord_no and _is_duplicate_transaction(txn.raw_data, ord_no, mat_seq):
                         is_dup = True
                         break
                     if (txn.txn_date == txn_date and 
@@ -275,11 +289,10 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
                     # Check for duplicates in memory
                     ord_no = row.get("ord_no", "")
                     ord_seq = row.get("ord_seq", row.get("match_no", row.get("t_time", "")))
-                    sig = f"ORD:{ord_no}_SEQ:{ord_seq}" if (ord_no or ord_seq) else None
                     
                     is_dup = False
                     for txn in existing_txns:
-                        if sig and sig in txn.raw_data:
+                        if ord_no and _is_duplicate_transaction(txn.raw_data, ord_no, ord_seq):
                             is_dup = True
                             break
                         if (txn.txn_date == txn_date and 

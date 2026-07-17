@@ -15,6 +15,7 @@ from typing import Any
 import os
 import httpx
 import logging
+import asyncio
 from dotenv import load_dotenv
 
 log = logging.getLogger(__name__)
@@ -35,13 +36,18 @@ class TaishinClient:
 
     async def get_account_balance(self) -> dict[str, float]:
         """Fetch cash balance from 台新 API."""
-        res = self.sdk.accounting.skbank_balance(self.accounts[0])
+        res = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: self.sdk.accounting.skbank_balance(self.accounts[0])
+        )
         return {"cash_balance": res.available_balance}
 
     async def get_positions(self) -> list[dict[str, Any]]:
         """Fetch current stock positions from 台新 API."""
-
-        inventories = self.sdk.accounting.inventories(self.accounts[0])
+        inventories = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: self.sdk.accounting.inventories(self.accounts[0])
+        )
         holdings = []
 
         for target in inventories.position_summaries:
@@ -64,7 +70,10 @@ class TaishinClient:
         Fetch filled history (歷史成交明細) from 台新 API.
         Dates should be formatted as YYYYMMDD (e.g. '20241004').
         """
-        res = self.sdk.stock.filled_history(self.accounts[0], start_date, end_date)
+        res = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: self.sdk.stock.filled_history(self.accounts[0], start_date, end_date)
+        )
         return res
 
 
