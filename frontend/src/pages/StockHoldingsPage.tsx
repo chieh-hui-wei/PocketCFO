@@ -601,6 +601,39 @@ export default function StockHoldingsPage() {
             </button>
           </div>
 
+          {/* Date Selector */}
+          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+            <span 
+              className="text-slate-400 cursor-pointer hover:text-slate-800 select-none" 
+              onClick={() => {
+                const d = new Date(currentDate);
+                if (viewMode === "year") {
+                  d.setFullYear(d.getFullYear() - 1);
+                } else {
+                  d.setMonth(d.getMonth() - 1);
+                }
+                setCurrentDate(d);
+              }}
+            >
+              {"<"}
+            </span>
+            {formatMonth(currentDate)}
+            <span 
+              className="text-slate-400 cursor-pointer hover:text-slate-800 select-none" 
+              onClick={() => {
+                const d = new Date(currentDate);
+                if (viewMode === "year") {
+                  d.setFullYear(d.getFullYear() + 1);
+                } else {
+                  d.setMonth(d.getMonth() + 1);
+                }
+                setCurrentDate(d);
+              }}
+            >
+              {">"}
+            </span>
+          </div>
+
         </div>
       </div>
 
