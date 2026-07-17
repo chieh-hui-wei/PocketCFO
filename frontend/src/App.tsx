@@ -15,6 +15,7 @@ import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ToastContainer from "./components/ToastContainer";
 import { getDailyTip, getSavingsPots, SavingsPot } from "./services/api";
+import AIChatbox from "./components/AIChatbox";
 
 const NAV_GROUPS = [
   {
@@ -414,6 +415,8 @@ export default function App() {
             </Routes>
           </div>
         </main>
+
+        <AIChatbox />
 
       </div>
     </BrowserRouter>

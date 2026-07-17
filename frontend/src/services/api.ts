@@ -623,3 +623,31 @@ export async function getDailyTip() {
   const { data } = await api.get("/settings/daily-tip");
   return data as { status: string; date: string; tip: string };
 }
+
+// ── AI Assistant & Developer SQL endpoints ─────────────────────────────────────
+
+export interface ChatMessage {
+  role: "user" | "model";
+  content: string;
+}
+
+export async function sendAIChat(message: string, history: ChatMessage[]) {
+  const { data } = await api.post("/ai/chat", {
+    message,
+    history,
+  });
+  return data as { response: string };
+}
+
+export interface SQLResult {
+  columns: string[];
+  rows: (string | null)[][];
+}
+
+export async function executeSQLQuery(query: string) {
+  const { data } = await api.post("/ai/sql-query", {
+    query,
+  });
+  return data as SQLResult;
+}
+
