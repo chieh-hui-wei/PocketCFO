@@ -24,7 +24,7 @@ class TaishinClient:
     def __init__(self) -> None:
         import os
         from taishin_sdk import TaishinSDK
-        id = os.getenv("TAISHIN_CERT_PASSWORD")
+        id = os.getenv("TAISHIN_ACCOUNT_ID")
         password = os.getenv("TAISHIN_ACCOUNT_PASSWORD")
         taishin_cert_path = os.getenv("TAISHIN_CERT_PATH")
         taishin_cert_pass = os.getenv("TAISHIN_CERT_PASSWORD")
