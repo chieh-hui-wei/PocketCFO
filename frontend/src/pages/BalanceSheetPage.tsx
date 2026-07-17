@@ -784,6 +784,9 @@ export default function BalanceSheetPage() {
                           </td>
                         </tr>
                       );
+                    })}
+                  </>
+                );
               })()}
             </tbody>
           </table>
