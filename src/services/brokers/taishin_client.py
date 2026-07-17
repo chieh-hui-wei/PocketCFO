@@ -68,6 +68,5 @@ class TaishinClient:
         return res
 
 
-@lru_cache(maxsize=1)
 def get_taishin_client() -> TaishinClient:
     return TaishinClient()
