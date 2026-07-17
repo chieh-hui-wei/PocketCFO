@@ -83,3 +83,8 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return cached settings singleton."""
     return Settings()
+
+def reload_settings() -> Settings:
+    """Clear cached settings and return a re-instantiated Settings object."""
+    get_settings.cache_clear()
+    return get_settings()

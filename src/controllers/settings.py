@@ -144,7 +144,10 @@ async def save_credentials(body: UpdateCredentialsRequest):
         update_env_variable("SINOPAC_API_SECRET", body.sinopac_api_secret)
     if body.sinopac_cert_password is not None:
         update_env_variable("SINOPAC_CERT_PASSWORD", body.sinopac_cert_password)
-
+        
+    from src.instances.config import reload_settings
+    reload_settings()
+        
     # 2. Update E-Sun in config.ini
     esun_config_path = "secrets/config.ini"
     os.makedirs("secrets", exist_ok=True)
@@ -185,7 +188,7 @@ async def save_credentials(body: UpdateCredentialsRequest):
         config.write(f)
 
     # Return success
-    return {"status": "success", "message": "Credentials updated successfully. Please restart containers to apply .env changes."}
+    return {"status": "success", "message": "Credentials updated successfully."}
 
 
 @router.post("/upload-cert")
@@ -232,6 +235,7 @@ async def test_connection(body: TestConnectionRequest):
                 return {"status": "success", "message": "Gemini API 連線成功！"}
             raise Exception("Gemini 回傳內容為空。")
         except Exception as e:
+            log.error(f"Gemini connection test exception details: {str(e)}", exc_info=True)
             raise HTTPException(status_code=400, detail=f"Gemini API 連線失敗：{str(e)}")
 
     elif body.broker == "taishin":
@@ -243,6 +247,7 @@ async def test_connection(body: TestConnectionRequest):
             client = TaishinClient()
             return {"status": "success", "message": "台新證券 API 連線與憑證驗證成功！"}
         except Exception as e:
+            log.error(f"Taishin connection test exception details: {str(e)}", exc_info=True)
             raise HTTPException(status_code=400, detail=f"台新證券連線失敗：{str(e)}")
 
     elif body.broker == "sinopac":
