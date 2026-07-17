@@ -12,6 +12,7 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+import os
 import httpx
 import logging
 from dotenv import load_dotenv
@@ -22,12 +23,13 @@ class TaishinClient:
     """Async REST client for 台新證券."""
 
     def __init__(self) -> None:
-        import os
+        from src.instances.config import get_settings
         from taishin_sdk import TaishinSDK
-        id = os.getenv("TAISHIN_ACCOUNT_ID")
-        password = os.getenv("TAISHIN_ACCOUNT_PASSWORD")
-        taishin_cert_path = os.getenv("TAISHIN_CERT_PATH")
-        taishin_cert_pass = os.getenv("TAISHIN_CERT_PASSWORD")
+        settings = get_settings()
+        id = settings.taishin_account_id
+        password = settings.taishin_account_password or os.getenv("TAISHIN_ACCOUNT_PASSWORD")
+        taishin_cert_path = settings.taishin_cert_path
+        taishin_cert_pass = settings.taishin_cert_password
         self.sdk = TaishinSDK()
         self.accounts = self.sdk.login(id, password, taishin_cert_path, taishin_cert_pass)
 
