@@ -11,8 +11,11 @@ from pydantic import BaseModel
 from src.instances.config import get_settings
 from src.middleware.auth import verify_token
 
+import logging
+
 router = APIRouter(prefix="/settings", tags=["settings"])
 settings = get_settings()
+log = logging.getLogger(__name__)
 
 class UpdateCredentialsRequest(BaseModel):
     # Gemini
