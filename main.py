@@ -8,18 +8,19 @@ import logging
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.controllers.auth import router as auth_router
-from src.middleware.auth import verify_token
-from src.controllers.account import router as account_router
+from src.controllers.auth.api import router as auth_router
+from src.controllers.account.api import router as account_router
+from src.controllers.upload.api import router as upload_router
+from src.controllers.transactions.api import router as txns_router
+from src.controllers.settings.api import router as settings_router
+from src.controllers.category_rules.api import router as category_rules_router
+from src.controllers.savings_pots.api import router as savings_pots_router
+from src.controllers.ai_assistant.api import router as ai_assistant_router
 from src.controllers.reports.balance_sheet import router as bs_router
 from src.controllers.reports.income_statement import router as is_router
-from src.controllers.upload import router as upload_router
 from src.controllers.reports.report import router as report_router
-from src.controllers.transactions import router as txns_router
-from src.controllers.settings import router as settings_router
-from src.controllers.category_rules import router as category_rules_router
-from src.controllers.savings_pots import router as savings_pots_router
-from src.controllers.ai_assistant import router as ai_assistant_router
+
+from src.middleware.auth import verify_token
 from src.instances.config import get_settings
 from src.instances.database import create_all_tables
 from src.middleware.error_middleware import (
@@ -81,7 +82,7 @@ async def on_startup() -> None:
     
     # Start automated background scheduler
     import asyncio
-    from src.services.scheduler import start_scheduler
+    from src.services.scheduler.service import start_scheduler
     asyncio.create_task(start_scheduler())
 
 

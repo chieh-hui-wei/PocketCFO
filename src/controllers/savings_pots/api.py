@@ -1,52 +1,25 @@
 """
-src/controllers/savings_pots.py
-CRUD endpoints for virtual Savings Pots.
+src/controllers/savings_pots/api.py
+Web API Router for Savings Pots endpoints.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.instances.database import get_db
 from src.middleware.auth import verify_token
 from src.dbs.models import User, SavingsPot, Account, AccountSnapshot, AccountType
+from src.controllers.savings_pots.model import CreatePotRequest, UpdatePotRequest
+from src.services.savings_pots.service import SavingsPotsService
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/savings-pots", tags=["Savings Pots"])
 
-
-# ── Request / Response schemas ─────────────────────────────────────────────────
-
-class CreatePotRequest(BaseModel):
-    name: str
-    target_amount: float
-    allocated_amount: float = 0.0
-
-
-class UpdatePotRequest(BaseModel):
-    name: str | None = None
-    target_amount: float | None = None
-    allocated_amount: float | None = None
-
-
-def _pot_to_dict(pot: SavingsPot) -> dict[str, Any]:
-    return {
-        "id": pot.id,
-        "name": pot.name,
-        "target_amount": pot.target_amount,
-        "allocated_amount": pot.allocated_amount,
-        "created_at": pot.created_at.isoformat() if pot.created_at else None,
-    }
-
-
-# ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.get("/")
 async def list_pots(
@@ -55,12 +28,10 @@ async def list_pots(
 ) -> dict[str, Any]:
     """List all savings pots for the current user alongside the latest known total cash balance."""
     try:
-        # 1. Fetch pots
         stmt = select(SavingsPot).where(SavingsPot.user_id == current_user.id).order_by(SavingsPot.created_at.desc())
         res = await db.execute(stmt)
         pots = res.scalars().all()
 
-        # 2. Find the latest month where any bank snapshot exists
         stmt_latest_period = select(AccountSnapshot.period_date).join(Account).where(
             AccountSnapshot.user_id == current_user.id,
             Account.account_type == AccountType.BANK
@@ -68,7 +39,6 @@ async def list_pots(
         res_latest_period = await db.execute(stmt_latest_period)
         latest_period = res_latest_period.scalar_one_or_none()
 
-        # 3. Fetch latest known balances of active bank accounts strictly for that period
         stmt_accts = select(Account).where(
             Account.user_id == current_user.id,
             Account.account_type == AccountType.BANK
@@ -96,7 +66,7 @@ async def list_pots(
 
         return {
             "status": "ok",
-            "pots": [_pot_to_dict(p) for p in pots],
+            "pots": [SavingsPotsService.pot_to_dict(p) for p in pots],
             "total_cash": total_cash,
             "latest_period": latest_period.strftime("%Y-%m") if latest_period else None,
             "missing_accounts": missing_accounts
@@ -130,7 +100,7 @@ async def create_pot(
         db.add(pot)
         await db.commit()
         await db.refresh(pot)
-        return {"status": "ok", "pot": _pot_to_dict(pot)}
+        return {"status": "ok", "pot": SavingsPotsService.pot_to_dict(pot)}
     except Exception as e:
         await db.rollback()
         log.error(f"create_pot error: {e}")
@@ -167,7 +137,7 @@ async def update_pot(
 
         await db.commit()
         await db.refresh(pot)
-        return {"status": "ok", "pot": _pot_to_dict(pot)}
+        return {"status": "ok", "pot": SavingsPotsService.pot_to_dict(pot)}
     except HTTPException:
         raise
     except Exception as e:

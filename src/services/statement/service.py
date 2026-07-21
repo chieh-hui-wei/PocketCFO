@@ -38,7 +38,7 @@ from src.services.parsers.bank_statement_parser import (
     parse_einvoice_csv,
 )
 from src.services.parsers.firstrade_statement_parser import parse_firstrade_statement
-from src.services.exchange_rate import get_usd_twd_rate, get_currency_twd_rate
+from src.services.exchange_rate.service import get_usd_twd_rate, get_currency_twd_rate
 from src.utils.date_utils import first_of_month, parse_tw_date_robust
 from src.utils.stock_utils import normalize_stock_name, normalize_transaction_description
 from src.utils.transfer_detector import TransferDetector

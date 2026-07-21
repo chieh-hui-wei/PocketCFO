@@ -66,7 +66,7 @@ async def sync_trades(
     current_user: User = Depends(verify_token),
 ):
     """Sync brokerage transactions from APIs (台新 + 玉山) for a specific month for the current user."""
-    from src.services.scheduler import sync_taishin_trades, sync_esun_trades
+    from src.services.scheduler.service import sync_taishin_trades, sync_esun_trades
     await sync_taishin_trades(year, month, user_id=current_user.id)
     await sync_esun_trades(year, month, user_id=current_user.id)
     return {"status": "ok", "message": f"Synced brokerage trades for {year}-{month:02d}"}

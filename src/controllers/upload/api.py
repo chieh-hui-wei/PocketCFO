@@ -1,101 +1,33 @@
 """
-src/controllers/upload_controller.py
-Handles PDF statement uploads, parsing via StatementService, and confirming parsed JSON.
+src/controllers/upload/api.py
+Web API Router for statement uploads and confirmation endpoints.
 """
 from __future__ import annotations
 
 import uuid
+import hashlib
+import logging
 from pathlib import Path
-from typing import Annotated, Literal
-
+from typing import Annotated
 import aiofiles
+import PyPDF2
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.instances.config import get_settings
 from src.instances.database import get_db
-from src.services.statement import StatementService
+from src.dbs.models import User
 from src.dbs.repository import UploadHistoryRepository
 from src.middleware.auth import verify_token
-from src.dbs.models import User
-
-import PyPDF2
-import logging
+from src.controllers.upload.model import StatementKind, ConfirmStatementRequest
+from src.services.statement.service import StatementService
+from src.services.reports.income_statement import IncomeStatementService
+from src.services.reports.balance_sheet import BalanceSheetService
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 settings = get_settings()
-
-StatementKind = Literal["bank", "credit_card", "brokerage", "einvoice"]
-
-
-class ConfirmHolding(BaseModel):
-    ticker: str
-    name: str
-    quantity: float
-    avg_cost: float
-    current_price: float
-
-
-class ConfirmTransaction(BaseModel):
-    date: str
-    description: str | None = None
-    merchant: str | None = None
-    amount: float
-    balance: float | None = None
-    action: str | None = None
-    ticker: str | None = None
-    name: str | None = None
-    quantity: float | None = None
-    price: float | None = None
-    fee: float | None = None
-    is_refund: bool = False
-    payment_method: str | None = None
-    invoice_number: str | None = None
-    is_duplicate: bool = False
-
-
-class ConfirmAccountData(BaseModel):
-    account_number: str | None = None
-    currency: str = "TWD"
-    exchange_rate: float = 1.0
-    closing_balance: float | None = None
-    transactions: list[ConfirmTransaction] | None = None
-
-
-class ConfirmStatementRequest(BaseModel):
-    kind: str
-    filename: str
-    file_hash: str
-    period_year: int
-    period_month: int
-    institution: str | None = None
-    currency: str = "TWD"
-    exchange_rate: float = 1.0
-    account_code: str | None = None
-    account_number: str | None = None
-    card_last_four: str | None = None
-    
-    # Bank
-    closing_balance: float | None = None
-    
-    # Credit Card
-    total_amount: float | None = None
-    payment_due_date: str | None = None
-    
-    # Brokerage
-    cash_balance: float | None = None
-    total_market_value: float | None = None
-    holdings: list[ConfirmHolding] | None = None
-    
-    # Shared lists
-    transactions: list[ConfirmTransaction] | None = None
-
-    # Multi-account support
-    accounts: list[ConfirmAccountData] | None = None
-
 
 
 @router.post("/parse")
@@ -122,13 +54,11 @@ async def upload_and_parse_statement(
     if len(contents) > max_bytes:
         raise HTTPException(status_code=413, detail=f"File too large (max {settings.max_upload_size_mb} MB)")
 
-    import hashlib
     file_hash = hashlib.sha256(contents).hexdigest()
     existing = await history_repo.get_by_hash(file_hash)
     if existing:
         raise HTTPException(status_code=409, detail="這份檔案已經上傳過囉！ (Duplicate File)")
 
-    # Save to temp path
     upload_dir = Path(settings.upload_dir) / "statements"
     upload_dir.mkdir(parents=True, exist_ok=True)
     suffix = Path(file.filename).suffix.lower()
@@ -137,7 +67,6 @@ async def upload_and_parse_statement(
     async with aiofiles.open(tmp_path, "wb") as f:
         await f.write(contents)
 
-    # Handle decryption (PDF only)
     if suffix == ".pdf":
         try:
             reader = PyPDF2.PdfReader(str(tmp_path))
@@ -165,7 +94,6 @@ async def upload_and_parse_statement(
     try:
         service = StatementService(db, current_user.id)
         parsed_data = await service.parse_statement(tmp_path, kind, file.filename)
-        # Add account_code to parsed_data if provided
         if account_code:
             parsed_data["account_code"] = account_code
         return {
@@ -192,12 +120,10 @@ async def confirm_statement(
     """
     history_repo = UploadHistoryRepository(db, current_user.id)
     
-    # Double check if duplicate hash exists
     existing = await history_repo.get_by_hash(body.file_hash)
     if existing:
         raise HTTPException(status_code=409, detail="這份檔案已經上傳過囉！ (Duplicate File)")
         
-    # Create success upload history
     history = await history_repo.create(
         filename=body.filename,
         kind=body.kind,
@@ -210,10 +136,6 @@ async def confirm_statement(
         service = StatementService(db, current_user.id)
         data = body.model_dump()
         result = await service.save_parsed_statement(data, upload_history_id=history.id)
-        
-        # Trigger computations
-        from src.services.reports.income_statement import IncomeStatementService
-        from src.services.reports.balance_sheet import BalanceSheetService
         
         is_service = IncomeStatementService(db, current_user.id)
         bs_service = BalanceSheetService(db, current_user.id)
@@ -229,7 +151,6 @@ async def confirm_statement(
         await history_repo.delete(history.id)
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Confirmation failed: {str(exc)}")
-
 
 
 @router.get("/history")
@@ -252,6 +173,7 @@ async def get_upload_history(
         for h in histories
     ]
 
+
 @router.delete("/history/{history_id}")
 async def delete_upload_history(
     history_id: int, 
@@ -264,4 +186,3 @@ async def delete_upload_history(
     if not success:
         raise HTTPException(status_code=404, detail="Upload history not found")
     return {"status": "ok"}
-

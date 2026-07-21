@@ -1,69 +1,27 @@
 """
-src/controllers/ai_assistant.py
-Controller for Gemini chat assistant and developer SQL console.
+src/services/ai_assistant/service.py
+Service layer for AI Assistant: Text-to-SQL planning, safe execution, and streaming responses.
 """
 from __future__ import annotations
 
-import logging
 import json
+import logging
 import re
-from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from typing import Any, AsyncGenerator
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from google.genai import types
 
-from src.instances.database import get_db
+from src.controllers.ai_assistant.model import ChatRequest, SQLPlannerResponse
+from src.instances.config import get_settings
 from src.instances.gemini import (
-    get_gemini_client,
     generate_content_with_fallback,
     generate_content_stream_with_fallback,
 )
-from src.instances.config import get_settings
-from src.middleware.auth import verify_token
-from src.dbs.models import User
-from google.genai import types
 
 log = logging.getLogger(__name__)
-router = APIRouter()
 settings = get_settings()
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-class ChatRequest(BaseModel):
-    message: str
-    history: List[ChatMessage] = []
-    model: Optional[str] = None
-
-class SQLRequest(BaseModel):
-    query: str
-
-class SQLPlannerResponse(BaseModel):
-    needs_db: bool
-    sql: Optional[str] = None
-    reasoning: str
-
-def validate_safe_sql(query: str) -> None:
-    """
-    Ensure the SQL query is read-only and does not contain mutating keywords.
-    """
-    cleaned = query.strip().lower()
-    
-    # 1. Strictly verify start of the statement
-    if not (cleaned.startswith("select") or cleaned.startswith("with")):
-        raise ValueError("Only SELECT or WITH statements are allowed.")
-        
-    # 2. Block mutating SQL keywords
-    mutating_keywords = [
-        "insert", "update", "delete", "drop", "alter", 
-        "truncate", "grant", "revoke", "create", "replace"
-    ]
-    for keyword in mutating_keywords:
-        if re.search(r"\b" + keyword + r"\b", cleaned):
-            raise ValueError(f"Forbidden mutating keyword detected: {keyword}")
-
 
 DB_SCHEMA_PROMPT = """
 You are pocketCFO SQL planner. Analyze the user's natural language question and generate a single PostgreSQL read-only query (SELECT/WITH) to answer the user's question, if data retrieval is needed.
@@ -159,26 +117,49 @@ Example queries:
   `SELECT a.name, s.balance FROM accounts a JOIN account_snapshots s ON a.id = s.account_id WHERE a.user_id = :user_id AND s.period_date = '2026-07-01';`
 """
 
-@router.post("/ai/chat")
-async def chat_assistant(
-    request: ChatRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(verify_token)
-):
+
+def validate_safe_sql(query: str, require_user_id: bool = True) -> None:
     """
-    Text-to-SQL chatbot endpoint. Checks if user question needs DB data,
-    safely runs read-only SQL, and feeds results back to Gemini with automatic rate-limit fallback.
+    Ensure the SQL query is read-only, does not contain mutating keywords,
+    does not access sensitive tables, and enforces tenant scoping via :user_id.
     """
-    try:
+    cleaned = query.strip().lower()
+
+    if not (cleaned.startswith("select") or cleaned.startswith("with")):
+        raise ValueError("Only SELECT or WITH statements are allowed.")
+
+    mutating_keywords = [
+        "insert", "update", "delete", "drop", "alter",
+        "truncate", "grant", "revoke", "create", "replace"
+    ]
+    for keyword in mutating_keywords:
+        if re.search(r"\b" + keyword + r"\b", cleaned):
+            raise ValueError(f"Forbidden mutating keyword detected: {keyword}")
+
+    sensitive_tables = ["users", "user_invitations"]
+    for table in sensitive_tables:
+        if re.search(r"\b" + table + r"\b", cleaned):
+            raise ValueError(f"Access to sensitive table '{table}' is forbidden.")
+
+    if require_user_id and ":user_id" not in query:
+        raise ValueError("Query must include ':user_id' parameter to ensure user data isolation.")
+
+
+class AIAssistantService:
+    @staticmethod
+    async def process_chat_stream(
+        request: ChatRequest,
+        user_id: int,
+        db: AsyncSession
+    ) -> AsyncGenerator[str, None]:
+        """
+        Process chat prompt, execute read-only SQL if needed, and yield SSE formatted chunks.
+        """
         requested_model = request.model or settings.gemini_model
 
-        # 1. Ask Gemini to plan the query (needs_db, sql, reasoning) with fallback
-        plan_prompt = (
-            f"{DB_SCHEMA_PROMPT}\n\n"
-            f"User Question: {request.message}\n"
-        )
+        plan_prompt = f"{DB_SCHEMA_PROMPT}\n\nUser Question: {request.message}\n"
         
-        plan_response, used_model = await generate_content_with_fallback(
+        plan_response, _ = await generate_content_with_fallback(
             contents=[plan_prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -187,134 +168,94 @@ async def chat_assistant(
             ),
             primary_model=requested_model,
         )
-        
+
         plan_data = json.loads(plan_response.text)
         needs_db = plan_data.get("needs_db", False)
         generated_sql = plan_data.get("sql")
-        reasoning = plan_data.get("reasoning", "")
-        
+
         db_results_str = ""
         executed_sql = None
-        
+
         if needs_db and generated_sql:
-            # 2. Safety verification of generated SQL
             try:
-                validate_safe_sql(generated_sql)
+                validate_safe_sql(generated_sql, require_user_id=True)
                 executed_sql = generated_sql
-                
-                # 3. Execute the SQL query
-                result = await db.execute(text(generated_sql), {"user_id": current_user.id})
+
+                result = await db.execute(text(generated_sql), {"user_id": user_id})
                 columns = list(result.keys())
                 rows = result.fetchall()
-                
-                # Format output for LLM context
-                formatted_rows = []
-                for row in rows:
-                    formatted_rows.append(dict(zip(columns, [str(v) if v is not None else "None" for v in row])))
-                
+
+                formatted_rows = [
+                    dict(zip(columns, [str(v) if v is not None else "None" for v in row]))
+                    for row in rows
+                ]
                 db_results_str = json.dumps(formatted_rows, ensure_ascii=False, indent=2)
                 log.info(f"Text-to-SQL Executed SQL: {generated_sql} | Results count: {len(rows)}")
             except Exception as sql_err:
                 log.warning(f"SQL validation or execution failed: {sql_err}. Falling back to general chat.")
                 db_results_str = f"Error executing database query: {str(sql_err)}"
-                
-        # 4. Formulate the final streaming response to the user with automatic fallback
+
         system_instruction = (
             "You are pocketCFO AI Assistant, a helpful personal finance assistant.\n"
             "Help the user track assets, liabilities, bank statements, and stock transactions.\n"
             "Keep responses concise, clear, and professional. Use markdown formatting where helpful."
         )
-        
+
         final_prompt_parts = []
         if executed_sql:
             final_prompt_parts.append(f"[System context: The following read-only SQL was run against the user's database: {executed_sql}]")
             final_prompt_parts.append(f"[System context: Query results returned from database:\n{db_results_str}]")
         elif needs_db:
             final_prompt_parts.append(f"[System context: DB query failed: {db_results_str}]")
-            
+
         final_prompt_parts.append(f"User Question: {request.message}")
         final_prompt = "\n\n".join(final_prompt_parts)
-        
+
         contents = []
-        # Build history contents
         for msg in request.history:
             role = "user" if msg.role == "user" else "model"
             contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part.from_text(text=msg.content)]
-                )
+                types.Content(role=role, parts=[types.Part.from_text(text=msg.content)])
             )
-            
+
         contents.append(
-            types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=final_prompt)]
-            )
+            types.Content(role="user", parts=[types.Part.from_text(text=final_prompt)])
         )
 
-        from fastapi.responses import StreamingResponse
+        try:
+            stream = generate_content_stream_with_fallback(
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.7,
+                ),
+                primary_model=requested_model,
+            )
+            async for chunk, stream_model in stream:
+                if chunk.text:
+                    data = json.dumps({"text": chunk.text, "model": stream_model})
+                    yield f"data: {data}\n\n"
+        except Exception as stream_err:
+            log.error(f"Error in streaming response generation: {stream_err}")
+            err_data = json.dumps({"error": str(stream_err)})
+            yield f"data: {err_data}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
 
-        async def event_generator():
-            try:
-                stream = generate_content_stream_with_fallback(
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.7,
-                    ),
-                    primary_model=requested_model,
-                )
-                async for chunk, stream_model in stream:
-                    if chunk.text:
-                        data = json.dumps({"text": chunk.text, "model": stream_model})
-                        yield f"data: {data}\n\n"
-            except Exception as stream_err:
-                log.error(f"Error in streaming response generation: {stream_err}")
-                err_data = json.dumps({"error": str(stream_err)})
-                yield f"data: {err_data}\n\n"
-            finally:
-                yield "data: [DONE]\n\n"
-
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-    except Exception as e:
-        log.error(f"Failed in Text-to-SQL chat assistant: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"AI Assistant Error: {str(e)}")
-
-@router.post("/ai/sql-query")
-async def execute_sql_query(
-    request: SQLRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(verify_token)
-) -> dict[str, Any]:
-    """
-    Execute read-only SELECT or WITH SQL statements for the developer console.
-    """
-    try:
-        validate_safe_sql(request.query)
-    except ValueError as val_err:
-        raise HTTPException(status_code=400, detail=str(val_err))
-        
-    try:
-        result = await db.execute(text(request.query))
+    @staticmethod
+    async def execute_raw_sql(
+        query: str,
+        user_id: int,
+        db: AsyncSession
+    ) -> dict[str, Any]:
+        """
+        Execute safe read-only SQL for developer console.
+        """
+        validate_safe_sql(query, require_user_id=True)
+        result = await db.execute(text(query), {"user_id": user_id})
         columns = list(result.keys())
-        # Convert row values to string/json friendly format
-        rows = []
-        for row in result.fetchall():
-            row_vals = []
-            for val in row:
-                if val is None:
-                    row_vals.append(None)
-                else:
-                    row_vals.append(str(val))
-            rows.append(row_vals)
-            
-        return {
-            "columns": columns,
-            "rows": rows
-        }
-    except Exception as e:
-        log.error(f"SQL execution failed: {e}")
-        raise HTTPException(status_code=400, detail=f"SQL Error: {str(e)}")
-
+        rows = [
+            [str(val) if val is not None else None for val in row]
+            for row in result.fetchall()
+        ]
+        return {"columns": columns, "rows": rows}

@@ -12,7 +12,7 @@ export default function AIChatbox() {
   const [clickCount, setClickCount] = useState(0);
   const [isDevMode, setIsDevMode] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "sql">("chat");
-  const [sqlQuery, setSqlQuery] = useState("SELECT * FROM accounts LIMIT 5;");
+  const [sqlQuery, setSqlQuery] = useState("SELECT * FROM accounts WHERE user_id = :user_id LIMIT 5;");
   const [sqlResult, setSqlResult] = useState<SQLResult | null>(null);
   const [sqlError, setSqlError] = useState<string | null>(null);
   const [sqlExecuting, setSqlExecuting] = useState(false);
@@ -305,7 +305,7 @@ export default function AIChatbox() {
               {/* Input Area */}
               <div className="p-3 border-b border-slate-800 shrink-0">
                 <div className="text-[10px] font-bold text-slate-400 mb-1.5 tracking-wider uppercase flex justify-between items-center">
-                  <span>SQLite Read-only Query</span>
+                  <span>PostgreSQL Read-only Query</span>
                   <span className="text-amber-500">Only SELECT / WITH allowed</span>
                 </div>
                 <textarea
@@ -317,13 +317,13 @@ export default function AIChatbox() {
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex gap-1.5">
                     <button 
-                      onClick={() => setSqlQuery("SELECT * FROM accounts LIMIT 5;")}
+                      onClick={() => setSqlQuery("SELECT * FROM accounts WHERE user_id = :user_id LIMIT 5;")}
                       className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[9px] font-mono text-slate-300 transition-all cursor-pointer"
                     >
                       accounts
                     </button>
                     <button 
-                      onClick={() => setSqlQuery("SELECT * FROM transactions ORDER BY txn_date DESC LIMIT 5;")}
+                      onClick={() => setSqlQuery("SELECT * FROM transactions WHERE user_id = :user_id ORDER BY txn_date DESC LIMIT 5;")}
                       className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[9px] font-mono text-slate-300 transition-all cursor-pointer"
                     >
                       transactions

@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.dbs.models import Account, AccountSnapshot, Security, AccountType, Transaction, TransactionSource
 from src.dbs.repository import AccountRepository, SnapshotRepository, SecurityRepository, TransactionRepository
 from src.utils.stock_utils import parse_stock_transaction, fetch_month_end_price, normalize_stock_name
-from src.services.exchange_rate import get_usd_twd_rate
+from src.services.exchange_rate.service import get_usd_twd_rate
 
 log = logging.getLogger(__name__)
 

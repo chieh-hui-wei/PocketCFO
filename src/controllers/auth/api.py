@@ -1,35 +1,34 @@
-from datetime import datetime, timedelta
-import secrets
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel, EmailStr
-from jose import jwt
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-import bcrypt
+"""
+src/controllers/auth/api.py
+Web API Router for Authentication endpoints.
+"""
+from __future__ import annotations
 
-from src.instances.config import get_settings
+import secrets
+import time
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.instances.database import get_db
 from src.dbs.models import User, UserInvitation, PasswordReset
 from src.middleware.auth import verify_token
 from src.services.email_service import send_verification_email, send_reset_password_email
+from src.services.auth.service import AuthService
+from src.controllers.auth.model import (
+    LoginRequest,
+    InviteRequest,
+    RegisterRequest,
+    ProfileUpdateRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-settings = get_settings()
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-class InviteRequest(BaseModel):
-    email: EmailStr
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    pin_code: str
-
-# In-memory dictionary to track login attempts: IP -> list of timestamps
 login_attempts: dict[str, list[float]] = {}
+
 
 @router.post("/login")
 async def login(
@@ -40,24 +39,19 @@ async def login(
     """
     Authenticate user using email and password, returning a JWT token.
     """
-    import time
     client_ip = request.client.host if request.client else "unknown"
-    
-    # Clean up old attempts for the current IP
     now = time.time()
+    
     if client_ip in login_attempts:
         login_attempts[client_ip] = [t for t in login_attempts[client_ip] if now - t < 60]
         
-    # Prevent memory leaks: if dictionary size exceeds 2000 records, prune expired ones globally
     if len(login_attempts) > 2000:
         expired_ips = [ip for ip, ts in login_attempts.items() if not ts or all(now - t >= 60 for t in ts)]
         for ip in expired_ips:
             login_attempts.pop(ip, None)
-        # If still over 2000 (extreme load), clear all to prevent crash
         if len(login_attempts) > 2000:
             login_attempts.clear()
 
-    # Check limit (max 5 attempts per minute)
     attempts = login_attempts.get(client_ip, [])
     if len(attempts) >= 5:
         raise HTTPException(
@@ -65,7 +59,6 @@ async def login(
             detail="登入嘗試次數過多，請於一分鐘後再試。"
         )
         
-    # Record current attempt
     login_attempts.setdefault(client_ip, []).append(now)
 
     stmt = select(User).where(User.email == body.email.strip().lower())
@@ -84,20 +77,13 @@ async def login(
             detail="此帳戶已被停用"
         )
         
-    # Verify password hash
-    if not bcrypt.checkpw(body.password.encode('utf-8'), user.hashed_password.encode('utf-8')):
+    if not AuthService.verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="帳號或密碼錯誤"
         )
         
-    # Generate token (expires in 24 hours)
-    expiration = datetime.utcnow() + timedelta(hours=24)
-    payload = {
-        "sub": str(user.id),
-        "exp": expiration
-    }
-    token = jwt.encode(payload, settings.app_secret_key, algorithm="HS256")
+    token, expiration = AuthService.create_access_token(user.id)
     
     return {
         "status": "success",
@@ -109,6 +95,7 @@ async def login(
             "role": user.role
         }
     }
+
 
 @router.post("/invite")
 async def invite_friend(
@@ -127,7 +114,6 @@ async def invite_friend(
         
     email_clean = body.email.strip().lower()
     
-    # Check if user already exists
     stmt_user = select(User).where(User.email == email_clean)
     res_user = await db.execute(stmt_user)
     if res_user.scalar_one_or_none():
@@ -136,11 +122,9 @@ async def invite_friend(
             detail="此信箱已註冊帳戶"
         )
         
-    # Generate 6-digit PIN code
     pin_code = f"{secrets.randbelow(1000000):06d}"
     expiry = datetime.utcnow() + timedelta(minutes=30)
     
-    # Check if invitation already exists to update it
     stmt_inv = select(UserInvitation).where(UserInvitation.email == email_clean)
     res_inv = await db.execute(stmt_inv)
     invitation = res_inv.scalar_one_or_none()
@@ -159,14 +143,13 @@ async def invite_friend(
         db.add(invitation)
         
     await db.commit()
-    
-    # Send email asynchronously (runs inside to_thread in service)
     await send_verification_email(email_clean, pin_code)
     
     return {
         "status": "success",
         "message": f"邀請驗證信已寄送至 {email_clean}"
     }
+
 
 @router.post("/register")
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
@@ -175,7 +158,6 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """
     email_clean = body.email.strip().lower()
     
-    # Fetch latest invitation
     stmt = select(UserInvitation).where(
         UserInvitation.email == email_clean,
         UserInvitation.is_verified == False
@@ -201,7 +183,6 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
             detail="驗證碼已過期，請管理員重新邀請"
         )
         
-    # Check if user already exists (backup check)
     stmt_user = select(User).where(User.email == email_clean)
     res_user = await db.execute(stmt_user)
     if res_user.scalar_one_or_none():
@@ -210,8 +191,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
             detail="此信箱已註冊帳戶"
         )
         
-    # Hash password and create User
-    hashed = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed = AuthService.hash_password(body.password)
     user = User(
         email=email_clean,
         hashed_password=hashed,
@@ -219,10 +199,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         is_active=True
     )
     db.add(user)
-    
-    # Mark invitation as verified
     invitation.is_verified = True
-    
     await db.commit()
     
     return {
@@ -230,9 +207,6 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         "message": "帳戶註冊成功，請使用新帳密登入"
     }
 
-class ProfileUpdateRequest(BaseModel):
-    email: EmailStr | None = None
-    password: str | None = None
 
 @router.put("/profile")
 async def update_profile(
@@ -252,7 +226,6 @@ async def update_profile(
     if body.email:
         email_clean = body.email.strip().lower()
         if email_clean != current_user.email:
-            # Check if email already taken
             stmt = select(User).where(User.email == email_clean)
             res = await db.execute(stmt)
             if res.scalar_one_or_none():
@@ -269,8 +242,7 @@ async def update_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="密碼長度必須大於或等於 6 個字元"
             )
-        hashed = bcrypt.hashpw(password_clean.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        current_user.hashed_password = hashed
+        current_user.hashed_password = AuthService.hash_password(password_clean)
         
     await db.commit()
     
@@ -284,13 +256,6 @@ async def update_profile(
         }
     }
 
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
-
-class ResetPasswordRequest(BaseModel):
-    email: EmailStr
-    pin_code: str
-    new_password: str
 
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
@@ -299,26 +264,20 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     """
     email_clean = body.email.strip().lower()
     
-    # Check if user exists
     stmt_user = select(User).where(User.email == email_clean)
     res_user = await db.execute(stmt_user)
     user = res_user.scalar_one_or_none()
     
-    # For security reasons, we do not want to expose whether the email exists or not.
-    # We always return success, but only generate/send PIN if user exists.
     if user:
         pin_code = f"{secrets.randbelow(1000000):06d}"
         expiry = datetime.utcnow() + timedelta(minutes=15)
         
-        # Invalidate previous unused resets for this email
-        from sqlalchemy import update
         await db.execute(
             update(PasswordReset)
             .where(PasswordReset.email == email_clean, PasswordReset.is_used == False)
             .values(is_used=True)
         )
         
-        # Create new reset token
         reset_token = PasswordReset(
             email=email_clean,
             pin_code=pin_code,
@@ -327,14 +286,13 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
         )
         db.add(reset_token)
         await db.commit()
-        
-        # Dispatch email
         await send_reset_password_email(email_clean, pin_code)
         
     return {
         "status": "success",
         "message": "若此信箱已註冊，重設驗證碼已寄出"
     }
+
 
 @router.post("/reset-password")
 async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
@@ -343,7 +301,6 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     """
     email_clean = body.email.strip().lower()
     
-    # Fetch active user
     stmt_user = select(User).where(User.email == email_clean)
     res_user = await db.execute(stmt_user)
     user = res_user.scalar_one_or_none()
@@ -354,7 +311,6 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
             detail="無效的請求"
         )
         
-    # Fetch latest unused reset request
     stmt_reset = (
         select(PasswordReset)
         .where(
@@ -380,7 +336,6 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
             detail="驗證碼已過期，請重新申請"
         )
         
-    # Validate new password length
     password_clean = body.new_password.strip()
     if len(password_clean) < 6:
         raise HTTPException(
@@ -388,16 +343,11 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
             detail="密碼長度必須大於或等於 6 個字元"
         )
         
-    # Hash and save password
-    hashed = bcrypt.hashpw(password_clean.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    user.hashed_password = hashed
+    user.hashed_password = AuthService.hash_password(password_clean)
     reset_req.is_used = True
-    
     await db.commit()
     
     return {
         "status": "success",
         "message": "密碼重設成功，請使用新密碼登入"
     }
-
-
