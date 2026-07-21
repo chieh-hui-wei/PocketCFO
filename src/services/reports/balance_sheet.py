@@ -24,6 +24,7 @@ from src.dbs.repository import (
 )
 from src.services.brokers.sinopac_client import get_sinopac_client
 from src.services.brokers.taishin_client import get_taishin_client
+from src.services.brokers.esun_client import get_esun_client
 from src.utils.date_utils import first_of_month
 
 log = logging.getLogger(__name__)
@@ -185,6 +186,20 @@ class BalanceSheetService:
         except Exception as exc:
             log.warning(f"broker.taishin.failed error={exc}")
             results["taishin"] = {"error": str(exc)}
+
+        # 玉山 (E.SUN / Fugle)
+        try:
+            esun = get_esun_client()
+            balance = await esun.get_account_balance()
+            positions = await esun.get_positions()
+            results["esun"] = {
+                "cash_balance": balance["cash_balance"],
+                "positions": len(positions),
+            }
+            log.info(f"broker.esun.synced info={results['esun']}")
+        except Exception as exc:
+            log.warning(f"broker.esun.failed error={exc}")
+            results["esun"] = {"error": str(exc)}
 
         return results
 
