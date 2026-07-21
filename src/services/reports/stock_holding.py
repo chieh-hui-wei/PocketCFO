@@ -321,3 +321,65 @@ class StockHoldingService:
                 final_snapshots.append(ft_snap)
 
         return final_snapshots, final_securities
+
+    async def get_holdings_for_period(self, period_date: date) -> List[Dict]:
+        """
+        Returns a formatted list of security holdings for the given period.
+        Called by GET /accounts/securities to power the stock inventory view.
+        """
+        from sqlalchemy import select as sa_select
+        from src.dbs.models import Account
+
+        _, securities = await self.get_or_compute_portfolio(period_date)
+
+        # Build account name lookup
+        acc_stmt = sa_select(Account.id, Account.name).where(Account.user_id == self.user_id)
+        acc_res = await self.db.execute(acc_stmt)
+        acc_map = {row.id: row.name for row in acc_res.all()}
+
+        output = []
+        for sec in securities:
+            # Use pre-computed TWD fields when available (stored securities),
+            # otherwise fall back to raw values
+            orig_avg = getattr(sec, "original_avg_cost", None) or sec.avg_cost
+            orig_price = getattr(sec, "original_current_price", None) or sec.current_price
+            orig_mv = getattr(sec, "original_market_value", None) or sec.market_value
+            orig_pnl = getattr(sec, "original_unrealized_pnl", None) or sec.unrealized_pnl
+
+            currency = sec.currency or "TWD"
+            rate = sec.exchange_rate or 1.0
+
+            # Convert to TWD for display if foreign currency
+            if currency != "TWD" and rate > 0:
+                mv_twd = sec.market_value if sec.market_value else (orig_mv * rate)
+                pnl_twd = sec.unrealized_pnl if sec.unrealized_pnl else (orig_pnl * rate)
+                avg_twd = sec.avg_cost if sec.avg_cost else round(orig_avg * rate)
+                price_twd = sec.current_price if sec.current_price else round(orig_price * rate)
+            else:
+                mv_twd = sec.market_value
+                pnl_twd = sec.unrealized_pnl
+                avg_twd = sec.avg_cost
+                price_twd = sec.current_price
+
+            output.append({
+                "id": sec.id,
+                "account_id": sec.account_id,
+                "account_name": acc_map.get(sec.account_id, "Unknown"),
+                "period_date": str(sec.period_date),
+                "ticker": sec.ticker,
+                "name": sec.name,
+                "quantity": sec.quantity,
+                "avg_cost": avg_twd,
+                "current_price": price_twd,
+                "market_value": mv_twd,
+                "unrealized_pnl": pnl_twd,
+                "original_avg_cost": orig_avg,
+                "original_current_price": orig_price,
+                "original_market_value": orig_mv,
+                "original_unrealized_pnl": orig_pnl,
+                "currency": currency,
+                "exchange_rate": rate,
+                "created_at": str(sec.created_at) if getattr(sec, "created_at", None) else None,
+            })
+
+        return output
