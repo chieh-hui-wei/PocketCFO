@@ -203,7 +203,6 @@ export default function AIChatbox() {
                   </div>
                 </div>
 
-                {/* History Messages */}
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
@@ -214,9 +213,9 @@ export default function AIChatbox() {
                     <div className={`px-3.5 py-2.5 rounded-2xl max-w-[80%] text-sm leading-relaxed shadow-sm font-medium ${
                       msg.role === "user"
                         ? "bg-indigo-600 text-white rounded-tr-none"
-                        : "bg-white text-slate-700 border border-slate-100 rounded-tl-none whitespace-pre-line"
+                        : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
                     }`}>
-                      {msg.content}
+                      {msg.role === "user" ? msg.content : <MarkdownText content={msg.content} />}
                     </div>
                   </div>
                 ))}
@@ -352,4 +351,102 @@ export default function AIChatbox() {
       )}
     </div>
   );
+}
+
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-extrabold text-slate-900">{part.slice(2, -2)}</strong>;
+    }
+    const codeParts = part.split(/(`.*?`)/g);
+    return codeParts.map((subPart, j) => {
+      if (subPart.startsWith('`') && subPart.endsWith('`')) {
+        return <code key={j} className="bg-slate-100 text-rose-600 px-1 py-0.5 rounded font-mono text-[10px]">{subPart.slice(1, -1)}</code>;
+      }
+      return subPart;
+    });
+  });
+}
+
+function MarkdownText({ content }: { content: string }) {
+  const elements: React.ReactNode[] = [];
+  const lines = content.split('\n');
+  let currentTable: string[][] = [];
+  let inTable = false;
+  
+  const flushTable = (key: number) => {
+    if (currentTable.length === 0) return;
+    // Determine headers
+    const hasDivider = currentTable[1] && currentTable[1].some(cell => cell.includes('---'));
+    const headers = hasDivider ? currentTable[0] : [];
+    const rows = hasDivider ? currentTable.slice(2) : currentTable;
+    
+    elements.push(
+      <div key={`table-${key}`} className="overflow-x-auto my-2 border border-slate-200 rounded-lg">
+        <table className="min-w-full divide-y divide-slate-200 text-[11px] bg-white">
+          {headers.length > 0 && (
+            <thead className="bg-slate-50">
+              <tr>
+                {headers.map((h, idx) => (
+                  <th key={idx} className="px-2 py-1.5 text-left font-bold text-slate-600 border-r border-slate-200 last:border-0">{h.trim()}</th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody className="divide-y divide-slate-200">
+            {rows.map((row, rIdx) => (
+              <tr key={rIdx} className="hover:bg-slate-50/50">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="px-2 py-1 text-slate-600 border-r border-slate-200 last:border-0">{renderInline(cell.trim())}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    currentTable = [];
+    inTable = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith('|')) {
+      inTable = true;
+      const cells = line.split('|').slice(1, -1);
+      if (cells.every(c => c.trim().match(/^-+$/))) {
+        // Divider row, skip
+      } else {
+        currentTable.push(cells);
+      }
+    } else {
+      if (inTable) {
+        flushTable(i);
+      }
+      
+      if (line.startsWith('### ')) {
+        elements.push(<h4 key={i} className="text-xs font-bold text-slate-800 mt-2 mb-1">{line.slice(4)}</h4>);
+      } else if (line.startsWith('## ')) {
+        elements.push(<h3 key={i} className="text-sm font-black text-slate-800 mt-2 mb-1">{line.slice(3)}</h3>);
+      } else if (line.startsWith('# ')) {
+        elements.push(<h2 key={i} className="text-base font-black text-slate-900 mt-3 mb-1.5">{line.slice(2)}</h2>);
+      } else if (line.startsWith('* ') || line.startsWith('- ')) {
+        elements.push(
+          <div key={i} className="flex gap-1.5 ml-2 text-xs my-0.5">
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-700">{renderInline(line.slice(2))}</span>
+          </div>
+        );
+      } else if (line.trim() !== '') {
+        elements.push(<p key={i} className="text-xs text-slate-700 leading-relaxed my-1">{renderInline(line)}</p>);
+      }
+    }
+  }
+  
+  if (inTable) {
+    flushTable(lines.length);
+  }
+  
+  return <div className="space-y-0.5">{elements}</div>;
 }
