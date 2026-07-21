@@ -645,7 +645,7 @@ export async function sendAIChatStream(
   onChunk: (chunk: string) => void,
   model?: string
 ) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("pocketcfo_token") || localStorage.getItem("token");
   const response = await fetch("/api/v1/ai/chat", {
     method: "POST",
     headers: {
