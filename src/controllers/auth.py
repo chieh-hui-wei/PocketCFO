@@ -43,11 +43,20 @@ async def login(
     import time
     client_ip = request.client.host if request.client else "unknown"
     
-    # Clean up old attempts
+    # Clean up old attempts for the current IP
     now = time.time()
     if client_ip in login_attempts:
         login_attempts[client_ip] = [t for t in login_attempts[client_ip] if now - t < 60]
         
+    # Prevent memory leaks: if dictionary size exceeds 2000 records, prune expired ones globally
+    if len(login_attempts) > 2000:
+        expired_ips = [ip for ip, ts in login_attempts.items() if not ts or all(now - t >= 60 for t in ts)]
+        for ip in expired_ips:
+            login_attempts.pop(ip, None)
+        # If still over 2000 (extreme load), clear all to prevent crash
+        if len(login_attempts) > 2000:
+            login_attempts.clear()
+
     # Check limit (max 5 attempts per minute)
     attempts = login_attempts.get(client_ip, [])
     if len(attempts) >= 5:

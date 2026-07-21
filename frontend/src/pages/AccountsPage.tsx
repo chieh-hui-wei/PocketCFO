@@ -271,14 +271,14 @@ export default function AccountsPage() {
 
   return (
     <div className="animate-in fade-in duration-500">
-      
+
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">帳戶管理</h1>
           <p className="text-sm text-slate-500 mt-1">管理您所有的銀行帳戶，配置內部帳戶過濾</p>
         </div>
-        <button 
+        <button
           onClick={handleOpenAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition-colors text-sm"
         >
@@ -329,17 +329,15 @@ export default function AccountsPage() {
                         <td className="px-6 py-4 font-semibold text-slate-800">{a.name}</td>
                         <td className="px-6 py-4 font-mono text-xs text-slate-500">{a.code}</td>
                         <td className="px-6 py-4 text-slate-500">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-extrabold ${
-                            a.type === 'bank' ? 'bg-green-50 text-green-700 border border-green-200' :
-                            'bg-slate-100 text-slate-700'
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-extrabold ${a.type === 'bank' ? 'bg-green-50 text-green-700 border border-green-200' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
                             {getAccountTypeLabel(a.type)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-600 font-bold">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                            a.currency !== 'TWD' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${a.currency !== 'TWD' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'
+                            }`}>
                             {a.currency}
                           </span>
                         </td>
@@ -358,14 +356,14 @@ export default function AccountsPage() {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleOpenEdit(a)}
                               className="text-blue-600 hover:text-blue-700 font-bold text-xs"
                             >
                               編輯
                             </button>
                             <span className="text-slate-300">|</span>
-                            <button 
+                            <button
                               onClick={() => handleDelete(a.id)}
                               className="text-red-600 hover:text-red-700 font-bold text-xs"
                             >
@@ -392,7 +390,7 @@ export default function AccountsPage() {
             </h2>
             <p className="text-xs text-slate-500 mt-1">將您的實體活期存款分配給不同的儲蓄用途，專款專用不受轉帳影響</p>
           </div>
-          <button 
+          <button
             type="button"
             onClick={handleOpenAddPot}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition-colors text-xs"
@@ -423,9 +421,8 @@ export default function AccountsPage() {
                 </div>
                 <div className="text-[10px] text-slate-400 mt-1">已鎖定在各個虛擬目標的總額</div>
               </div>
-              <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-colors animate-in fade-in duration-300 ${
-                isOverbudget ? 'border-red-200 bg-red-50/10' : 'border-slate-200'
-              }`}>
+              <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-colors animate-in fade-in duration-300 ${isOverbudget ? 'border-red-200 bg-red-50/10' : 'border-slate-200'
+                }`}>
                 <div className="text-xs font-bold text-slate-500 mb-1">💸 可自由支配現金</div>
                 <div className={`text-xl font-extrabold ${isOverbudget ? 'text-red-600' : 'text-emerald-600'}`}>
                   ${unallocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -501,8 +498,8 @@ export default function AccountsPage() {
                       </div>
 
                       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-5">
-                        <div 
-                          className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                        <div
+                          className="bg-blue-600 h-full rounded-full transition-all duration-500"
                           style={{ width: `${Math.min(100, percent)}%` }}
                         />
                       </div>
@@ -556,8 +553,8 @@ export default function AccountsPage() {
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">金融機構 (如：台新銀行、玉山銀行)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formInstitution}
                   onChange={e => setFormInstitution(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -566,8 +563,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">帳戶名稱 / 自訂標籤</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -577,7 +574,7 @@ export default function AccountsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">帳戶類型</label>
-                  <select 
+                  <select
                     value={formType}
                     onChange={e => setFormType(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -590,7 +587,7 @@ export default function AccountsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">幣別</label>
-                  <select 
+                  <select
                     value={formCurrency}
                     onChange={e => setFormCurrency(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -602,8 +599,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">帳戶代碼 / 帳號 (選填)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formCode}
                   onChange={e => setFormCode(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -611,8 +608,8 @@ export default function AccountsPage() {
                 />
               </div>
               <div className="flex items-center gap-3 py-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="add_is_internal"
                   checked={formIsInternal}
                   onChange={e => setFormIsInternal(e.target.checked)}
@@ -655,14 +652,14 @@ export default function AccountsPage() {
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
                 >
                   取消
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
                 >
@@ -682,8 +679,8 @@ export default function AccountsPage() {
             <form onSubmit={handleAddPot} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">儲蓄桶名稱 (如：緊急預備金、日本旅遊)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={potFormName}
                   onChange={e => setPotFormName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -692,8 +689,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">目標總金額 (TWD)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={potFormTarget || ""}
                   onChange={e => setPotFormTarget(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -702,8 +699,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">已分配金額 (選填，可稍後調整)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={potFormAllocated || ""}
                   onChange={e => setPotFormAllocated(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -712,14 +709,14 @@ export default function AccountsPage() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowAddPotModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
                 >
                   取消
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
                 >
@@ -739,8 +736,8 @@ export default function AccountsPage() {
             <form onSubmit={handleEditPotSave} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">儲蓄桶名稱</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={potFormName}
                   onChange={e => setPotFormName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -748,8 +745,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">目標總金額 (TWD)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={potFormTarget || ""}
                   onChange={e => setPotFormTarget(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -757,8 +754,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">已分配金額 (TWD)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={potFormAllocated || ""}
                   onChange={e => setPotFormAllocated(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -766,14 +763,14 @@ export default function AccountsPage() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowEditPotModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
                 >
                   取消
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
                 >
@@ -793,8 +790,8 @@ export default function AccountsPage() {
             <form onSubmit={handleEditSave} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">金融機構</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formInstitution}
                   onChange={e => setFormInstitution(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -802,8 +799,8 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">帳戶名稱</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
@@ -812,7 +809,7 @@ export default function AccountsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">帳戶類型</label>
-                  <select 
+                  <select
                     value={formType}
                     onChange={e => setFormType(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -825,7 +822,7 @@ export default function AccountsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5">幣別</label>
-                  <select 
+                  <select
                     value={formCurrency}
                     onChange={e => setFormCurrency(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
@@ -837,16 +834,16 @@ export default function AccountsPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">帳戶代碼 / 帳號</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formCode}
                   onChange={e => setFormCode(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div className="flex items-center gap-3 py-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="edit_is_internal"
                   checked={formIsInternal}
                   onChange={e => setFormIsInternal(e.target.checked)}
@@ -889,14 +886,14 @@ export default function AccountsPage() {
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
                 >
                   取消
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
                 >

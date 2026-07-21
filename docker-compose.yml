@@ -5,7 +5,7 @@ services:
     platform: linux/amd64
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: docker/Dockerfile.backend
     ports:
       - "8888:8888"
     volumes:
@@ -18,7 +18,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.frontend
+      dockerfile: ../docker/Dockerfile.frontend
     ports:
       - "5173:5173"
     depends_on:
