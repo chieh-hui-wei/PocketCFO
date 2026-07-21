@@ -84,6 +84,7 @@ fintrack.db
 scratch/
 scratch_*.py
 test.ipynb
+scripts/
 
 # Uploads directory
 uploads/
