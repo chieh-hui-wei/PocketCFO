@@ -117,3 +117,98 @@ async def extract_structured(pdf_path: Path, prompt: str) -> dict[str, Any]:
             return parsed[0]
         return {}
     return parsed
+
+
+def is_rate_limit_error(exc: Exception) -> bool:
+    err_str = str(exc).lower()
+    return any(k in err_str for k in ["429", "rate limit", "resourceexhausted", "quota", "too many requests"])
+
+
+async def generate_content_with_fallback(
+    contents: list[Any],
+    config: types.GenerateContentConfig,
+    primary_model: str | None = None,
+) -> tuple[Any, str]:
+    """
+    Attempts generation with primary_model first.
+    If a rate limit error (429/quota) occurs, automatically fails over down the fallback model chain.
+    Returns (response, used_model_name).
+    """
+    import logging
+    log = logging.getLogger(__name__)
+
+    client = get_gemini_client()
+    raw_fallbacks = [m.strip() for m in settings.fallback_models.split(",") if m.strip()]
+    
+    primary = primary_model or settings.gemini_model
+    candidates: list[str] = []
+    for m in [primary] + raw_fallbacks + ["gemma-4-26b-it", "gemma-4-31b-it", "gemini-2.5-flash", "gemini-2.5-pro"]:
+        if m and m not in candidates:
+            candidates.append(m)
+
+    last_error: Exception | None = None
+    for model_name in candidates:
+        try:
+            log.info(f"Attempting generate_content with model: {model_name}")
+            response = await client.aio.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config,
+            )
+            return response, model_name
+        except Exception as exc:
+            last_error = exc
+            if is_rate_limit_error(exc):
+                log.warning(f"Rate limit / quota error on model '{model_name}': {exc}. Failover to next fallback model...")
+            else:
+                log.error(f"Error on model '{model_name}': {exc}. Trying next candidate...")
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("No model candidates available for generation.")
+
+
+async def generate_content_stream_with_fallback(
+    contents: list[Any],
+    config: types.GenerateContentConfig,
+    primary_model: str | None = None,
+):
+    """
+    Attempts generate_content_stream with primary_model first.
+    If a rate limit error occurs, automatically fails over to next candidate.
+    Yields (chunk, used_model_name).
+    """
+    import logging
+    log = logging.getLogger(__name__)
+
+    client = get_gemini_client()
+    raw_fallbacks = [m.strip() for m in settings.fallback_models.split(",") if m.strip()]
+    
+    primary = primary_model or settings.gemini_model
+    candidates: list[str] = []
+    for m in [primary] + raw_fallbacks + ["gemma-4-26b-it", "gemma-4-31b-it", "gemini-2.5-flash", "gemini-2.5-pro"]:
+        if m and m not in candidates:
+            candidates.append(m)
+
+    last_error: Exception | None = None
+    for model_name in candidates:
+        try:
+            log.info(f"Attempting generate_content_stream with model: {model_name}")
+            response_stream = await client.aio.models.generate_content_stream(
+                model=model_name,
+                contents=contents,
+                config=config,
+            )
+            async for chunk in response_stream:
+                yield chunk, model_name
+            return
+        except Exception as exc:
+            last_error = exc
+            if is_rate_limit_error(exc):
+                log.warning(f"Rate limit / quota error on stream with model '{model_name}': {exc}. Failover to next fallback model...")
+            else:
+                log.error(f"Streaming error on model '{model_name}': {exc}. Trying next candidate...")
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("No model candidates available for streaming.")

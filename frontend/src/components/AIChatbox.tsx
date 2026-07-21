@@ -7,6 +7,7 @@ export default function AIChatbox() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
+  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   // Developer mode states
   const [clickCount, setClickCount] = useState(0);
   const [isDevMode, setIsDevMode] = useState(false);
@@ -89,19 +90,24 @@ export default function AIChatbox() {
     setMessages((prev) => [...prev, { role: "model", content: "" }]);
 
     try {
-      await sendAIChatStream(userMessage, messages, (chunk: string) => {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          if (lastIndex >= 0 && updated[lastIndex].role === "model") {
-            updated[lastIndex] = {
-              ...updated[lastIndex],
-              content: updated[lastIndex].content + chunk,
-            };
-          }
-          return updated;
-        });
-      });
+      await sendAIChatStream(
+        userMessage,
+        messages,
+        (chunk: string) => {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            if (lastIndex >= 0 && updated[lastIndex].role === "model") {
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                content: updated[lastIndex].content + chunk,
+              };
+            }
+            return updated;
+          });
+        },
+        selectedModel
+      );
     } catch (err: any) {
       setMessages((prev) => {
         const updated = [...prev];
@@ -168,17 +174,33 @@ export default function AIChatbox() {
                 </span>
               )}
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen(false);
-              }}
-              className="text-white/80 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+
+            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+              {/* Model Selection Dropdown */}
+              <select
+                value={selectedModel}
+                onChange={e => setSelectedModel(e.target.value)}
+                className="bg-white/20 text-white text-[11px] font-bold px-2 py-1 rounded border border-white/30 focus:outline-none cursor-pointer focus:bg-indigo-700"
+                title="選擇 AI 模型 (若額度超限系統將自動切換至備用模型)"
+              >
+                <option value="gemini-2.5-flash" className="text-slate-800">Gemini 2.5 Flash</option>
+                <option value="gemma-4-26b-it" className="text-slate-800">Gemma 4 26B</option>
+                <option value="gemma-4-31b-it" className="text-slate-800">Gemma 4 31B</option>
+                <option value="gemini-2.5-pro" className="text-slate-800">Gemini 2.5 Pro</option>
+              </select>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                }}
+                className="text-white/80 hover:text-white hover:bg-white/10 p-1 rounded transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Dev Mode Tabs */}

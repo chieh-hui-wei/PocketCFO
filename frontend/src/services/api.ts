@@ -642,7 +642,8 @@ export async function sendAIChat(message: string, history: ChatMessage[]) {
 export async function sendAIChatStream(
   message: string,
   history: ChatMessage[],
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  model?: string
 ) {
   const token = localStorage.getItem("token");
   const response = await fetch("/api/v1/ai/chat", {
@@ -651,7 +652,7 @@ export async function sendAIChatStream(
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ message, history, model }),
   });
 
   if (!response.ok) {

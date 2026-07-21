@@ -14,7 +14,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.instances.database import get_db
-from src.instances.gemini import get_gemini_client
+from src.instances.gemini import (
+    get_gemini_client,
+    generate_content_with_fallback,
+    generate_content_stream_with_fallback,
+)
 from src.instances.config import get_settings
 from src.middleware.auth import verify_token
 from src.dbs.models import User
@@ -31,6 +35,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: List[ChatMessage] = []
+    model: Optional[str] = None
 
 class SQLRequest(BaseModel):
     query: str
@@ -159,28 +164,28 @@ async def chat_assistant(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_token)
-) -> dict[str, Any]:
+):
     """
     Text-to-SQL chatbot endpoint. Checks if user question needs DB data,
-    safely runs read-only SQL, and feeds results back to Gemini.
+    safely runs read-only SQL, and feeds results back to Gemini with automatic rate-limit fallback.
     """
     try:
-        client = get_gemini_client()
-        
-        # 1. Ask Gemini to plan the query (needs_db, sql, reasoning)
+        requested_model = request.model or settings.gemini_model
+
+        # 1. Ask Gemini to plan the query (needs_db, sql, reasoning) with fallback
         plan_prompt = (
             f"{DB_SCHEMA_PROMPT}\n\n"
             f"User Question: {request.message}\n"
         )
         
-        plan_response = await client.aio.models.generate_content(
-            model=settings.gemini_model,
+        plan_response, used_model = await generate_content_with_fallback(
             contents=[plan_prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=SQLPlannerResponse,
                 temperature=0.0,
-            )
+            ),
+            primary_model=requested_model,
         )
         
         plan_data = json.loads(plan_response.text)
@@ -213,7 +218,7 @@ async def chat_assistant(
                 log.warning(f"SQL validation or execution failed: {sql_err}. Falling back to general chat.")
                 db_results_str = f"Error executing database query: {str(sql_err)}"
                 
-        # 4. Formulate the final streaming response to the user
+        # 4. Formulate the final streaming response to the user with automatic fallback
         system_instruction = (
             "You are pocketCFO AI Assistant, a helpful personal finance assistant.\n"
             "Help the user track assets, liabilities, bank statements, and stock transactions.\n"
@@ -252,17 +257,17 @@ async def chat_assistant(
 
         async def event_generator():
             try:
-                response_stream = await client.aio.models.generate_content_stream(
-                    model=settings.gemini_model,
+                stream = generate_content_stream_with_fallback(
                     contents=contents,
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
                         temperature=0.7,
-                    )
+                    ),
+                    primary_model=requested_model,
                 )
-                async for chunk in response_stream:
+                async for chunk, stream_model in stream:
                     if chunk.text:
-                        data = json.dumps({"text": chunk.text})
+                        data = json.dumps({"text": chunk.text, "model": stream_model})
                         yield f"data: {data}\n\n"
             except Exception as stream_err:
                 log.error(f"Error in streaming response generation: {stream_err}")
