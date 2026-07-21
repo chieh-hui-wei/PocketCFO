@@ -136,6 +136,7 @@ class Account(Base):
     is_internal: Mapped[bool] = mapped_column(
         Boolean, default=True
     )  # user-owned → transfers excluded
+    notes: Mapped[str | None] = mapped_column(Text)
     is_installment: Mapped[bool] = mapped_column(Boolean, default=False)
     installment_amount: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
