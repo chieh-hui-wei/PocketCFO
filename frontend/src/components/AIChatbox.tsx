@@ -7,7 +7,7 @@ export default function AIChatbox() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState("gemini-3.1-flash-lite");
   // Developer mode states
   const [clickCount, setClickCount] = useState(0);
   const [isDevMode, setIsDevMode] = useState(false);
@@ -183,9 +183,10 @@ export default function AIChatbox() {
                 className="bg-white/20 text-white text-[11px] font-bold px-2 py-1 rounded border border-white/30 focus:outline-none cursor-pointer focus:bg-indigo-700"
                 title="選擇 AI 模型 (若額度超限系統將自動切換至備用模型)"
               >
-                <option value="gemini-2.5-flash" className="text-slate-800">Gemini 2.5 Flash</option>
+                <option value="gemini-3.1-flash-lite" className="text-slate-800">Gemini 3.1 Flash Lite</option>
                 <option value="gemma-4-26b-it" className="text-slate-800">Gemma 4 26B</option>
                 <option value="gemma-4-31b-it" className="text-slate-800">Gemma 4 31B</option>
+                <option value="gemini-2.5-flash" className="text-slate-800">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro" className="text-slate-800">Gemini 2.5 Pro</option>
               </select>
 

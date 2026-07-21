@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # ── Gemini ────────────────────────────────────────────────────────────
     gemini_api_key: str
     gemini_model: str
-    fallback_models: str = "gemma-4-26b-it,gemma-4-31b-it,gemini-2.5-flash"
+    fallback_models: str = "gemini-3.1-flash-lite,gemma-4-26b-it,gemma-4-31b-it,gemini-2.5-flash-lite"
 
     # ── 永豐金 (Sinopac / 豐存股) ─────────────────────────────────────────
     sinopac_api_base_url: str

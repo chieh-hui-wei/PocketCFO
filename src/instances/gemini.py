@@ -142,7 +142,7 @@ async def generate_content_with_fallback(
     
     primary = primary_model or settings.gemini_model
     candidates: list[str] = []
-    for m in [primary] + raw_fallbacks + ["gemma-4-26b-it", "gemma-4-31b-it", "gemini-2.5-flash", "gemini-2.5-pro"]:
+    for m in [primary] + raw_fallbacks + ["gemini-3.1-flash-lite", "gemma-4-26b-it", "gemma-4-31b-it", "gemini-2.5-flash", "gemini-2.5-pro"]:
         if m and m not in candidates:
             candidates.append(m)
 
@@ -186,7 +186,7 @@ async def generate_content_stream_with_fallback(
     
     primary = primary_model or settings.gemini_model
     candidates: list[str] = []
-    for m in [primary] + raw_fallbacks + ["gemma-4-26b-it", "gemma-4-31b-it", "gemini-2.5-flash", "gemini-2.5-pro"]:
+    for m in [primary] + raw_fallbacks + ["gemini-3.1-flash-lite", "gemma-4-26b-it", "gemma-4-31b-it", "gemini-2.5-flash", "gemini-2.5-pro"]:
         if m and m not in candidates:
             candidates.append(m)
 
