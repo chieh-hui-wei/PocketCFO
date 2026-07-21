@@ -213,7 +213,7 @@ async def chat_assistant(
                 log.warning(f"SQL validation or execution failed: {sql_err}. Falling back to general chat.")
                 db_results_str = f"Error executing database query: {str(sql_err)}"
                 
-        # 4. Formulate the final response to the user
+        # 4. Formulate the final streaming response to the user
         system_instruction = (
             "You are pocketCFO AI Assistant, a helpful personal finance assistant.\n"
             "Help the user track assets, liabilities, bank statements, and stock transactions.\n"
@@ -247,21 +247,32 @@ async def chat_assistant(
                 parts=[types.Part.from_text(text=final_prompt)]
             )
         )
-        
-        response = await client.aio.models.generate_content(
-            model=settings.gemini_model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.7,
-            )
-        )
-        
-        return {
-            "response": response.text,
-            "sql": executed_sql,
-            "reasoning": reasoning
-        }
+
+        from fastapi.responses import StreamingResponse
+
+        async def event_generator():
+            try:
+                response_stream = await client.aio.models.generate_content_stream(
+                    model=settings.gemini_model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.7,
+                    )
+                )
+                async for chunk in response_stream:
+                    if chunk.text:
+                        data = json.dumps({"text": chunk.text})
+                        yield f"data: {data}\n\n"
+            except Exception as stream_err:
+                log.error(f"Error in streaming response generation: {stream_err}")
+                err_data = json.dumps({"error": str(stream_err)})
+                yield f"data: {err_data}\n\n"
+            finally:
+                yield "data: [DONE]\n\n"
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+
     except Exception as e:
         log.error(f"Failed in Text-to-SQL chat assistant: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"AI Assistant Error: {str(e)}")

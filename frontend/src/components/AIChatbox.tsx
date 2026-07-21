@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { sendAIChat, executeSQLQuery, ChatMessage, SQLResult } from "../services/api";
+import { sendAIChatStream, executeSQLQuery, ChatMessage, SQLResult } from "../services/api";
 
 export default function AIChatbox() {
   const [isOpen, setIsOpen] = useState(false);
@@ -84,16 +84,35 @@ export default function AIChatbox() {
       return;
     }
 
-    // Call standard Gemini Chat
+    // Call standard Gemini Chat with Streaming
     setIsLoading(true);
+    setMessages((prev) => [...prev, { role: "model", content: "" }]);
+
     try {
-      const res = await sendAIChat(userMessage, messages);
-      setMessages((prev) => [...prev, { role: "model", content: res.response }]);
+      await sendAIChatStream(userMessage, messages, (chunk: string) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const lastIndex = updated.length - 1;
+          if (lastIndex >= 0 && updated[lastIndex].role === "model") {
+            updated[lastIndex] = {
+              ...updated[lastIndex],
+              content: updated[lastIndex].content + chunk,
+            };
+          }
+          return updated;
+        });
+      });
     } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", content: `❌ Failed to communicate with AI: ${err.message}` }
-      ]);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIndex = updated.length - 1;
+        if (lastIndex >= 0 && updated[lastIndex].role === "model" && !updated[lastIndex].content) {
+          updated[lastIndex] = { role: "model", content: `❌ Failed to communicate with AI: ${err.message}` };
+        } else {
+          updated.push({ role: "model", content: `\n❌ Error: ${err.message}` });
+        }
+        return updated;
+      });
     } finally {
       setIsLoading(false);
     }

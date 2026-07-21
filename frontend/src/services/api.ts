@@ -639,6 +639,71 @@ export async function sendAIChat(message: string, history: ChatMessage[]) {
   return data as { response: string };
 }
 
+export async function sendAIChatStream(
+  message: string,
+  history: ChatMessage[],
+  onChunk: (chunk: string) => void
+) {
+  const token = localStorage.getItem("token");
+  const response = await fetch("/api/v1/ai/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message, history }),
+  });
+
+  if (!response.ok) {
+    let errDetail = `Server error ${response.status}`;
+    try {
+      const errJson = await response.json();
+      errDetail = errJson.detail || errDetail;
+    } catch (_) {
+      const errText = await response.text();
+      errDetail = errText || errDetail;
+    }
+    throw new Error(errDetail);
+  }
+
+  if (!response.body) {
+    throw new Error("No response body received for streaming.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const dataStr = trimmed.replace(/^data:\s*/, "");
+      if (dataStr === "[DONE]") {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(dataStr);
+        if (parsed.error) {
+          throw new Error(parsed.error);
+        }
+        if (parsed.text) {
+          onChunk(parsed.text);
+        }
+      } catch (e) {
+        // Skip JSON parse error if partial chunk
+      }
+    }
+  }
+}
+
 export interface SQLResult {
   columns: string[];
   rows: (string | null)[][];
