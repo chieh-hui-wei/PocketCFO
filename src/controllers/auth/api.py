@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.instances.database import get_db
 from src.dbs.models import User, UserInvitation, PasswordReset
 from src.middleware.auth import verify_token
-from src.services.email_service import send_verification_email, send_reset_password_email
+from src.services.email.service import send_verification_email, send_reset_password_email
 from src.services.auth.service import AuthService
 from src.controllers.auth.model import (
     LoginRequest,
