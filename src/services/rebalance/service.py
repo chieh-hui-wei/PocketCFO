@@ -97,28 +97,36 @@ class RebalanceService:
         total_cash_twd = bs.total_cash if bs else 0.0
 
         # Categorize securities into Stock & Bond
+        # Group and aggregate securities by ticker symbol across all broker accounts
+        consolidated_map: Dict[str, Dict[str, Any]] = {}
+        for sec in securities:
+            ticker_upper = (sec.ticker or "").strip().upper()
+            mv_twd = sec.market_value if sec.market_value else (sec.original_market_value * (sec.exchange_rate or 1.0))
+            price_twd = sec.current_price if sec.current_price else (sec.original_current_price * (sec.exchange_rate or 1.0))
+
+            if ticker_upper in consolidated_map:
+                consolidated_map[ticker_upper]["quantity"] += sec.quantity
+                consolidated_map[ticker_upper]["market_value"] += mv_twd
+            else:
+                consolidated_map[ticker_upper] = {
+                    "id": sec.id,
+                    "ticker": sec.ticker,
+                    "name": sec.name or sec.ticker,
+                    "quantity": sec.quantity,
+                    "current_price": price_twd,
+                    "market_value": mv_twd,
+                    "currency": sec.currency or "TWD",
+                    "exchange_rate": sec.exchange_rate or 1.0,
+                }
+
         stock_items = []
         bond_items = []
 
         stock_mv_total = 0.0
         bond_mv_total = 0.0
 
-        for sec in securities:
-            ticker_upper = (sec.ticker or "").strip().upper()
-            mv_twd = sec.market_value if sec.market_value else (sec.original_market_value * (sec.exchange_rate or 1.0))
-            price_twd = sec.current_price if sec.current_price else (sec.original_current_price * (sec.exchange_rate or 1.0))
-
-            item = {
-                "id": sec.id,
-                "ticker": sec.ticker,
-                "name": sec.name or sec.ticker,
-                "quantity": sec.quantity,
-                "current_price": price_twd,
-                "market_value": mv_twd,
-                "currency": sec.currency or "TWD",
-                "exchange_rate": sec.exchange_rate or 1.0,
-            }
-
+        for ticker_upper, item in consolidated_map.items():
+            mv_twd = item["market_value"]
             if ticker_upper in bond_ticker_set:
                 bond_items.append(item)
                 bond_mv_total += mv_twd
