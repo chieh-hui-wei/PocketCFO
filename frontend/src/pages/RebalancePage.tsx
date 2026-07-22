@@ -93,6 +93,18 @@ export default function RebalancePage() {
     return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
+  const handleToggleAutoEmail = async () => {
+    if (!analysis) return;
+    const newStatus = !analysis.enable_email_alert;
+    try {
+      await updateRebalanceSettings({ enable_email_alert: newStatus });
+      setToastMsg(newStatus ? "✅ 已開啟資產偏離「自動郵件提醒」" : "⏸️ 已關閉「自動郵件提醒」");
+      fetchData();
+    } catch (err: any) {
+      setToastMsg(`❌ 設定更新失敗: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
@@ -145,7 +157,35 @@ export default function RebalancePage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Auto Email Alert Toggle Switch */}
+          {analysis && (
+            <button
+              type="button"
+              onClick={handleToggleAutoEmail}
+              className={`px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
+                analysis.enable_email_alert
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <div
+                className={`w-8 h-4 rounded-full p-0.5 transition-colors ${
+                  analysis.enable_email_alert ? "bg-emerald-600" : "bg-slate-300"
+                }`}
+              >
+                <div
+                  className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                    analysis.enable_email_alert ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </div>
+              <span>
+                {analysis.enable_email_alert ? "自動郵件提醒：已開啟" : "自動郵件提醒：已關閉"}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsEditingSettings(!isEditingSettings)}
             className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
@@ -156,9 +196,9 @@ export default function RebalancePage() {
           <button
             onClick={handleSendEmail}
             disabled={sendingEmail}
-            className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white shadow-sm transition-colors cursor-pointer"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white shadow-sm transition-colors cursor-pointer"
           >
-            {sendingEmail ? "寄送中..." : "發送提醒郵件"}
+            {sendingEmail ? "寄送中..." : "手動測試寄信"}
           </button>
         </div>
       </div>
