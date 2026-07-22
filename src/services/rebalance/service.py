@@ -61,6 +61,10 @@ class RebalanceService:
 
         if target_stock_pct is not None:
             strategy.target_stock_pct = target_stock_pct
+            if stock_trigger_threshold is None:
+                strategy.stock_trigger_threshold = min(100.0, target_stock_pct + 10.0)
+            if stock_min_threshold is None:
+                strategy.stock_min_threshold = max(0.0, target_stock_pct - 10.0)
         if target_bond_pct is not None:
             strategy.target_bond_pct = target_bond_pct
         if target_cash_pct is not None:
