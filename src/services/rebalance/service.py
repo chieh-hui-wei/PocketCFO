@@ -128,7 +128,7 @@ class RebalanceService:
                         .join(Account, Account.id == AccountSnapshot.account_id)
                         .where(
                             Account.user_id == self.user_id,
-                            Account.account_type.in_([AccountType.CASH, AccountType.BANK, AccountType.SAVINGS])
+                            Account.account_type == AccountType.BANK
                         )
                         .order_by(AccountSnapshot.period_date.desc())
                     )
