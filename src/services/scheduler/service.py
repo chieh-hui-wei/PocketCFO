@@ -554,6 +554,37 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date:
             log.error(f"Failed to auto-sync E-Sun assets: {e}")
             update_sync_status("esun_assets", "failed", str(e))
 
+async def check_and_send_rebalance_alerts(users: list) -> None:
+    """
+    Automated check for portfolio distortion triggers (Rise / Fall) on active users.
+    Sends email alert if enable_email_alert is True and alert hasn't been sent today.
+    """
+    from src.services.rebalance.service import RebalanceService
+    from datetime import datetime, timezone
+
+    for u in users:
+        try:
+            async with AsyncSessionLocal() as db:
+                service = RebalanceService(db, u.id)
+                strategy = await service.get_or_create_strategy()
+
+                if not strategy.enable_email_alert:
+                    continue
+
+                analysis = await service.analyze_rebalance()
+                if analysis.get("is_triggered"):
+                    # Avoid sending multiple emails on the same day
+                    if strategy.last_alert_sent_at:
+                        last_sent_date = strategy.last_alert_sent_at.date()
+                        if last_sent_date == date.today():
+                            continue
+
+                    log.info(f"Triggering automated rebalance alert email for user_id={u.id}...")
+                    await service.send_alert_email()
+        except Exception as e:
+            log.error(f"Failed to execute automated rebalance alert for user_id={u.id}: {e}")
+
+
 async def check_and_run_tasks(now: datetime) -> None:
     """
     Check if current time matches scheduled sync times and run them.
@@ -592,6 +623,9 @@ async def check_and_run_tasks(now: datetime) -> None:
                 if taipei_now.day <= 5:
                     asyncio.create_task(sync_taishin_trades(prev_year, prev_month, user_id=u.id))
                     asyncio.create_task(sync_esun_trades(prev_year, prev_month, user_id=u.id))
+
+            # 3. Check portfolio rebalance distortion and dispatch auto-emails
+            asyncio.create_task(check_and_send_rebalance_alerts(users))
                 
             set_last_asset_sync_day(current_day)
 
