@@ -11,6 +11,7 @@ export default function AIChatbox() {
   // Developer mode states
   const [clickCount, setClickCount] = useState(0);
   const [isDevMode, setIsDevMode] = useState(false);
+  const [showContextModal, setShowContextModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "sql">("chat");
   const [sqlQuery, setSqlQuery] = useState("SELECT * FROM accounts WHERE user_id = :user_id LIMIT 5;");
   const [sqlResult, setSqlResult] = useState<SQLResult | null>(null);
@@ -189,6 +190,18 @@ export default function AIChatbox() {
                 <option value="gemini-2.5-flash" className="text-slate-800">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro" className="text-slate-800">Gemini 2.5 Pro</option>
               </select>
+
+              {/* Hidden Context Inspector Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowContextModal(true);
+                }}
+                className="opacity-0 hover:opacity-100 focus:opacity-100 text-white/70 hover:text-white p-1 rounded transition-all cursor-pointer text-xs"
+                title="檢視 LLM 傳送 Context (隱藏按鈕)"
+              >
+                🔍
+              </button>
 
               <button
                 onClick={(e) => {
@@ -389,6 +402,101 @@ export default function AIChatbox() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* LLM Context Inspector Modal */}
+      {showContextModal && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[600px] max-w-[95vw] max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-5 py-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔍</span>
+                <h3 className="font-bold text-sm">LLM Context Inspector</h3>
+                <span className="bg-indigo-500/30 text-indigo-300 text-[10px] font-mono px-2 py-0.5 rounded border border-indigo-400/30">
+                  {selectedModel}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowContextModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs font-mono bg-slate-50 flex-1">
+              <div>
+                <h4 className="font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                  <span>📌 Current Selected Model:</span>
+                  <span className="text-indigo-600 font-extrabold">{selectedModel}</span>
+                </h4>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-700 mb-1">
+                  💬 Conversation History Sent as Context ({messages.length} messages):
+                </h4>
+                {messages.length === 0 ? (
+                  <p className="text-slate-400 italic bg-white p-3 rounded-lg border border-slate-200">
+                    No history yet. Start chatting to send conversation context to LLM.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {messages.map((m, i) => (
+                      <div
+                        key={i}
+                        className={`p-3 rounded-lg border ${
+                          m.role === "user"
+                            ? "bg-indigo-50/70 border-indigo-200 text-indigo-950"
+                            : "bg-white border-slate-200 text-slate-800"
+                        }`}
+                      >
+                        <div className="font-bold mb-1 text-[10px] uppercase tracking-wider text-slate-500">
+                          {m.role === "user" ? "👤 User" : "🤖 Model"}
+                        </div>
+                        <div className="whitespace-pre-wrap leading-relaxed max-h-[150px] overflow-y-auto font-sans">
+                          {m.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-700 mb-1">⚙️ Backend Context Processing Flow:</h4>
+                <div className="bg-slate-900 text-slate-200 p-3.5 rounded-lg text-[11px] leading-relaxed space-y-1.5 border border-slate-800">
+                  <p className="text-emerald-400 font-bold">1. SQL Planner Step:</p>
+                  <p className="pl-3 text-slate-300">
+                    Evaluates user prompt against full DB Schema (accounts, snapshots, securities, transactions, balance_sheets, income_statements) to decide if read-only SQL query is needed.
+                  </p>
+                  <p className="text-emerald-400 font-bold mt-2">2. Dynamic Data Injection:</p>
+                  <p className="pl-3 text-slate-300">
+                    If SQL is executed, query results are formatted into JSON and prepended as system context to the final prompt.
+                  </p>
+                  <p className="text-emerald-400 font-bold mt-2">3. Streaming Generation:</p>
+                  <p className="pl-3 text-slate-300">
+                    Sends full history + injected system context + user message to Gemini stream API.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 bg-slate-100 border-t border-slate-200 flex justify-end shrink-0">
+              <button
+                onClick={() => setShowContextModal(false)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
