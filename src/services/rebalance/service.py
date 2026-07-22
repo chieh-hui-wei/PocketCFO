@@ -62,20 +62,14 @@ class RebalanceService:
         if target_stock_pct is not None:
             strategy.target_stock_pct = target_stock_pct
             s_frac = target_stock_pct / 100.0
-            if stock_trigger_threshold is None:
-                # Stock price +50% rise formula: S*1.5 / (1 + 0.5*S)
-                strategy.stock_trigger_threshold = round((s_frac * 1.5 / (1.0 + 0.5 * s_frac)) * 100.0, 2)
-            if stock_min_threshold is None:
-                # Stock price -33.33% drop formula: S*(2/3) / (1 - (1/3)*S)
-                strategy.stock_min_threshold = round((s_frac * (2.0 / 3.0) / (1.0 - (1.0 / 3.0) * s_frac)) * 100.0, 2)
+            # Stock price +50% rise formula: S*1.5 / (1 + 0.5*S)
+            strategy.stock_trigger_threshold = round((s_frac * 1.5 / (1.0 + 0.5 * s_frac)) * 100.0, 2)
+            # Stock price -33.33% drop formula: S*(2/3) / (1 - (1/3)*S)
+            strategy.stock_min_threshold = round((s_frac * (2.0 / 3.0) / (1.0 - (1.0 / 3.0) * s_frac)) * 100.0, 2)
         if target_bond_pct is not None:
             strategy.target_bond_pct = target_bond_pct
         if target_cash_pct is not None:
             strategy.target_cash_pct = target_cash_pct
-        if stock_trigger_threshold is not None:
-            strategy.stock_trigger_threshold = stock_trigger_threshold
-        if stock_min_threshold is not None:
-            strategy.stock_min_threshold = stock_min_threshold
         if bond_tickers is not None:
             strategy.bond_tickers = bond_tickers.strip()
         if custom_cash_amount is not None:
