@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dbs.models import Account, AccountSnapshot, Security, AccountType, Transaction, TransactionSource
 from src.dbs.repository import AccountRepository, SnapshotRepository, SecurityRepository, TransactionRepository
-from src.utils.stock_utils import parse_stock_transaction, fetch_month_end_price, normalize_stock_name
+from src.utils.stock_utils import parse_stock_transaction, fetch_month_end_price, normalize_stock_name, refresh_live_prices
 from src.services.exchange_rate.service import get_usd_twd_rate
 
 log = logging.getLogger(__name__)
@@ -176,27 +176,6 @@ class StockHoldingService:
 
         final_snapshots: List[AccountSnapshot] = list(existing_snapshots.values())
         final_securities: List[Security] = list(existing_securities)
-
-        # 3a. If Firstrade positions are inherited from a prior month and we're viewing the
-        # current month, re-fetch live prices so values reflect today's market.
-        if firstrade_inherited and is_current_month and firstrade_acct:
-            try:
-                live_rate = await get_usd_twd_rate(date.today())
-            except Exception:
-                live_rate = None
-            ft_secs = [s for s in final_securities if s.account_id == firstrade_acct.id]
-            if ft_secs:
-                live_price_tasks = [fetch_month_end_price(s.ticker, period_date) for s in ft_secs]
-                live_prices = await asyncio.gather(*live_price_tasks)
-                for sec, live_usd in zip(ft_secs, live_prices):
-                    if live_usd is not None:
-                        rate = live_rate or sec.exchange_rate or 32.5
-                        sec.original_current_price = live_usd
-                        sec.original_market_value = sec.quantity * live_usd
-                        sec.current_price = round(live_usd * rate)
-                        sec.market_value = round(sec.quantity * live_usd * rate)
-                        sec.exchange_rate = rate
-                        log.info(f"Refreshed inherited Firstrade price for {sec.ticker}: ${live_usd:.2f} USD")
 
         # 3. Handle Firstrade specifically by aggregating all historical transactions up to the query date
         # (Only if we don't already have it stored in the database for this period)
@@ -358,6 +337,11 @@ class StockHoldingService:
         from src.dbs.models import Account
 
         _, securities = await self.get_or_compute_portfolio(period_date)
+
+        # Always refresh to live prices for current-month views (both TW and US assets)
+        today = date.today()
+        if period_date.year == today.year and period_date.month == today.month:
+            await refresh_live_prices(securities)
 
         # Build account name lookup
         acc_stmt = sa_select(Account.id, Account.name).where(Account.user_id == self.user_id)

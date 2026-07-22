@@ -185,3 +185,59 @@ def normalize_transaction_description(desc: str) -> str:
     )
     return desc
 
+
+async def refresh_live_prices(securities: list, usd_twd_rate: float | None = None) -> None:
+    """
+    Re-fetches the latest available market price for every security in the list and
+    updates its ``current_price`` / ``market_value`` fields in-place.
+
+    Works for:
+    - Taiwan tickers (numeric strings like "00631L", "2330") → queries Yahoo Finance
+      with .TW / .TWO suffix, returns price in TWD.
+    - US tickers (alphabetic like "VT", "BND", "SPCX") → queries Yahoo Finance directly,
+      returns price in USD and converts to TWD using ``usd_twd_rate``.
+
+    Args:
+        securities: list of Security ORM objects (or any object with .ticker, .quantity,
+                    .current_price, .market_value, .currency, .exchange_rate attributes).
+        usd_twd_rate: current USD/TWD exchange rate; fetched automatically if not provided.
+    """
+    import asyncio
+    from datetime import date as _date
+
+    if not securities:
+        return
+
+    today = _date.today()
+
+    # Resolve USD/TWD rate once if any USD security is present
+    has_usd = any((getattr(s, "currency", "TWD") or "TWD").upper() == "USD" for s in securities)
+    if has_usd and usd_twd_rate is None:
+        try:
+            from src.services.exchange_rate.service import get_usd_twd_rate
+            usd_twd_rate = await get_usd_twd_rate(today)
+        except Exception:
+            usd_twd_rate = 32.5
+
+    # Fetch all prices concurrently
+    tasks = [fetch_month_end_price(s.ticker, today.replace(day=1)) for s in securities]
+    prices = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for sec, price in zip(securities, prices):
+        if isinstance(price, Exception) or price is None:
+            continue
+
+        currency = (getattr(sec, "currency", "TWD") or "TWD").upper()
+        if currency == "USD":
+            rate = usd_twd_rate or sec.exchange_rate or 32.5
+            sec.original_current_price = price
+            sec.original_market_value = sec.quantity * price
+            sec.current_price = round(price * rate)
+            sec.market_value = round(sec.quantity * price * rate)
+            sec.exchange_rate = rate
+        else:
+            # TWD asset — price already in TWD
+            sec.current_price = round(price)
+            sec.market_value = round(sec.quantity * price)
+
+        log.info(f"[live price] {sec.ticker}: {price:.4f} {currency}")

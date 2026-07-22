@@ -15,6 +15,7 @@ from src.services.reports.stock_holding import StockHoldingService
 from src.services.reports.balance_sheet import BalanceSheetService
 from src.services.email.service import send_rebalance_alert_email
 from src.utils.date_utils import first_of_month
+from src.utils.stock_utils import refresh_live_prices
 
 log = logging.getLogger(__name__)
 
@@ -95,6 +96,11 @@ class RebalanceService:
         # 1. Fetch stock holdings
         stock_service = StockHoldingService(self.db, self.user_id)
         _, securities = await stock_service.get_or_compute_portfolio(target_date)
+
+        # Always use live prices on the rebalance page (both TW and US assets)
+        today = date.today()
+        if target_date.year == today.year and target_date.month == today.month:
+            await refresh_live_prices(securities)
 
         # 2. Fetch cash balance from custom override or balance sheet service (with fallback to latest month)
         is_custom_cash = False
