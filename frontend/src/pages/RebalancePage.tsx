@@ -432,16 +432,11 @@ export default function RebalancePage() {
       {/* Main Clean Rebalance Portfolio Table */}
       {analysis && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-            <div>
-              <h3 className="font-extrabold text-sm text-slate-900">資產部位明細表</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                檢視各標的當前庫存數量、現價、總市值、預計比例與實際比例。
-              </p>
-            </div>
-            <span className="text-xs font-mono bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-bold">
-              {analysis.period_date}
-            </span>
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 className="font-extrabold text-sm text-slate-900">資產部位明細表</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              檢視各標的當前庫存數量、現價、總市值、預計比例與實際比例。
+            </p>
           </div>
 
           <div className="overflow-x-auto">
