@@ -248,8 +248,11 @@ export default function RebalancePage() {
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setTargetStock(val);
-                  setTargetMinStock(Math.max(0, val - 10));
-                  setTriggerThreshold(Math.min(100, val + 10));
+                  const S = val / 100.0;
+                  const upper = S > 0 ? (S * 1.5) / (1.0 + 0.5 * S) * 100.0 : 0;
+                  const lower = S > 0 ? (S * (2.0 / 3.0)) / (1.0 - (1.0 / 3.0) * S) * 100.0 : 0;
+                  setTriggerThreshold(Number(upper.toFixed(2)));
+                  setTargetMinStock(Number(lower.toFixed(2)));
                 }}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
                 required
