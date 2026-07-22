@@ -124,13 +124,13 @@ class RebalanceService:
                 else:
                     # Secondary Fallback: Sum latest positive snapshots from cash/bank accounts
                     snap_stmt = (
-                        select(AccountSnapshot.balance_twd)
+                        select(AccountSnapshot.balance * AccountSnapshot.exchange_rate)
                         .join(Account, Account.id == AccountSnapshot.account_id)
                         .where(
                             Account.user_id == self.user_id,
                             Account.account_type.in_([AccountType.CASH, AccountType.BANK, AccountType.SAVINGS])
                         )
-                        .order_by(AccountSnapshot.snapshot_date.desc())
+                        .order_by(AccountSnapshot.period_date.desc())
                     )
                     snap_res = await self.db.execute(snap_stmt)
                     cash_balances = snap_res.scalars().all()
