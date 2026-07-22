@@ -15,4 +15,5 @@ class UpdateRebalanceSettingsRequest(BaseModel):
     stock_trigger_threshold: Optional[float] = Field(None, ge=0.0, le=100.0)
     stock_min_threshold: Optional[float] = Field(None, ge=0.0, le=100.0)
     bond_tickers: Optional[str] = None
+    custom_cash_amount: Optional[float] = None
     enable_email_alert: Optional[bool] = None

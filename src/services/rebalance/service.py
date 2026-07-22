@@ -54,6 +54,7 @@ class RebalanceService:
         stock_trigger_threshold: float | None = None,
         stock_min_threshold: float | None = None,
         bond_tickers: str | None = None,
+        custom_cash_amount: float | None = None,
         enable_email_alert: bool | None = None,
     ) -> RebalanceStrategy:
         strategy = await self.get_or_create_strategy()
@@ -70,6 +71,9 @@ class RebalanceService:
             strategy.stock_min_threshold = stock_min_threshold
         if bond_tickers is not None:
             strategy.bond_tickers = bond_tickers.strip()
+        if custom_cash_amount is not None:
+            # If set to negative (e.g. -1), treat as clearing custom override
+            strategy.custom_cash_amount = custom_cash_amount if custom_cash_amount >= 0 else None
         if enable_email_alert is not None:
             strategy.enable_email_alert = enable_email_alert
 
@@ -91,10 +95,28 @@ class RebalanceService:
         stock_service = StockHoldingService(self.db, self.user_id)
         _, securities = await stock_service.get_or_compute_portfolio(target_date)
 
-        # 2. Fetch cash balance from balance sheet service
-        bs_service = BalanceSheetService(self.db, self.user_id)
-        bs = await bs_service.compute(target_date.year, target_date.month)
-        total_cash_twd = bs.total_cash if bs else 0.0
+        # 2. Fetch cash balance from custom override or balance sheet service (with fallback to latest month)
+        is_custom_cash = False
+        if strategy.custom_cash_amount is not None and strategy.custom_cash_amount >= 0:
+            total_cash_twd = strategy.custom_cash_amount
+            is_custom_cash = True
+        else:
+            bs_service = BalanceSheetService(self.db, self.user_id)
+            bs = await bs_service.compute(target_date.year, target_date.month)
+            if bs and bs.total_cash > 0:
+                total_cash_twd = bs.total_cash
+            else:
+                # Fallback: Query the most recent available BalanceSheet snapshot for the user
+                from src.dbs.models import BalanceSheet
+                stmt = (
+                    select(BalanceSheet)
+                    .where(BalanceSheet.user_id == self.user_id)
+                    .order_by(BalanceSheet.year.desc(), BalanceSheet.month.desc())
+                    .limit(1)
+                )
+                res = await self.db.execute(stmt)
+                latest_bs = res.scalar_one_or_none()
+                total_cash_twd = latest_bs.total_cash if latest_bs else (bs.total_cash if bs else 0.0)
 
         # Categorize securities into Stock & Bond
         # Group and aggregate securities by ticker symbol across all broker accounts
@@ -246,6 +268,8 @@ class RebalanceService:
             "stock_trigger_threshold": strategy.stock_trigger_threshold,
             "stock_min_threshold": getattr(strategy, "stock_min_threshold", 40.0),
             "bond_tickers": strategy.bond_tickers,
+            "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
+            "is_custom_cash": is_custom_cash,
             "enable_email_alert": strategy.enable_email_alert,
             "is_triggered": is_triggered,
             "trigger_direction": trigger_direction,

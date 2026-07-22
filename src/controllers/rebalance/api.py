@@ -61,6 +61,7 @@ async def update_rebalance_settings(
         stock_trigger_threshold=body.stock_trigger_threshold,
         stock_min_threshold=body.stock_min_threshold,
         bond_tickers=body.bond_tickers,
+        custom_cash_amount=body.custom_cash_amount,
         enable_email_alert=body.enable_email_alert,
     )
     return {
@@ -72,6 +73,7 @@ async def update_rebalance_settings(
             "stock_trigger_threshold": strategy.stock_trigger_threshold,
             "stock_min_threshold": getattr(strategy, "stock_min_threshold", 40.0),
             "bond_tickers": strategy.bond_tickers,
+            "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
             "enable_email_alert": strategy.enable_email_alert,
         }
     }

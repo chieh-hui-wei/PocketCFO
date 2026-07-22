@@ -353,6 +353,7 @@ class RebalanceStrategy(Base):
     stock_trigger_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=60.0)  # Max upper bound
     stock_min_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)      # Min lower bound
     bond_tickers: Mapped[str] = mapped_column(String(255), nullable=False, default="00931B,BND")
+    custom_cash_amount: Mapped[float | None] = mapped_column(Float, nullable=True)  # Manual override for cash amount
     enable_email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_alert_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

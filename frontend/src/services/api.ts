@@ -750,6 +750,8 @@ export interface RebalanceAnalysis {
   stock_trigger_threshold: number;
   stock_min_threshold: number;
   bond_tickers: string;
+  custom_cash_amount?: number | null;
+  is_custom_cash?: boolean;
   enable_email_alert: boolean;
   is_triggered: boolean;
   trigger_direction: "RISE" | "FALL" | "NONE";
@@ -768,6 +770,7 @@ export async function updateRebalanceSettings(payload: {
   stock_trigger_threshold?: number;
   stock_min_threshold?: number;
   bond_tickers?: string;
+  custom_cash_amount?: number | null;
   enable_email_alert?: boolean;
 }) {
   const { data } = await api.put("/rebalance/settings", payload);

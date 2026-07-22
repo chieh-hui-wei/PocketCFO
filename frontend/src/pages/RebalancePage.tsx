@@ -21,6 +21,7 @@ export default function RebalancePage() {
   const [triggerThreshold, setTriggerThreshold] = useState(60);
   const [targetMinStock, setTargetMinStock] = useState(40);
   const [bondTickers, setBondTickers] = useState("00931B,BND");
+  const [customCash, setCustomCash] = useState<string>("");
   const [savingSettings, setSavingSettings] = useState(false);
 
   const fetchData = async () => {
@@ -35,6 +36,7 @@ export default function RebalancePage() {
       setTriggerThreshold(res.stock_trigger_threshold);
       setTargetMinStock(res.stock_min_threshold || 40);
       setBondTickers(res.bond_tickers);
+      setCustomCash(res.custom_cash_amount != null ? String(res.custom_cash_amount) : "");
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "載入再平衡資料失敗");
     } finally {
@@ -63,6 +65,7 @@ export default function RebalancePage() {
         stock_trigger_threshold: Number(triggerThreshold),
         stock_min_threshold: Number(targetMinStock),
         bond_tickers: bondTickers,
+        custom_cash_amount: customCash.trim() !== "" ? Number(customCash) : -1,
       });
       setToastMsg("✅ 再平衡策略設定已更新");
       setIsEditingSettings(false);
@@ -104,7 +107,7 @@ export default function RebalancePage() {
   if (error) {
     return (
       <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-rose-900 text-xs">
-        <h4 className="font-bold text-sm mb-1">❌ 載入失敗</h4>
+        <h4 className="font-bold text-sm mb-1">載入失敗</h4>
         <p>{error}</p>
         <button
           onClick={fetchData}
@@ -122,18 +125,18 @@ export default function RebalancePage() {
       {toastMsg && (
         <div className="p-4 rounded-2xl bg-slate-900 text-white text-sm font-medium shadow-lg flex justify-between items-center animate-in fade-in duration-200">
           <span>{toastMsg}</span>
-          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white font-bold text-xs ml-4">
+          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white font-bold text-xs ml-4 cursor-pointer">
             關閉
           </button>
         </div>
       )}
 
-      {/* Header Bar matching system pages */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Bar */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-black text-slate-900 tracking-tight">資產再平衡策略</h1>
-            <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200/60">
+            <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-slate-200">
               Portfolio Rebalance
             </span>
           </div>
@@ -147,20 +150,20 @@ export default function RebalancePage() {
             onClick={() => setIsEditingSettings(!isEditingSettings)}
             className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
           >
-            {isEditingSettings ? "關閉設定" : "⚙️ 策略參數設定"}
+            {isEditingSettings ? "關閉設定" : "策略參數設定"}
           </button>
 
           <button
             onClick={handleSendEmail}
             disabled={sendingEmail}
-            className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white shadow-sm transition-colors cursor-pointer"
           >
-            {sendingEmail ? "寄送中..." : "📧 發送提醒郵件"}
+            {sendingEmail ? "寄送中..." : "發送提醒郵件"}
           </button>
         </div>
       </div>
 
-      {/* Alert Banner System Style */}
+      {/* Status Alert Banner */}
       {analysis && (
         <div
           className={`p-4 rounded-2xl border flex items-start gap-3 transition-all ${
@@ -169,7 +172,6 @@ export default function RebalancePage() {
               : "bg-emerald-50 border-emerald-200 text-emerald-900"
           }`}
         >
-          <span className="text-xl">{analysis.is_triggered ? "⚠️" : "✅"}</span>
           <div className="flex-1 text-xs leading-relaxed">
             <h4 className="font-extrabold text-sm mb-0.5">
               {analysis.trigger_direction === "RISE"
@@ -180,9 +182,9 @@ export default function RebalancePage() {
             </h4>
             <p className="opacity-90">
               {analysis.trigger_direction === "RISE"
-                ? `股票部位表現亮眼，建議獲利解結部分股票並充實債券與現金金庫。您可點擊右上方發送通知信。`
+                ? `股票部位表現亮眼，建議獲利解結部分股票部位並充實債券與現金金庫。您可以參考下方「建議調整動作」進行交易。`
                 : analysis.trigger_direction === "FALL"
-                ? `股票部位回檔修正，建議逢低買進加碼股票部位並釋出部分債券或現金。您可點擊右上方發送通知信。`
+                ? `股票部位回檔修正，建議逢低買進加碼股票部位並釋出部分債券或現金。您可以參考下方「建議調整動作」進行交易。`
                 : `當前資產分配符合策略目標區間，無須調整。`}
             </p>
           </div>
@@ -193,7 +195,7 @@ export default function RebalancePage() {
       {isEditingSettings && (
         <form onSubmit={handleSaveSettings} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-in fade-in duration-200">
           <h3 className="font-extrabold text-sm text-slate-800 pb-2 border-b border-slate-100">
-            ⚙️ 調整策略目標比例與雙向警戒門檻
+            調整策略目標比例與雙向警戒門檻
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -254,19 +256,38 @@ export default function RebalancePage() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">債券標的代號清單 (以逗號分隔)</label>
-            <input
-              type="text"
-              value={bondTickers}
-              onChange={(e) => setBondTickers(e.target.value)}
-              placeholder="00931B,BND"
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:outline-none focus:border-blue-500"
-              required
-            />
-            <p className="text-[11px] text-slate-400 mt-1">
-              系統將依此代號自動將庫存分類為債券部位，其餘股票預設分類為股票部位。
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">債券標的代號清單 (以逗號分隔)</label>
+              <input
+                type="text"
+                value={bondTickers}
+                onChange={(e) => setBondTickers(e.target.value)}
+                placeholder="00931B,BND"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:outline-none focus:border-blue-500"
+                required
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                系統將依此代號自動將庫存分類為債券部位，其餘股票預設分類為股票部位。
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">
+                自訂當前現金總額 TWD (選填)
+              </label>
+              <input
+                type="number"
+                step="100"
+                value={customCash}
+                onChange={(e) => setCustomCash(e.target.value)}
+                placeholder="留空則自動採用對帳單/上月結餘"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                若當月尚未匯入對帳單，填寫此處可即時覆蓋目前最新現金總額進行精確再平衡。
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -325,7 +346,14 @@ export default function RebalancePage() {
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex justify-between items-center">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">現金部位</span>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                現金部位
+                {analysis.is_custom_cash ? (
+                  <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">手動指定</span>
+                ) : (
+                  <span className="text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">對帳單快照</span>
+                )}
+              </span>
               <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
                 目標 {analysis.target_cash_pct}%
               </span>
@@ -338,14 +366,66 @@ export default function RebalancePage() {
         </div>
       )}
 
-      {/* Main Rebalance Calculation Table with System Palette */}
+      {/* Dedicated Suggested Trade Actions Card Section */}
+      {analysis && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-sm text-slate-900">建議調整動作 (Suggested Trade Actions)</h3>
+            <span className="text-[11px] text-slate-400 font-medium">依策略目標比例試算之交易金額</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {analysis.rebalance_items.map((item, idx) => {
+              const isSell = item.trade_amount < 0;
+              const isBuy = item.trade_amount > 0;
+
+              return (
+                <div
+                  key={idx}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                    isSell
+                      ? "bg-rose-50/50 border-rose-200"
+                      : isBuy
+                      ? "bg-emerald-50/50 border-emerald-200"
+                      : "bg-slate-50/50 border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-slate-800">{item.ticker}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                        isSell
+                          ? "bg-rose-100 text-rose-700"
+                          : isBuy
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {isSell ? `賣出` : isBuy ? `買入` : "保持"}
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5">
+                    <div className="text-[11px] text-slate-500 font-medium">需交易金額 (TWD)</div>
+                    <div className={`text-base font-black font-mono mt-0.5 ${isSell ? "text-rose-600" : isBuy ? "text-emerald-600" : "text-slate-500"}`}>
+                      {isSell ? `- NT$ ${formatMoney(Math.abs(item.trade_amount))}` : isBuy ? `+ NT$ ${formatMoney(item.trade_amount)}` : "NT$ 0"}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Main Clean Rebalance Portfolio Table */}
       {analysis && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
             <div>
-              <h3 className="font-extrabold text-sm text-slate-900">📊 再平衡交易試算表</h3>
+              <h3 className="font-extrabold text-sm text-slate-900">資產部位明細表</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                依照精確公式試算各標的需調整交易金額、股數與再平衡後預估市值。
+                檢視各標的當前庫存數量、現價、總市值、預計比例與實際比例。
               </p>
             </div>
             <span className="text-xs font-mono bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-bold">
@@ -358,21 +438,13 @@ export default function RebalancePage() {
               <thead>
                 <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px]">
                   <th className="py-3 px-4">標的 / 資產</th>
-                  <th className="py-3 px-3 text-center">類別</th>
-                  <th className="py-3 px-3 text-right">目前股數</th>
-                  <th className="py-3 px-3 text-right bg-slate-100/70 text-slate-900">預計比例</th>
-                  <th className="py-3 px-3 text-right">現價 (TWD)</th>
-                  <th className="py-3 px-3 text-right">總市值</th>
-                  <th className="py-3 px-3 text-right">實際比例</th>
-                  <th className="py-3 px-3 text-right bg-indigo-50 text-indigo-900 font-extrabold">
-                    需交易金額
-                  </th>
-                  <th className="py-3 px-3 text-right bg-indigo-50 text-indigo-900 font-extrabold">
-                    交易股數
-                  </th>
-                  <th className="py-3 px-3 text-right">再平衡後股數</th>
-                  <th className="py-3 px-3 text-right">再平衡後市值</th>
-                  <th className="py-3 px-3 text-right">再平衡後佔比</th>
+                  <th className="py-3 px-3 text-center w-20 whitespace-nowrap">類別</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">目前股數</th>
+                  <th className="py-3 px-3 text-right bg-slate-100/70 text-slate-900 whitespace-nowrap">預計比例</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">現價 (TWD)</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">總市值</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">實際比例</th>
+                  <th className="py-3 px-3 text-center whitespace-nowrap">再平衡狀態</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
@@ -383,16 +455,15 @@ export default function RebalancePage() {
                   return (
                     <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
                       {/* 標的 */}
-                      <td className="py-3 px-4 font-bold flex items-center gap-1.5">
-                        <span className="text-sm">{item.category === "CASH" ? "💵" : item.category === "BOND" ? "🛡️" : "📈"}</span>
-                        <span>{item.ticker}</span>
-                        {item.name !== item.ticker && <span className="text-[11px] text-slate-400 font-normal">({item.name})</span>}
+                      <td className="py-3.5 px-4 font-bold">
+                        <span className="text-slate-900">{item.ticker}</span>
+                        {item.name !== item.ticker && <span className="text-[11px] text-slate-400 font-normal ml-1">({item.name})</span>}
                       </td>
 
                       {/* 類別 */}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3.5 px-3 text-center w-20 whitespace-nowrap">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block whitespace-nowrap ${
                             item.category === "STOCK"
                               ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
                               : item.category === "BOND"
@@ -405,75 +476,45 @@ export default function RebalancePage() {
                       </td>
 
                       {/* 股數 */}
-                      <td className="py-3 px-3 text-right font-mono">
+                      <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap">
                         {item.category === "CASH" ? "-" : formatMoney(item.quantity)}
                       </td>
 
                       {/* 預計比例 */}
-                      <td className="py-3 px-3 text-right font-mono font-bold bg-slate-50/80 text-slate-800">
+                      <td className="py-3.5 px-3 text-right font-mono font-bold bg-slate-50/80 text-slate-800 whitespace-nowrap">
                         {item.target_pct.toFixed(2)}%
                       </td>
 
                       {/* 現價 */}
-                      <td className="py-3 px-3 text-right font-mono">
+                      <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap">
                         {item.category === "CASH" ? "-" : item.current_price.toFixed(2)}
                       </td>
 
                       {/* 總市值 */}
-                      <td className="py-3 px-3 text-right font-mono font-bold">
+                      <td className="py-3.5 px-3 text-right font-mono font-bold whitespace-nowrap">
                         NT$ {formatMoney(item.current_market_value)}
                       </td>
 
                       {/* 實際比例 */}
-                      <td className="py-3 px-3 text-right font-mono">
+                      <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap">
                         {item.actual_pct.toFixed(2)}%
                       </td>
 
-                      {/* 需交易金額 */}
-                      <td
-                        className={`py-3 px-3 text-right font-mono font-extrabold ${
-                          isSell
-                            ? "text-rose-600 bg-rose-50/50"
-                            : isBuy
-                            ? "text-emerald-600 bg-emerald-50/50"
-                            : "text-slate-400"
-                        }`}
-                      >
-                        {isSell ? `- NT$ ${formatMoney(Math.abs(item.trade_amount))}` : isBuy ? `+ NT$ ${formatMoney(item.trade_amount)}` : "NT$ 0"}
-                      </td>
-
-                      {/* 交易股數 */}
-                      <td
-                        className={`py-3 px-3 text-right font-mono font-extrabold ${
-                          isSell
-                            ? "text-rose-600 bg-rose-50/50"
-                            : isBuy
-                            ? "text-emerald-600 bg-emerald-50/50"
-                            : "text-slate-400"
-                        }`}
-                      >
-                        {item.category === "CASH"
-                          ? "-"
-                          : isSell
-                          ? `- ${formatMoney(Math.abs(item.trade_shares))}`
-                          : isBuy
-                          ? `+ ${formatMoney(item.trade_shares)}`
-                          : "0"}
-                      </td>
-
-                      {/* 再平衡後實際股數 */}
-                      <td className="py-3 px-3 text-right font-mono">
-                        {item.category === "CASH" ? "-" : formatMoney(item.post_rebalance_shares)}
-                      </td>
-
-                      {/* 再平衡後市值 */}
-                      <td className="py-3 px-3 text-right font-mono font-bold">
-                        NT$ {formatMoney(item.post_rebalance_market_value)}
-                      </td>
-
-                      {/* 再平衡後佔比 */}
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-800">
-                        {item.post_rebalance_pct.toFixed(2)}%
+                      {/* 再平衡狀態 */}
+                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                        {isSell ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                            需減碼賣出
+                          </span>
+                        ) : isBuy ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            需逢低加碼
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">
+                            符合配置
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
