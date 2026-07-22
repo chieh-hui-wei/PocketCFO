@@ -115,7 +115,7 @@ async def send_rebalance_alert_email(to_email: str, analysis: dict):
     """
     Send portfolio rebalance alert email to user when asset allocation distorts.
     """
-    subject = "[pocketCFO] ⚠️ 資產再平衡提醒通知 (Portfolio Rebalance Alert)"
+    subject = "[pocketCFO] 資產再平衡提醒通知 (Portfolio Rebalance Alert)"
 
     current_stock_pct = analysis.get("current_stock_pct", 0.0)
     target_stock_pct = analysis.get("target_stock_pct", 50.0)
@@ -125,14 +125,14 @@ async def send_rebalance_alert_email(to_email: str, analysis: dict):
     total_portfolio_value = analysis.get("total_portfolio_value", 0.0)
 
     if trigger_direction == "RISE":
-        alert_title = f"股票部位大漲/過高通知 (目前 {current_stock_pct:.2f}% ≥ 門檻 {stock_trigger_threshold:.1f}%)"
-        alert_desc = f"您的股票資產佔比目前已達到 <strong>{current_stock_pct:.2f}%</strong>（已高於上限警戒門檻 <strong>{stock_trigger_threshold:.1f}%</strong>，目標比例為 <strong>{target_stock_pct:.1f}%</strong>）。<br />建議執行資產再平衡，獲利解結部分股票並充實債券與現金金庫。"
+        alert_title = f"股票部位高於上限警戒門檻通知 (目前 {current_stock_pct:.2f}% ≥ 門檻 {stock_trigger_threshold:.1f}%)"
+        alert_desc = f"您的股票資產佔比目前已達到 <strong>{current_stock_pct:.2f}%</strong>（高於上限警戒門檻 <strong>{stock_trigger_threshold:.1f}%</strong>，目標比例為 <strong>{target_stock_pct:.1f}%</strong>）。<br />建議執行資產再平衡，獲利解結部分股票並充實債券與現金部位。"
     elif trigger_direction == "FALL":
-        alert_title = f"股票部位下跌/過低通知 (目前 {current_stock_pct:.2f}% ≤ 門檻 {stock_min_threshold:.1f}%)"
-        alert_desc = f"您的股票資產佔比目前已降至 <strong>{current_stock_pct:.2f}%</strong>（已低於下限警戒門檻 <strong>{stock_min_threshold:.1f}%</strong>，目標比例為 <strong>{target_stock_pct:.1f}%</strong>）。<br />建議執行資產再平衡，逢低加碼股票部位並釋出部分債券或現金。"
+        alert_title = f"股票部位低於下限警戒門檻通知 (目前 {current_stock_pct:.2f}% ≤ 門檻 {stock_min_threshold:.1f}%)"
+        alert_desc = f"您的股票資產佔比目前已降至 <strong>{current_stock_pct:.2f}%</strong>（低於下限警戒門檻 <strong>{stock_min_threshold:.1f}%</strong>，目標比例為 <strong>{target_stock_pct:.1f}%</strong>）。<br />建議執行資產再平衡，逢低加碼股票部位並調整債券與現金比重。"
     else:
         alert_title = f"資產配置調整通知 (目前股票佔比 {current_stock_pct:.2f}%)"
-        alert_desc = f"您的股票資產佔比目前為 <strong>{current_stock_pct:.2f}%</strong>（目標比例為 <strong>{target_stock_pct:.1f}%</strong>）。您可以參考以下試算建議進行部位微調。"
+        alert_desc = f"您的股票資產佔比目前為 <strong>{current_stock_pct:.2f}%</strong>（目標比例為 <strong>{target_stock_pct:.1f}%</strong>）。您可以參考以下試算數據進行部位微調。"
 
     rows_html = ""
     for item in analysis.get("rebalance_items", []):
@@ -146,43 +146,46 @@ async def send_rebalance_alert_email(to_email: str, analysis: dict):
 
         action_badge = ""
         if trade_amt < 0:
-            action_badge = f'<span style="background-color:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:4px; font-weight:bold;">賣出 {abs(trade_shares):,.0f} 股 ({trade_amt:,.0f} TWD)</span>'
+            action_badge = f'<span style="background-color:#fef2f2; color:#dc2626; padding:3px 10px; border-radius:6px; font-weight:700; border:1px solid #fecaca;">賣出 ({trade_amt:,.0f} TWD)</span>'
         elif trade_amt > 0:
-            action_badge = f'<span style="background-color:#dcfce7; color:#16a34a; padding:2px 8px; border-radius:4px; font-weight:bold;">買入 {trade_shares:,.0f} 股 (+{trade_amt:,.0f} TWD)</span>'
+            action_badge = f'<span style="background-color:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:6px; font-weight:700; border:1px solid #bbf7d0;">買入 (+{trade_amt:,.0f} TWD)</span>'
         else:
-            action_badge = '<span style="color:#64748b;">無需調整</span>'
+            action_badge = '<span style="color:#64748b; font-weight:500;">維持配置</span>'
 
         rows_html += f"""
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 10px; font-weight: bold;">{ticker}</td>
-          <td style="padding: 10px; text-align: right;">{current_mv:,.0f} ({actual_pct:.2f}%)</td>
-          <td style="padding: 10px; text-align: center;">{action_badge}</td>
-          <td style="padding: 10px; text-align: right;">{post_mv:,.0f} ({post_shares:,.0f} 股)</td>
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 12px 10px; font-weight: 700; color: #0f172a;">{ticker}</td>
+          <td style="padding: 12px 10px; text-align: right; color: #334155; font-family: monospace;">NT$ {current_mv:,.0f} ({actual_pct:.2f}%)</td>
+          <td style="padding: 12px 10px; text-align: center;">{action_badge}</td>
+          <td style="padding: 12px 10px; text-align: right; color: #0f172a; font-weight: 700; font-family: monospace;">NT$ {post_mv:,.0f}</td>
         </tr>
         """
 
     body_html = f"""
     <html>
-      <body style="font-family: sans-serif; background-color: #f8fafc; padding: 30px; color: #1e293b;">
-        <div style="max-width: 680px; margin: 0 auto; background-color: #ffffff; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <h2 style="color: #dc2626; margin: 0;">⚠️ {alert_title}</h2>
-          </div>
-          <p style="font-size: 14px; color: #64748b; margin-top: 4px;">pocketCFO 個人財務與資產分配監控系統</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 40px 20px; color: #0f172a;">
+        <div style="max-width: 680px; margin: 0 auto; background-color: #ffffff; padding: 36px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04);">
           
-          <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-            <p style="margin: 0; font-size: 15px; color: #991b1b; line-height: 1.6;">
+          <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 24px;">
+            <span style="font-size: 11px; font-weight: 800; color: #2563eb; letter-spacing: 0.05em; text-transform: uppercase; background-color: #eff6ff; padding: 3px 10px; border-radius: 4px;">POCKETCFO PORTFOLIO ALERT</span>
+            <h2 style="color: #0f172a; margin: 12px 0 4px 0; font-size: 20px; font-weight: 800;">{alert_title}</h2>
+            <p style="font-size: 13px; color: #64748b; margin: 0;">個人財務與資產再平衡監控報告</p>
+          </div>
+          
+          <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 18px; border-radius: 8px; margin-bottom: 28px;">
+            <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.6;">
               {alert_desc}
             </p>
           </div>
 
-          <h3 style="color: #0f172a; margin-bottom: 12px;">📊 資產投資組合總覽</h3>
-          <p style="font-size: 14px; color: #475569;">投資組合總市值：<strong>NT$ {total_portfolio_value:,.0f}</strong></p>
+          <div style="margin-bottom: 24px;">
+            <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; margin: 0 0 8px 0;">資產投資組合總覽</h3>
+            <p style="font-size: 14px; color: #475569; margin: 0;">投資組合總市值：<strong style="color: #0f172a; font-size: 16px;">NT$ {total_portfolio_value:,.0f}</strong></p>
+          </div>
 
           <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0;">
             <thead>
-              <tr style="background-color: #f1f5f9; text-align: left; color: #334155;">
+              <tr style="background-color: #f8fafc; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0;">
                 <th style="padding: 10px;">資產 / 標的</th>
                 <th style="padding: 10px; text-align: right;">目前市值 (佔比)</th>
                 <th style="padding: 10px; text-align: center;">建議交易動作</th>
@@ -194,12 +197,14 @@ async def send_rebalance_alert_email(to_email: str, analysis: dict):
             </tbody>
           </table>
 
-          <div style="text-align: center; margin: 32px 0 16px 0;">
-            <a href="http://35.212.162.76:5173/rebalance" style="background-color: #2563eb; color: #ffffff; padding: 14px 32px; text-decoration: none; font-size: 15px; font-weight: bold; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
-              登入 PocketCFO 查看資產再平衡與配置比例
+          <div style="text-align: center; margin: 36px 0 20px 0;">
+            <a href="http://35.212.162.76:5173/rebalance" style="background-color: #0f172a; color: #ffffff; padding: 14px 32px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.15);">
+              登入 PocketCFO 查看資產配置詳情
             </a>
           </div>
-          <p style="font-size: 12px; color: #94a3b8; text-align: center;">※ 此郵件由 pocketCFO 系統自動發送。</p>
+
+          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 28px 0 16px 0;" />
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">此郵件由 PocketCFO 資產管理系統自動生成與傳送。</p>
         </div>
       </body>
     </html>
