@@ -717,3 +717,66 @@ export async function executeSQLQuery(query: string) {
   return data as SQLResult;
 }
 
+// ── Rebalance Strategy API ──────────────────────────────────────────────────
+
+export interface RebalanceItem {
+  category: "STOCK" | "BOND" | "CASH";
+  ticker: string;
+  name: string;
+  quantity: number;
+  current_price: number;
+  current_market_value: number;
+  actual_pct: number;
+  target_pct: number;
+  trade_amount: number;
+  trade_shares: number;
+  post_rebalance_shares: number;
+  post_rebalance_market_value: number;
+  post_rebalance_pct: number;
+}
+
+export interface RebalanceAnalysis {
+  period_date: string;
+  total_portfolio_value: number;
+  stock_market_value: number;
+  bond_market_value: number;
+  cash_market_value: number;
+  current_stock_pct: number;
+  current_bond_pct: number;
+  current_cash_pct: number;
+  target_stock_pct: number;
+  target_bond_pct: number;
+  target_cash_pct: number;
+  stock_trigger_threshold: number;
+  stock_min_threshold: number;
+  bond_tickers: string;
+  enable_email_alert: boolean;
+  is_triggered: boolean;
+  trigger_direction: "RISE" | "FALL" | "NONE";
+  rebalance_items: RebalanceItem[];
+}
+
+export async function getRebalanceAnalysis(date?: string) {
+  const { data } = await api.get("/rebalance/", { params: { date } });
+  return data as RebalanceAnalysis;
+}
+
+export async function updateRebalanceSettings(payload: {
+  target_stock_pct?: number;
+  target_bond_pct?: number;
+  target_cash_pct?: number;
+  stock_trigger_threshold?: number;
+  stock_min_threshold?: number;
+  bond_tickers?: string;
+  enable_email_alert?: boolean;
+}) {
+  const { data } = await api.put("/rebalance/settings", payload);
+  return data;
+}
+
+export async function sendRebalanceAlertEmail(date?: string) {
+  const { data } = await api.post("/rebalance/send-alert", null, { params: { date } });
+  return data as { status: string; sent_to: string };
+}
+
+
