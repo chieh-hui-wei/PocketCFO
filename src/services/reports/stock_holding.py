@@ -44,10 +44,13 @@ class StockHoldingService:
         is_first_of_month = (period_date.day == 1)
         existing_snapshots = {}
         existing_securities = []
-        
+        today = date.today()
+        is_current_month = (period_date.year == today.year and period_date.month == today.month)
+
         # Check if there is already a snapshot for Firstrade in this month
         firstrade_acct = next((a for a in brokerage_accounts if a.institution.lower() == "firstrade"), None)
         has_db_firstrade = False
+        firstrade_inherited = False  # True when positions come from a prior month (no current upload)
         
         if is_first_of_month:
             import calendar
@@ -116,6 +119,9 @@ class StockHoldingService:
                         
                     if acct.institution.lower() == "firstrade":
                         has_db_firstrade = True
+                        # Flag if this snapshot is inherited from a prior month (no July upload yet)
+                        if snap.period_date < start_date:
+                            firstrade_inherited = True
                     existing_snapshots[acct.id] = snap
                     latest_snap_dates.append((snap.account_id, snap.period_date))
                 
@@ -170,6 +176,27 @@ class StockHoldingService:
 
         final_snapshots: List[AccountSnapshot] = list(existing_snapshots.values())
         final_securities: List[Security] = list(existing_securities)
+
+        # 3a. If Firstrade positions are inherited from a prior month and we're viewing the
+        # current month, re-fetch live prices so values reflect today's market.
+        if firstrade_inherited and is_current_month and firstrade_acct:
+            try:
+                live_rate = await get_usd_twd_rate(date.today())
+            except Exception:
+                live_rate = None
+            ft_secs = [s for s in final_securities if s.account_id == firstrade_acct.id]
+            if ft_secs:
+                live_price_tasks = [fetch_month_end_price(s.ticker, period_date) for s in ft_secs]
+                live_prices = await asyncio.gather(*live_price_tasks)
+                for sec, live_usd in zip(ft_secs, live_prices):
+                    if live_usd is not None:
+                        rate = live_rate or sec.exchange_rate or 32.5
+                        sec.original_current_price = live_usd
+                        sec.original_market_value = sec.quantity * live_usd
+                        sec.current_price = round(live_usd * rate)
+                        sec.market_value = round(sec.quantity * live_usd * rate)
+                        sec.exchange_rate = rate
+                        log.info(f"Refreshed inherited Firstrade price for {sec.ticker}: ${live_usd:.2f} USD")
 
         # 3. Handle Firstrade specifically by aggregating all historical transactions up to the query date
         # (Only if we don't already have it stored in the database for this period)

@@ -88,13 +88,19 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
     """
     Fetches the closing price for a stock on the last trading day of the target month.
     Queries Yahoo Finance v8 chart API. Cached in memory.
+    - For past months: returns the last closing price of that month.
+    - For the current month: returns the most recent available price (live/today).
     """
     # Clean ticker
     ticker = ticker.strip()
     if not ticker:
         return None
 
-    cache_key = (ticker, period_date)
+    today = date.today()
+    is_current_month = (period_date.year == today.year and period_date.month == today.month)
+
+    # For current month, always use today as cache key to avoid stale cached prices
+    cache_key = (ticker, today if is_current_month else period_date)
     if cache_key in _PRICE_CACHE:
         log.info(f"Price cache hit for {ticker} on {period_date}: {_PRICE_CACHE[cache_key]}")
         return _PRICE_CACHE[cache_key]
@@ -107,21 +113,26 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
         tickers_to_try = [ticker]
 
     # Period bounds
-    start_dt = datetime(period_date.year, period_date.month, 1)
-    last_day = calendar.monthrange(period_date.year, period_date.month)[1]
-    # Fetch until last day of month + 2 days to account for weekends / timezones
-    end_dt = datetime(period_date.year, period_date.month, last_day) + timedelta(days=2)
-    
+    # Start 7 days before the 1st to ensure at least one valid trading day in the window
+    start_dt = datetime(period_date.year, period_date.month, 1) - timedelta(days=7)
+    if is_current_month:
+        # For the current month, fetch up to today to get the most recent live price
+        end_dt = datetime(today.year, today.month, today.day) + timedelta(days=1)
+    else:
+        last_day = calendar.monthrange(period_date.year, period_date.month)[1]
+        # Fetch until last day of month + 2 days to account for weekends / timezones
+        end_dt = datetime(period_date.year, period_date.month, last_day) + timedelta(days=2)
+
     period1 = int(start_dt.timestamp())
     period2 = int(end_dt.timestamp())
-    
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Cache-Control": "max-age=0"
     }
-    
+
     async with httpx.AsyncClient() as client:
         for t in tickers_to_try:
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{t}?period1={period1}&period2={period2}&interval=1d"
@@ -139,7 +150,7 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
                         if valid_prices:
                             last_price = float(valid_prices[-1])
                             _PRICE_CACHE[cache_key] = last_price
-                            log.info(f"Successfully fetched price for {t} at month-end of {period_date}: {last_price}")
+                            log.info(f"Successfully fetched price for {t} ({'live' if is_current_month else 'month-end'} {period_date}): {last_price}")
                             return last_price
             except Exception as e:
                 log.warning(f"Error querying Yahoo Finance for {t}: {e}")
