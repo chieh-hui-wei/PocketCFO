@@ -19,6 +19,7 @@ from src.controllers.ai_assistant.api import router as ai_assistant_router
 from src.controllers.reports.balance_sheet import router as bs_router
 from src.controllers.reports.income_statement import router as is_router
 from src.controllers.reports.report import router as report_router
+from src.controllers.rebalance.api import router as rebalance_router
 
 from src.middleware.auth import verify_token
 from src.instances.config import get_settings
@@ -72,6 +73,8 @@ app.include_router(ai_assistant_router, prefix="/api/v1", dependencies=[Depends(
 app.include_router(txns_router, dependencies=[Depends(verify_token)])
 app.include_router(category_rules_router, dependencies=[Depends(verify_token)])
 app.include_router(savings_pots_router, dependencies=[Depends(verify_token)])
+app.include_router(rebalance_router, prefix="/api/v1", dependencies=[Depends(verify_token)])
+
 
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
