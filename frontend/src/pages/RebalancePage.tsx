@@ -406,58 +406,6 @@ export default function RebalancePage() {
         </div>
       )}
 
-      {/* Dedicated Suggested Trade Actions Card Section */}
-      {analysis && (
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-sm text-slate-900">建議調整動作 (Suggested Trade Actions)</h3>
-            <span className="text-[11px] text-slate-400 font-medium">依策略目標比例試算之交易金額</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {analysis.rebalance_items.map((item, idx) => {
-              const isSell = item.trade_amount < 0;
-              const isBuy = item.trade_amount > 0;
-
-              return (
-                <div
-                  key={idx}
-                  className={`p-3.5 rounded-xl border flex flex-col justify-between ${
-                    isSell
-                      ? "bg-rose-50/50 border-rose-200"
-                      : isBuy
-                      ? "bg-emerald-50/50 border-emerald-200"
-                      : "bg-slate-50/50 border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-slate-800">{item.ticker}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                        isSell
-                          ? "bg-rose-100 text-rose-700"
-                          : isBuy
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-200 text-slate-600"
-                      }`}
-                    >
-                      {isSell ? `賣出` : isBuy ? `買入` : "保持"}
-                    </span>
-                  </div>
-
-                  <div className="mt-2.5">
-                    <div className="text-[11px] text-slate-500 font-medium">需交易金額 (TWD)</div>
-                    <div className={`text-base font-black font-mono mt-0.5 ${isSell ? "text-rose-600" : isBuy ? "text-emerald-600" : "text-slate-500"}`}>
-                      {isSell ? `- NT$ ${formatMoney(Math.abs(item.trade_amount))}` : isBuy ? `+ NT$ ${formatMoney(item.trade_amount)}` : "NT$ 0"}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Main Clean Rebalance Portfolio Table */}
       {analysis && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -561,6 +509,92 @@ export default function RebalancePage() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Suggested Trade Actions (Positioned below table, distinguished by Sell vs Buy) */}
+      {analysis && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-extrabold text-sm text-slate-900">建議調整動作 (Suggested Trade Actions)</h3>
+              <p className="text-xs text-slate-500 mt-0.5">依目標比例區分為「建議減碼賣出」與「建議逢低加碼」之試算金額</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* 建議減碼賣出 (Sell Items) */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <h4 className="text-xs font-extrabold text-rose-900">建議減碼賣出 (Sell / Profit Taking)</h4>
+              </div>
+
+              {analysis.rebalance_items.filter((i) => i.trade_amount < 0).length === 0 ? (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-400 text-xs font-medium">
+                  目前無須減碼之標的部位
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {analysis.rebalance_items
+                    .filter((i) => i.trade_amount < 0)
+                    .map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-rose-50/50 border border-rose-200/80 rounded-xl flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-extrabold text-xs text-slate-900">{item.ticker}</div>
+                          <div className="text-[11px] text-slate-500">目前佔比 {item.actual_pct.toFixed(2)}% → 目標 {item.target_pct.toFixed(2)}%</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-black text-rose-600 font-mono">
+                            - NT$ {formatMoney(Math.abs(item.trade_amount))}
+                          </div>
+                          <div className="text-[10px] text-rose-700 font-bold">建議減碼賣出</div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* 建議逢低加碼 (Buy Items) */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h4 className="text-xs font-extrabold text-emerald-900">建議逢低加碼 (Buy / Rebalance In)</h4>
+              </div>
+
+              {analysis.rebalance_items.filter((i) => i.trade_amount > 0).length === 0 ? (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-400 text-xs font-medium">
+                  目前無須加碼之標的部位
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {analysis.rebalance_items
+                    .filter((i) => i.trade_amount > 0)
+                    .map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-emerald-50/50 border border-emerald-200/80 rounded-xl flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-extrabold text-xs text-slate-900">{item.ticker}</div>
+                          <div className="text-[11px] text-slate-500">目前佔比 {item.actual_pct.toFixed(2)}% → 目標 {item.target_pct.toFixed(2)}%</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-black text-emerald-600 font-mono">
+                            + NT$ {formatMoney(item.trade_amount)}
+                          </div>
+                          <div className="text-[10px] text-emerald-700 font-bold">建議買進加碼</div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
