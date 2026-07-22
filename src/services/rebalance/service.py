@@ -106,17 +106,35 @@ class RebalanceService:
             if bs and bs.total_cash > 0:
                 total_cash_twd = bs.total_cash
             else:
-                # Fallback: Query the most recent available BalanceSheet snapshot for the user
-                from src.dbs.models import BalanceSheet
+                # Fallback: Query the most recent available BalanceSheet snapshot with non-zero cash
+                from src.dbs.models import BalanceSheet, AccountSnapshot, Account, AccountType
                 stmt = (
                     select(BalanceSheet)
-                    .where(BalanceSheet.user_id == self.user_id)
+                    .where(
+                        BalanceSheet.user_id == self.user_id,
+                        BalanceSheet.total_cash > 0
+                    )
                     .order_by(BalanceSheet.period_date.desc())
                     .limit(1)
                 )
                 res = await self.db.execute(stmt)
                 latest_bs = res.scalar_one_or_none()
-                total_cash_twd = latest_bs.total_cash if latest_bs else (bs.total_cash if bs else 0.0)
+                if latest_bs and latest_bs.total_cash > 0:
+                    total_cash_twd = latest_bs.total_cash
+                else:
+                    # Secondary Fallback: Sum latest positive snapshots from cash/bank accounts
+                    snap_stmt = (
+                        select(AccountSnapshot.balance_twd)
+                        .join(Account, Account.id == AccountSnapshot.account_id)
+                        .where(
+                            Account.user_id == self.user_id,
+                            Account.account_type.in_([AccountType.CASH, AccountType.BANK, AccountType.SAVINGS])
+                        )
+                        .order_by(AccountSnapshot.snapshot_date.desc())
+                    )
+                    snap_res = await self.db.execute(snap_stmt)
+                    cash_balances = snap_res.scalars().all()
+                    total_cash_twd = sum(b for b in cash_balances if b > 0) if cash_balances else 0.0
 
         # Categorize securities into Stock & Bond
         # Group and aggregate securities by ticker symbol across all broker accounts
