@@ -35,13 +35,15 @@ class InMemoryKeyring(KeyringBackend):
 # Set the memory keyring immediately on import
 keyring.set_keyring(InMemoryKeyring())
 
-# Mock setup_keyring inside esun_trade to prevent password prompts
-import esun_trade.sdk
-esun_trade.sdk.setup_keyring = lambda *args, **kwargs: None
-import esun_trade.util
-esun_trade.util.setup_keyring = lambda *args, **kwargs: None
-
-from esun_trade.sdk import SDK
+try:
+    # Mock setup_keyring inside esun_trade to prevent password prompts
+    import esun_trade.sdk
+    esun_trade.sdk.setup_keyring = lambda *args, **kwargs: None
+    import esun_trade.util
+    esun_trade.util.setup_keyring = lambda *args, **kwargs: None
+    from esun_trade.sdk import SDK
+except ImportError:
+    SDK = None
 
 class EsunClient:
     """Async-friendly wrapper around E-Sun SDK."""

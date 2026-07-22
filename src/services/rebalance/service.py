@@ -111,7 +111,7 @@ class RebalanceService:
                 stmt = (
                     select(BalanceSheet)
                     .where(BalanceSheet.user_id == self.user_id)
-                    .order_by(BalanceSheet.year.desc(), BalanceSheet.month.desc())
+                    .order_by(BalanceSheet.period_date.desc())
                     .limit(1)
                 )
                 res = await self.db.execute(stmt)
