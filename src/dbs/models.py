@@ -335,3 +335,25 @@ class SavingsPot(Base):
     target_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     allocated_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ── Portfolio Rebalance Strategy ───────────────────────────────────────────────
+
+
+class RebalanceStrategy(Base):
+    """User-specific portfolio rebalancing targets and distortion thresholds."""
+
+    __tablename__ = "rebalance_strategies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    target_stock_pct: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    target_bond_pct: Mapped[float] = mapped_column(Float, nullable=False, default=10.0)
+    target_cash_pct: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
+    stock_trigger_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=60.0)  # Max upper bound
+    stock_min_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)      # Min lower bound
+    bond_tickers: Mapped[str] = mapped_column(String(255), nullable=False, default="00931B,BND")
+    enable_email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_alert_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
