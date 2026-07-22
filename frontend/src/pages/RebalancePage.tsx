@@ -234,9 +234,24 @@ export default function RebalancePage() {
       {/* Settings Form Card */}
       {isEditingSettings && (
         <form onSubmit={handleSaveSettings} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-in fade-in duration-200">
-          <h3 className="font-extrabold text-sm text-slate-800 pb-2 border-b border-slate-100">
-            調整策略目標比例與雙向警戒門檻
-          </h3>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 className="font-extrabold text-sm text-slate-800">
+              調整策略目標比例與雙向警戒門檻
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 font-bold">配置比例總和:</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
+                  Math.abs(Number(targetStock) + Number(targetBond) + Number(targetCash) - 100) < 0.01
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    : "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse"
+                }`}
+              >
+                {(Number(targetStock) + Number(targetBond) + Number(targetCash)).toFixed(0)}%
+                {Math.abs(Number(targetStock) + Number(targetBond) + Number(targetCash) - 100) < 0.01 ? " (正確)" : " (須等於 100%)"}
+              </span>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>

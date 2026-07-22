@@ -48,12 +48,19 @@ async def update_rebalance_settings(
     """
     Update target portfolio allocation percentages, trigger thresholds, and bond ticker list.
     """
-    if body.target_stock_pct is not None and body.target_bond_pct is not None and body.target_cash_pct is not None:
-        total = body.target_stock_pct + body.target_bond_pct + body.target_cash_pct
-        if abs(total - 100.0) > 0.01:
-            raise HTTPException(status_code=400, detail="Target allocation percentages must sum to 100%")
-
     service = RebalanceService(db, current_user.id)
+    strategy = await service.get_or_create_strategy()
+
+    new_stock = body.target_stock_pct if body.target_stock_pct is not None else strategy.target_stock_pct
+    new_bond = body.target_bond_pct if body.target_bond_pct is not None else strategy.target_bond_pct
+    new_cash = body.target_cash_pct if body.target_cash_pct is not None else strategy.target_cash_pct
+
+    total_pct = round(new_stock + new_bond + new_cash, 2)
+    if abs(total_pct - 100.0) > 0.01:
+        raise HTTPException(
+            status_code=400,
+            detail=f"目標股票、債券與現金配置佔比總和必須等於 100%（目前總和為 {total_pct}%）"
+        )
     strategy = await service.update_strategy(
         target_stock_pct=body.target_stock_pct,
         target_bond_pct=body.target_bond_pct,
