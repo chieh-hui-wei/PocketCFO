@@ -225,7 +225,7 @@ class RebalanceService:
 
         return {
             "period_date": str(target_date),
-            "total_portfolio_value": round(total_portfolio_value),
+            "total_portfolio_value": round(total_portfolio_mv),
             "stock_market_value": round(stock_mv_total),
             "bond_market_value": round(bond_mv_total),
             "cash_market_value": round(total_cash_twd),
