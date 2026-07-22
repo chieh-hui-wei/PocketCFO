@@ -195,8 +195,8 @@ async def send_rebalance_alert_email(to_email: str, analysis: dict):
           </table>
 
           <div style="text-align: center; margin: 32px 0 16px 0;">
-            <a href="{settings.app_website_url}/rebalance" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; font-size: 15px; font-weight: bold; border-radius: 8px; display: inline-block;">
-              查看詳細再平衡策略試算表
+            <a href="http://35.212.162.76:5173/rebalance" style="background-color: #2563eb; color: #ffffff; padding: 14px 32px; text-decoration: none; font-size: 15px; font-weight: bold; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
+              登入 PocketCFO 查看資產再平衡與配置比例
             </a>
           </div>
           <p style="font-size: 12px; color: #94a3b8; text-align: center;">※ 此郵件由 pocketCFO 系統自動發送。</p>

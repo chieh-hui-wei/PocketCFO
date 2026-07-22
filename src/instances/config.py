@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     app_host: str
     app_port: int
     app_debug: bool
-    app_website_url: str = "http://localhost:5173"
+    app_website_url: str = "http://35.212.162.76:5173"
 
 
     # ── SMTP (Email) ──────────────────────────────────────────────────────
