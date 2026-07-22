@@ -381,16 +381,21 @@ export default function RebalancePage() {
             <div className="text-[11px] text-slate-500 mt-1">含股票、債券與現金</div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">股票部位</span>
-              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                目標 {analysis.target_stock_pct}%
-              </span>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">股票部位</span>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                  目標 {analysis.target_stock_pct}%
+                </span>
+              </div>
+              <div className="text-xl font-black text-slate-900 mt-1">NT$ {formatMoney(analysis.stock_market_value)}</div>
+              <div className="text-xs font-bold text-slate-600 mt-1">
+                實際佔比: <span className={analysis.current_stock_pct >= analysis.stock_trigger_threshold || analysis.current_stock_pct <= analysis.stock_min_threshold ? "text-rose-600 font-extrabold" : "text-emerald-600"}>{analysis.current_stock_pct}%</span>
+              </div>
             </div>
-            <div className="text-xl font-black text-slate-900 mt-1">NT$ {formatMoney(analysis.stock_market_value)}</div>
-            <div className="text-xs font-bold text-slate-600 mt-1">
-              實際佔比: <span className={analysis.current_stock_pct >= analysis.stock_trigger_threshold ? "text-rose-600 font-extrabold" : "text-emerald-600"}>{analysis.current_stock_pct}%</span>
+            <div className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200/60 p-1.5 rounded-lg mt-2 text-center">
+              警戒門檻: 下跌 ≤ <span className="text-blue-600">{analysis.stock_min_threshold}%</span> 或 上漲 ≥ <span className="text-rose-600">{analysis.stock_trigger_threshold}%</span>
             </div>
           </div>
 
