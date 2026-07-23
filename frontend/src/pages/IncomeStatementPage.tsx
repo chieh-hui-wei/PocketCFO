@@ -11,7 +11,9 @@ export default function IncomeStatementPage() {
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
 
   const [currentDate, setCurrentDate] = useState(() => {
-    return new Date();
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d;
   });
 
   const [recentTxns, setRecentTxns] = useState<TransactionRecord[]>([]);

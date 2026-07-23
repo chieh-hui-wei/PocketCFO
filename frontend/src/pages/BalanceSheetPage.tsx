@@ -30,7 +30,9 @@ export default function BalanceSheetPage() {
   const [editBalances, setEditBalances] = useState<Record<number, string>>({});
 
   const [currentDate, setCurrentDate] = useState(() => {
-    return new Date();
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d;
   });
 
   const [activeTab, setActiveTab] = useState<"sheet" | "projection">("sheet");
