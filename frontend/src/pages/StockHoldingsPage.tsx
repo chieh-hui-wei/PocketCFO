@@ -28,9 +28,7 @@ export default function StockHoldingsPage() {
   
   // Date State
   const [currentDate, setCurrentDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d;
+    return new Date();
   });
   
   const [allSecurities, setAllSecurities] = useState<SecurityRecord[]>([]);

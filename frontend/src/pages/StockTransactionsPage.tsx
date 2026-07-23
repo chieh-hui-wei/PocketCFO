@@ -10,9 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 export default function StockTransactionsPage() {
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const [currentDate, setCurrentDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d;
+    return new Date();
   });
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [summary, setSummary] = useState<StockTransactionsSummaryItem[]>([]);

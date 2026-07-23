@@ -21,7 +21,6 @@ export default function TransactionsPage() {
       return new Date(parseInt(paramYear), parseInt(paramMonth) - 1, 1);
     }
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
     return d;
   });
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
