@@ -8,8 +8,8 @@ import re
 def _is_duplicate_transaction(raw_data: str, ord_no: str, seq: str) -> bool:
     if not raw_data or not ord_no:
         return False
-    # Matches "ord_no": "value" or 'ord_no': 'value' or 'ord_no': value
-    ord_pattern = rf"['\"]ord_no['\"]\s*:\s*['\"]?{re.escape(str(ord_no))}['\"]?"
+    # Matches "ord_no": "value" / "order_no": "value" (E-Sun uses order_no, Taishin uses ord_no)
+    ord_pattern = rf"['\"](ord_no|order_no)['\"]\s*:\s*['\"]?{re.escape(str(ord_no))}['\"]?"
     if not re.search(ord_pattern, raw_data):
         return False
     if seq:
@@ -287,7 +287,7 @@ async def sync_esun_trades(year: int, month: int, user_id: int = 1) -> None:
                     description = f"[{action_str}] {stk_no} {qty}股 @ {price}"
                     
                     # Check for duplicates in memory
-                    ord_no = row.get("ord_no", "")
+                    ord_no = row.get("order_no", "")
                     ord_seq = row.get("ord_seq", row.get("match_no", row.get("t_time", "")))
                     
                     is_dup = False
