@@ -18,6 +18,8 @@ from src.dbs.models import (
     BalanceSheet,
     CategoryRule,
     IncomeStatement,
+    PriceAlert,
+    PriceAlertStatus,
     Security,
     Transaction,
     UploadHistory,
@@ -447,3 +449,39 @@ class CategoryRuleRepository:
     async def seed_defaults(self) -> int:
         """No-op: Gemini handles classification. User rules are manual overrides only."""
         return 0
+
+
+# ── PriceAlert ─────────────────────────────────────────────────────────────────
+
+class PriceAlertRepository:
+    def __init__(self, db: AsyncSession, user_id: int) -> None:
+        self.db = db
+        self.user_id = user_id
+
+    async def list_all(self) -> Sequence[PriceAlert]:
+        result = await self.db.execute(
+            select(PriceAlert)
+            .where(PriceAlert.user_id == self.user_id)
+            .order_by(PriceAlert.created_at.desc())
+        )
+        return result.scalars().all()
+
+    async def get_by_id(self, alert_id: int) -> PriceAlert | None:
+        result = await self.db.execute(
+            select(PriceAlert).where(PriceAlert.id == alert_id, PriceAlert.user_id == self.user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, alert: PriceAlert) -> PriceAlert:
+        alert.user_id = self.user_id
+        self.db.add(alert)
+        await self.db.flush()
+        return alert
+
+    async def cancel(self, alert_id: int) -> PriceAlert | None:
+        alert = await self.get_by_id(alert_id)
+        if not alert or alert.status != PriceAlertStatus.ACTIVE:
+            return None
+        alert.status = PriceAlertStatus.CANCELLED
+        await self.db.flush()
+        return alert

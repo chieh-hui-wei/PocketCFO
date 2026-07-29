@@ -358,3 +358,38 @@ class RebalanceStrategy(Base):
     last_alert_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+
+# ── Price Alerts (auto-trade at target price) ──────────────────────────────────
+
+
+class PriceAlertSide(str, enum.Enum):
+    BUY = "buy"
+    SELL = "sell"
+
+
+class PriceAlertStatus(str, enum.Enum):
+    ACTIVE = "active"
+    FILLED = "filled"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class PriceAlert(Base):
+    """User-defined target price watch that auto-places a limit order via E-Sun when hit."""
+
+    __tablename__ = "price_alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    side: Mapped[PriceAlertSide] = mapped_column(Enum(PriceAlertSide), nullable=False)
+    target_price: Mapped[float] = mapped_column(Float, nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)  # shares
+    status: Mapped[PriceAlertStatus] = mapped_column(
+        Enum(PriceAlertStatus), nullable=False, default=PriceAlertStatus.ACTIVE, index=True
+    )
+    order_result: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON order response or error message
+    triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+

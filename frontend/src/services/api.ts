@@ -782,4 +782,38 @@ export async function sendRebalanceAlertEmail(date?: string) {
   return data as { status: string; sent_to: string };
 }
 
+export interface PriceAlert {
+  id: number;
+  ticker: string;
+  name: string | null;
+  side: "buy" | "sell";
+  target_price: number;
+  quantity: number;
+  status: "active" | "filled" | "failed" | "cancelled";
+  order_result: string | null;
+  triggered_at: string | null;
+  created_at: string;
+}
+
+export async function listPriceAlerts() {
+  const { data } = await api.get("/price-alerts/");
+  return data as { alerts: PriceAlert[] };
+}
+
+export async function createPriceAlert(payload: {
+  ticker: string;
+  name?: string;
+  side: "buy" | "sell";
+  target_price: number;
+  quantity: number;
+}) {
+  const { data } = await api.post("/price-alerts/", payload);
+  return data as PriceAlert;
+}
+
+export async function cancelPriceAlert(alertId: number) {
+  const { data } = await api.delete(`/price-alerts/${alertId}`);
+  return data as PriceAlert;
+}
+
 

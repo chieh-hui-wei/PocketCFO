@@ -9,6 +9,7 @@ import TransactionsPage from "./pages/TransactionsPage";
 import StockTransactionsPage from "./pages/StockTransactionsPage";
 import StockHoldingsPage from "./pages/StockHoldingsPage";
 import RebalancePage from "./pages/RebalancePage";
+import PriceAlertsPage from "./pages/PriceAlertsPage";
 import AccountsPage from "./pages/AccountsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
@@ -83,12 +84,21 @@ const NAV_GROUPS = [
           </svg>
         )
       },
-      { 
-        to: "/rebalance", 
+      {
+        to: "/rebalance",
         label: "資產再平衡策略",
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 18h12l3-18H3zm6 6h6m-6 4h6" />
+          </svg>
+        )
+      },
+      {
+        to: "/price-alerts",
+        label: "到價自動下單",
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
         )
       },
@@ -419,6 +429,7 @@ export default function App() {
               <Route path="/stock-transactions" element={<StockTransactionsPage />} />
               <Route path="/stock-holdings" element={<StockHoldingsPage />} />
               <Route path="/rebalance" element={<RebalancePage />} />
+              <Route path="/price-alerts" element={<PriceAlertsPage />} />
               <Route path="/accounts" element={<AccountsPage />} />
               <Route path="/upload" element={<UploadPage />} />
               <Route path="/upload-history" element={<UploadHistoryPage />} />

@@ -646,3 +646,29 @@ async def start_scheduler() -> None:
             log.error(f"Exception in scheduler tick: {e}")
         # Sleep for 10 minutes (600 seconds) to ensure we don't miss the 1-hour window
         await asyncio.sleep(600)
+
+
+async def start_price_alert_scheduler() -> None:
+    """
+    Independent background loop, ticking every 60s, that checks active target-price
+    alerts and auto-places orders via E-Sun when hit. Runs only during TW market
+    hours (09:00-13:30 Taipei time, Mon-Fri) to avoid unnecessary API calls.
+    Deliberately separate from start_scheduler()'s 600s daily-sync loop.
+    """
+    from zoneinfo import ZoneInfo
+    from src.services.price_alerts.service import check_and_execute_price_alerts
+
+    log.info("Price alert scheduler starting...")
+    await asyncio.sleep(15)
+
+    tz_taipei = ZoneInfo("Asia/Taipei")
+    while True:
+        try:
+            now = datetime.now(tz_taipei)
+            is_weekday = now.weekday() < 5
+            in_market_hours = (9, 0) <= (now.hour, now.minute) <= (13, 30)
+            if is_weekday and in_market_hours:
+                await check_and_execute_price_alerts()
+        except Exception as e:
+            log.error(f"Exception in price alert scheduler tick: {e}")
+        await asyncio.sleep(60)

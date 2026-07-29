@@ -108,6 +108,30 @@ class EsunClient:
             )
         return holdings
 
+    async def place_order(self, ticker: str, side: str, price: float, quantity: int) -> dict[str, Any]:
+        """
+        Place a limit order (現股, 整股, ROD) via E-Sun API.
+        side must be "buy" or "sell".
+        """
+        from esun_trade.constant import Action, APCode, BSFlag, PriceFlag, Trade
+        from esun_trade.order import OrderObject
+
+        order = OrderObject(
+            buy_sell=Action.Buy if side == "buy" else Action.Sell,
+            price=price,
+            stock_no=ticker,
+            quantity=quantity,
+            ap_code=APCode.Common,
+            bs_flag=BSFlag.ROD,
+            price_flag=PriceFlag.Limit,
+            trade=Trade.Cash,
+        )
+        return await self._call_with_relogin(lambda: self.sdk.place_order(order))
+
+    async def get_market_status(self) -> Any:
+        """Return whether the TW market is currently open."""
+        return await self._call_with_relogin(self.sdk.get_market_status)
+
     async def get_filled_history(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """
         Fetch filled history from E-Sun API.

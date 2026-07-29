@@ -158,6 +158,19 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
     return None
 
 
+async def fetch_live_quote(ticker: str) -> Optional[float]:
+    """
+    Fetches the latest available intraday price for a ticker (TWD for TW tickers,
+    original currency for US tickers). Wraps fetch_month_end_price using today as
+    the target period, bypassing its in-memory cache (keyed per-day) since callers
+    of this function need a fresh quote on every call, not once-per-day.
+    """
+    ticker = ticker.strip()
+    today = date.today()
+    _PRICE_CACHE.pop((ticker, today), None)
+    return await fetch_month_end_price(ticker, today.replace(day=1))
+
+
 def normalize_stock_name(ticker: Optional[str], current_name: str) -> str:
     """Unify stock names (like VT) to standard formal names."""
     if not ticker:
