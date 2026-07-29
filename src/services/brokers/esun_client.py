@@ -63,13 +63,21 @@ class EsunClient:
         self.sdk = SDK(config)
         self.sdk.login()
 
+    async def _call_with_relogin(self, func):
+        """Run a blocking SDK call, re-logging in and retrying once if the session expired."""
+        try:
+            return await asyncio.get_event_loop().run_in_executor(None, func)
+        except Exception as e:
+            if "Missing Header" in str(e):
+                log.warning(f"E-Sun session appears expired ({e}); re-logging in and retrying")
+                await asyncio.get_event_loop().run_in_executor(None, self.sdk.login)
+                return await asyncio.get_event_loop().run_in_executor(None, func)
+            raise
+
     async def get_account_balance(self) -> dict[str, float]:
         """Return cash balance from E-Sun API."""
         try:
-            res = await asyncio.get_event_loop().run_in_executor(
-                None,
-                self.sdk.get_balance
-            )
+            res = await self._call_with_relogin(self.sdk.get_balance)
             cash_balance = 0.0
             if isinstance(res, dict):
                 cash_balance = float(res.get("available_balance") or res.get("balance") or res.get("withdrawable_balance") or 0.0)
@@ -82,10 +90,7 @@ class EsunClient:
 
     async def get_positions(self) -> list[dict[str, Any]]:
         """Return current stock positions."""
-        res = await asyncio.get_event_loop().run_in_executor(
-            None,
-            self.sdk.get_inventories
-        )
+        res = await self._call_with_relogin(self.sdk.get_inventories)
         holdings = []
         for item in res:
             qty = float(item.get("cost_qty") or item.get("qty_l") or 0.0)
@@ -132,10 +137,7 @@ class EsunClient:
         end_str = end_dt.strftime("%Y-%m-%d")
 
         log.info(f"Querying E-Sun transactions from {start_str} to {end_str}")
-        res = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: self.sdk.get_transactions_by_date(start_str, end_str)
-        )
+        res = await self._call_with_relogin(lambda: self.sdk.get_transactions_by_date(start_str, end_str))
         return res
 
 @lru_cache(maxsize=1)
