@@ -87,8 +87,8 @@ export default function StockHoldingsPage() {
             ticker: s.ticker,
             name: s.name,
             quantity: String(s.quantity),
-            avg_cost: String(s.avg_cost),
-            current_price: String(s.current_price),
+            avg_cost: String(s.currency !== "TWD" && s.original_avg_cost != null ? s.original_avg_cost : s.avg_cost),
+            current_price: String(s.currency !== "TWD" && s.original_current_price != null ? s.original_current_price : s.current_price),
           }));
           setSecurities(mapped);
         }
@@ -178,8 +178,8 @@ export default function StockHoldingsPage() {
       ticker: s.ticker,
       name: s.name,
       quantity: String(s.quantity),
-      avg_cost: String(s.avg_cost),
-      current_price: String(s.current_price),
+      avg_cost: String(s.currency !== "TWD" && s.original_avg_cost != null ? s.original_avg_cost : s.avg_cost),
+      current_price: String(s.currency !== "TWD" && s.original_current_price != null ? s.original_current_price : s.current_price),
     }));
     setSecurities(mapped);
     setIsEditing(false);
@@ -1093,7 +1093,12 @@ export default function StockHoldingsPage() {
                     <div className="flex justify-between items-center mb-6">
                       <div>
                         <h3 className="font-bold text-slate-800 text-lg">{selectedAccount.name} 持股編輯</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">手動登錄 {formatMonth(currentDate)} 底的持股明細 (現價留空或 0 將自動獲取當月最後一天收盤價)</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          手動登錄 {formatMonth(currentDate)} 底的持股明細 (現價留空或 0 將自動獲取當月最後一天收盤價)
+                          {selectedAccount.currency !== "TWD" && (
+                            <span className="ml-1 font-bold text-blue-500">— 請輸入 {selectedAccount.currency} 原幣金額，系統會自動換算台幣</span>
+                          )}
+                        </p>
                       </div>
                       <div className="text-right">
                         <div className="text-xs font-bold text-slate-400">當月估算總市值</div>
@@ -1108,9 +1113,9 @@ export default function StockHoldingsPage() {
                             <th className="px-4 py-3 w-1/5">標的代號</th>
                             <th className="px-4 py-3 w-1/4">標的名稱</th>
                             <th className="px-4 py-3 w-1/6 text-right">股數</th>
-                            <th className="px-4 py-3 w-1/6 text-right">平均成本</th>
-                            <th className="px-4 py-3 w-1/6 text-right">收盤現價</th>
-                            <th className="px-4 py-3 text-right">估算市值</th>
+                            <th className="px-4 py-3 w-1/6 text-right">平均成本{selectedAccount.currency !== "TWD" ? `（${selectedAccount.currency}）` : ""}</th>
+                            <th className="px-4 py-3 w-1/6 text-right">收盤現價{selectedAccount.currency !== "TWD" ? `（${selectedAccount.currency}）` : ""}</th>
+                            <th className="px-4 py-3 text-right">估算市值{selectedAccount.currency !== "TWD" ? `（${selectedAccount.currency}）` : ""}</th>
                             <th className="px-4 py-3 text-center w-12">操作</th>
                           </tr>
                         </thead>

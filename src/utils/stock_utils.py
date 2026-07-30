@@ -243,10 +243,20 @@ async def refresh_live_prices(securities: list, usd_twd_rate: float | None = Non
         currency = (getattr(sec, "currency", "TWD") or "TWD").upper()
         if currency == "USD":
             rate = usd_twd_rate or sec.exchange_rate or 32.5
+
+            # Derive the USD cost basis before the exchange rate changes, so avg_cost
+            # stays consistent with current_price/market_value under the new rate.
+            original_avg_cost = getattr(sec, "original_avg_cost", None)
+            if original_avg_cost is None and sec.avg_cost and sec.exchange_rate:
+                original_avg_cost = sec.avg_cost / sec.exchange_rate
+
             sec.original_current_price = price
             sec.original_market_value = sec.quantity * price
             sec.current_price = round(price * rate)
             sec.market_value = round(sec.quantity * price * rate)
+            if original_avg_cost is not None:
+                sec.original_avg_cost = original_avg_cost
+                sec.avg_cost = round(original_avg_cost * rate)
             sec.exchange_rate = rate
         else:
             # TWD asset — price already in TWD

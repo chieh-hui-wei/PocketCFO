@@ -259,6 +259,15 @@ async def save_securities_for_account(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
+    is_foreign = bool(account.currency) and account.currency != "TWD"
+    rate = 1.0
+    if is_foreign:
+        from src.services.exchange_rate.service import get_currency_twd_rate
+        try:
+            rate = await get_currency_twd_rate(period, from_currency=account.currency)
+        except Exception:
+            rate = 32.5
+
     await db.execute(sa_delete(Security).where(
         Security.account_id == account_id,
         Security.period_date == period
@@ -267,8 +276,14 @@ async def save_securities_for_account(
     new_secs = []
     total_market_val = 0.0
     for s in body.securities:
-        m_val = s.quantity * (s.current_price or 0.0)
-        unrealized = m_val - (s.quantity * (s.avg_cost or 0.0))
+        # Values submitted from the editor are always in the account's native currency
+        avg_cost_orig = s.avg_cost or 0.0
+        price_orig = s.current_price or 0.0
+        m_val_orig = s.quantity * price_orig
+        unrealized_orig = m_val_orig - (s.quantity * avg_cost_orig)
+
+        m_val = round(m_val_orig * rate)
+        unrealized = round(unrealized_orig * rate)
         sec = Security(
             user_id=current_user.id,
             account_id=account_id,
@@ -276,12 +291,16 @@ async def save_securities_for_account(
             ticker=s.ticker,
             name=s.name or s.ticker,
             quantity=s.quantity,
-            avg_cost=s.avg_cost or 0.0,
-            current_price=s.current_price or 0.0,
+            avg_cost=round(avg_cost_orig * rate),
+            current_price=round(price_orig * rate),
             market_value=m_val,
             unrealized_pnl=unrealized,
+            original_avg_cost=avg_cost_orig if is_foreign else None,
+            original_current_price=price_orig if is_foreign else None,
+            original_market_value=m_val_orig if is_foreign else None,
+            original_unrealized_pnl=unrealized_orig if is_foreign else None,
             currency=account.currency,
-            exchange_rate=1.0,
+            exchange_rate=rate,
         )
         db.add(sec)
         new_secs.append(sec)
