@@ -183,10 +183,12 @@ async def save_snapshot(
         raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
 
     snapshot = await snap_repo.upsert(
-        account_id=account_id,
-        period_date=period,
-        balance=body.balance,
-        source="manual",
+        AccountSnapshot(
+            account_id=account_id,
+            period_date=period,
+            balance=body.balance,
+            source="manual",
+        )
     )
     bs_service = BalanceSheetService(db, current_user.id)
     await bs_service.compute(period.year, period.month)
@@ -287,10 +289,12 @@ async def save_securities_for_account(
 
     snap_repo = SnapshotRepository(db, current_user.id)
     await snap_repo.upsert(
-        account_id=account_id,
-        period_date=period,
-        balance=total_market_val,
-        source="manual",
+        AccountSnapshot(
+            account_id=account_id,
+            period_date=period,
+            balance=total_market_val,
+            source="manual",
+        )
     )
 
     bs_service = BalanceSheetService(db, current_user.id)
