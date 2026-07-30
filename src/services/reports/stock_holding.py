@@ -352,20 +352,24 @@ class StockHoldingService:
         for sec in securities:
             # Use pre-computed TWD fields when available (stored securities),
             # otherwise fall back to raw values
-            orig_avg = getattr(sec, "original_avg_cost", None) or sec.avg_cost
-            orig_price = getattr(sec, "original_current_price", None) or sec.current_price
-            orig_mv = getattr(sec, "original_market_value", None) or sec.market_value
-            orig_pnl = getattr(sec, "original_unrealized_pnl", None) or sec.unrealized_pnl
+            raw_orig_avg = getattr(sec, "original_avg_cost", None)
+            raw_orig_price = getattr(sec, "original_current_price", None)
+            raw_orig_mv = getattr(sec, "original_market_value", None)
+            raw_orig_pnl = getattr(sec, "original_unrealized_pnl", None)
+            orig_avg = raw_orig_avg if raw_orig_avg is not None else sec.avg_cost
+            orig_price = raw_orig_price if raw_orig_price is not None else sec.current_price
+            orig_mv = raw_orig_mv if raw_orig_mv is not None else sec.market_value
+            orig_pnl = raw_orig_pnl if raw_orig_pnl is not None else sec.unrealized_pnl
 
             currency = sec.currency or "TWD"
             rate = sec.exchange_rate or 1.0
 
             # Convert to TWD for display if foreign currency
             if currency != "TWD" and rate > 0:
-                mv_twd = sec.market_value if sec.market_value else (orig_mv * rate)
-                pnl_twd = sec.unrealized_pnl if sec.unrealized_pnl else (orig_pnl * rate)
-                avg_twd = sec.avg_cost if sec.avg_cost else round(orig_avg * rate)
-                price_twd = sec.current_price if sec.current_price else round(orig_price * rate)
+                mv_twd = sec.market_value if raw_orig_mv is None else round(orig_mv * rate)
+                pnl_twd = sec.unrealized_pnl if raw_orig_pnl is None else round(orig_pnl * rate)
+                avg_twd = sec.avg_cost if raw_orig_avg is None else round(orig_avg * rate)
+                price_twd = sec.current_price if raw_orig_price is None else round(orig_price * rate)
             else:
                 mv_twd = sec.market_value
                 pnl_twd = sec.unrealized_pnl
