@@ -5,6 +5,7 @@ import {
   cancelPriceAlert,
   PriceAlert,
 } from "../services/api";
+import { formatUtc8 } from "../utils/formatters";
 
 const STATUS_LABEL: Record<PriceAlert["status"], string> = {
   active: "監控中",
@@ -214,7 +215,7 @@ export default function PriceAlertsPage() {
                         {STATUS_LABEL[a.status]}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-[11px] text-slate-500">{new Date(a.created_at).toLocaleString("zh-TW")}</td>
+                    <td className="py-3 px-3 text-[11px] text-slate-500">{formatUtc8(a.created_at, true)}</td>
                     <td className="py-3 px-3 text-center">
                       {a.status === "active" ? (
                         <button
