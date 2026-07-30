@@ -1023,30 +1023,48 @@ export default function StockHoldingsPage() {
                                   </td>
                                   <td className="px-4 py-3 text-right font-semibold">{s.quantity.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right">
-                                    <div className="font-semibold">${s.avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-                                    {s.currency === 'USD' && s.original_avg_cost != null && (
-                                      <div className="text-[10px] text-slate-400">USD {s.original_avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                    {s.currency === 'USD' && s.original_avg_cost != null ? (
+                                      <>
+                                        <div className="font-semibold">USD {s.original_avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                        <div className="text-[10px] text-slate-400">${s.avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                      </>
+                                    ) : (
+                                      <div className="font-semibold">${s.avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                    <div className="font-semibold">${s.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-                                    {s.currency === 'USD' && s.original_current_price != null && (
-                                      <div className="text-[10px] text-slate-400">USD {s.original_current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                    {s.currency === 'USD' && s.original_current_price != null ? (
+                                      <>
+                                        <div className="font-semibold">USD {s.original_current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                        <div className="text-[10px] text-slate-400">${s.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                      </>
+                                    ) : (
+                                      <div className="font-semibold">${s.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                    <div className="text-slate-800 font-bold">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                                    {s.currency === 'USD' && s.original_market_value != null && (
-                                      <div className="text-[10px] text-slate-400">USD {s.original_market_value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                    {s.currency === 'USD' && s.original_market_value != null ? (
+                                      <>
+                                        <div className="text-slate-800 font-bold">USD {s.original_market_value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                        <div className="text-[10px] text-slate-400">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                      </>
+                                    ) : (
+                                      <div className="text-slate-800 font-bold">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-right font-mono">
-                                    <div className={`font-bold ${s.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                      {s.unrealized_pnl >= 0 ? `+ $${s.unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(s.unrealized_pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-                                    </div>
-                                    {s.currency === 'USD' && s.original_unrealized_pnl != null && (
-                                      <div className={`text-[10px] ${s.original_unrealized_pnl >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-                                        USD {s.original_unrealized_pnl >= 0 ? `+${s.original_unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `${s.original_unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                                    {s.currency === 'USD' && s.original_unrealized_pnl != null ? (
+                                      <>
+                                        <div className={`font-bold ${s.original_unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          USD {s.original_unrealized_pnl >= 0 ? `+${s.original_unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `${s.original_unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                                        </div>
+                                        <div className={`text-[10px] ${s.unrealized_pnl >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                          {s.unrealized_pnl >= 0 ? `+ $${s.unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(s.unrealized_pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className={`font-bold ${s.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {s.unrealized_pnl >= 0 ? `+ $${s.unrealized_pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(s.unrealized_pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                                       </div>
                                     )}
                                   </td>
