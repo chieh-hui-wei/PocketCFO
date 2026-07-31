@@ -1,5 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
-import { sendAIChatStream, executeSQLQuery, ChatMessage, SQLResult } from "../services/api";
+import { sendAIChatStream, executeSQLQuery, confirmAIAction, ChatMessage, SQLResult, PendingAction } from "../services/api";
+
+const ACTION_LABEL: Record<string, string> = {
+  create_price_alert: "建立到價自動下單",
+};
+
+function describePendingAction(action: PendingAction): string {
+  if (action.action === "create_price_alert") {
+    const a = action.args;
+    const sideLabel = a.side === "sell" ? "賣出" : "買進";
+    return `${a.ticker}：目標價 ${a.target_price} 時${sideLabel} ${a.quantity} 股（券商：${a.broker || "esun"}）`;
+  }
+  return JSON.stringify(action.args);
+}
 
 export default function AIChatbox() {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +29,8 @@ export default function AIChatbox() {
   const [sqlResult, setSqlResult] = useState<SQLResult | null>(null);
   const [sqlError, setSqlError] = useState<string | null>(null);
   const [sqlExecuting, setSqlExecuting] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -106,7 +121,18 @@ export default function AIChatbox() {
             return updated;
           });
         },
-        selectedModel
+        selectedModel,
+        (action: PendingAction) => {
+          setPendingAction(action);
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            if (lastIndex >= 0 && updated[lastIndex].role === "model" && !updated[lastIndex].content) {
+              updated.pop();
+            }
+            return updated;
+          });
+        }
       );
     } catch (err: any) {
       setMessages((prev) => {
@@ -122,6 +148,32 @@ export default function AIChatbox() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Confirm or cancel a pending action proposed by the AI (e.g. create_price_alert)
+  const handleConfirmAction = async () => {
+    if (!pendingAction) return;
+    setConfirmingAction(true);
+    try {
+      await confirmAIAction(pendingAction.action, pendingAction.args);
+      setMessages((prev) => [
+        ...prev,
+        { role: "model", content: `✅ 已送出：${ACTION_LABEL[pendingAction.action] || pendingAction.action}` },
+      ]);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "model", content: `❌ 執行失敗：${err.response?.data?.detail || err.message}` },
+      ]);
+    } finally {
+      setConfirmingAction(false);
+      setPendingAction(null);
+    }
+  };
+
+  const handleCancelAction = () => {
+    setMessages((prev) => [...prev, { role: "model", content: "已取消該動作。" }]);
+    setPendingAction(null);
   };
 
   // Run SQL Console query
@@ -262,6 +314,37 @@ export default function AIChatbox() {
                     </div>
                   </div>
                 ))}
+
+                {/* Pending action confirmation card */}
+                {pendingAction && (
+                  <div className="flex gap-2">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                      ⚠️
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 px-3.5 py-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] text-sm">
+                      <div className="font-bold text-amber-900 mb-1">
+                        {ACTION_LABEL[pendingAction.action] || pendingAction.action}
+                      </div>
+                      <div className="text-xs text-amber-800 mb-3">{describePendingAction(pendingAction)}</div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleConfirmAction}
+                          disabled={confirmingAction}
+                          className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:bg-slate-300 cursor-pointer"
+                        >
+                          {confirmingAction ? "送出中..." : "確認送出"}
+                        </button>
+                        <button
+                          onClick={handleCancelAction}
+                          disabled={confirmingAction}
+                          className="px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 cursor-pointer"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Loading state indicator */}
                 {isLoading && (

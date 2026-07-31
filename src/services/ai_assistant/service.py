@@ -14,11 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from google.genai import types
 
 from src.controllers.ai_assistant.model import ChatRequest, SQLPlannerResponse
+from src.dbs.models import User
 from src.instances.config import get_settings
 from src.instances.gemini import (
     generate_content_with_fallback,
     generate_content_stream_with_fallback,
 )
+from src.services.ai_assistant.tools import CONFIRMATION_REQUIRED, FUNCTION_DECLARATIONS, execute_tool_call
 
 log = logging.getLogger(__name__)
 settings = get_settings()
@@ -150,7 +152,8 @@ class AIAssistantService:
     async def process_chat_stream(
         request: ChatRequest,
         user_id: int,
-        db: AsyncSession
+        db: AsyncSession,
+        current_user: User,
     ) -> AsyncGenerator[str, None]:
         """
         Process chat prompt, execute read-only SQL if needed, and yield SSE formatted chunks.
@@ -195,6 +198,46 @@ class AIAssistantService:
                 log.warning(f"SQL validation or execution failed: {sql_err}. Falling back to general chat.")
                 db_results_str = f"Error executing database query: {str(sql_err)}"
 
+        # Tool-use stage: let Gemini decide whether the user's request requires a
+        # write action (e.g. add a transaction, create a price alert). Actions in
+        # CONFIRMATION_REQUIRED are never executed here — they are surfaced to the
+        # frontend as a pending_action event and only run after explicit user
+        # confirmation via /ai/chat/confirm-action.
+        tool_result_str = ""
+        tool_context_prompt = f"{db_results_str}\n\nUser Question: {request.message}" if db_results_str else request.message
+        try:
+            tool_response, _ = await generate_content_with_fallback(
+                contents=[tool_context_prompt],
+                config=types.GenerateContentConfig(
+                    system_instruction=(
+                        "You are pocketCFO AI Assistant. Decide if the user's request requires calling one "
+                        "of the available tools (e.g. creating/updating/deleting a transaction, creating or "
+                        "cancelling a price alert). Only call a tool if the user clearly asked for that action "
+                        "with enough information. Otherwise, do not call any tool."
+                    ),
+                    tools=[types.Tool(function_declarations=FUNCTION_DECLARATIONS)],
+                    temperature=0.0,
+                ),
+                primary_model=requested_model,
+            )
+            function_calls = getattr(tool_response, "function_calls", None) or []
+            if function_calls:
+                call = function_calls[0]
+                call_args = dict(call.args or {})
+                if call.name in CONFIRMATION_REQUIRED:
+                    data = json.dumps({"type": "pending_action", "action": call.name, "args": call_args}, ensure_ascii=False)
+                    yield f"data: {data}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+                try:
+                    result = await execute_tool_call(call.name, call_args, user_id, current_user, db)
+                    tool_result_str = f"[System context: Tool '{call.name}' was executed with args {call_args}. Result: {json.dumps(result, ensure_ascii=False, default=str)}]"
+                except Exception as tool_err:
+                    log.error(f"Tool call '{call.name}' failed: {tool_err}")
+                    tool_result_str = f"[System context: Tool '{call.name}' failed with error: {tool_err}]"
+        except Exception as tool_stage_err:
+            log.warning(f"Tool-use stage failed, continuing without tools: {tool_stage_err}")
+
         system_instruction = (
             "You are pocketCFO AI Assistant, a helpful personal finance assistant.\n"
             "Help the user track assets, liabilities, bank statements, and stock transactions.\n"
@@ -207,6 +250,8 @@ class AIAssistantService:
             final_prompt_parts.append(f"[System context: Query results returned from database:\n{db_results_str}]")
         elif needs_db:
             final_prompt_parts.append(f"[System context: DB query failed: {db_results_str}]")
+        if tool_result_str:
+            final_prompt_parts.append(tool_result_str)
 
         final_prompt_parts.append(f"User Question: {request.message}")
         final_prompt = "\n\n".join(final_prompt_parts)
@@ -241,6 +286,22 @@ class AIAssistantService:
             yield f"data: {err_data}\n\n"
         finally:
             yield "data: [DONE]\n\n"
+
+    @staticmethod
+    async def confirm_action(
+        action: str,
+        args: dict[str, Any],
+        user_id: int,
+        current_user: User,
+        db: AsyncSession,
+    ) -> dict[str, Any]:
+        """
+        Executes a tool call that was previously surfaced as a pending_action
+        (e.g. create_price_alert) after the user has explicitly confirmed it in
+        the chat UI.
+        """
+        result = await execute_tool_call(action, args, user_id, current_user, db)
+        return {"action": action, "result": result}
 
     @staticmethod
     async def execute_raw_sql(

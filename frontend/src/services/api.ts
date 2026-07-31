@@ -639,11 +639,18 @@ export async function sendAIChat(message: string, history: ChatMessage[]) {
   return data as { response: string };
 }
 
+export interface PendingAction {
+  type: "pending_action";
+  action: string;
+  args: Record<string, any>;
+}
+
 export async function sendAIChatStream(
   message: string,
   history: ChatMessage[],
   onChunk: (chunk: string) => void,
-  model?: string
+  model?: string,
+  onPendingAction?: (action: PendingAction) => void
 ) {
   const token = localStorage.getItem("pocketcfo_token") || localStorage.getItem("token");
   const response = await fetch("/api/v1/ai/chat", {
@@ -695,7 +702,9 @@ export async function sendAIChatStream(
         if (parsed.error) {
           throw new Error(parsed.error);
         }
-        if (parsed.text) {
+        if (parsed.type === "pending_action") {
+          onPendingAction?.(parsed as PendingAction);
+        } else if (parsed.text) {
           onChunk(parsed.text);
         }
       } catch (e) {
@@ -715,6 +724,11 @@ export async function executeSQLQuery(query: string) {
     query,
   });
   return data as SQLResult;
+}
+
+export async function confirmAIAction(action: string, args: Record<string, any>) {
+  const { data } = await api.post("/ai/chat/confirm-action", { action, args });
+  return data as { action: string; result: any };
 }
 
 // ── Rebalance Strategy API ──────────────────────────────────────────────────
