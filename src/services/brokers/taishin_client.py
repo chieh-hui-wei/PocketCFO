@@ -65,6 +65,28 @@ class TaishinClient:
             )
         return holdings
 
+    async def place_order(self, ticker: str, side: str, price: float, quantity: int) -> dict[str, Any]:
+        """
+        Place a limit order (現股, 整股, ROD) via 台新 API.
+        side must be "buy" or "sell".
+        """
+        from taishin_sdk import BSAction, MarketType, Order, PriceType, TimeInForce
+
+        order = Order(
+            symbol=ticker,
+            buy_sell=BSAction.Buy if side == "buy" else BSAction.Sell,
+            quantity=quantity,
+            price=price,
+            price_type=PriceType.Limit,
+            time_in_force=TimeInForce.ROD,
+            market_type=MarketType.Common,
+        )
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: self.sdk.stock.place_order(self.accounts[0], order)
+        )
+        return {"order_no": getattr(result, "order_no", None), "raw": str(result)}
+
     async def get_filled_history(self, start_date: str, end_date: str) -> list[Any]:
         """
         Fetch filled history (歷史成交明細) from 台新 API.

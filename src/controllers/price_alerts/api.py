@@ -23,7 +23,10 @@ def _serialize(alert) -> dict:
         "id": alert.id,
         "ticker": alert.ticker,
         "name": alert.name,
-        "side": alert.side.value,
+        "alert_type": alert.alert_type.value,
+        "side": alert.side.value if alert.side else None,
+        "direction": alert.direction.value if alert.direction else None,
+        "broker": alert.broker.value if alert.broker else None,
         "target_price": alert.target_price,
         "quantity": alert.quantity,
         "status": alert.status.value,
@@ -50,15 +53,22 @@ async def create_price_alert(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_token),
 ):
-    """Create a new target-price alert that will auto-place a limit order via E-Sun when hit."""
+    """Create a new price alert: auto-trade (places a limit order via a broker when hit)
+    or notify-only (target price / MA20, sends an email when hit)."""
     service = PriceAlertService(db, current_user.id)
-    alert = await service.create_alert(
-        ticker=body.ticker,
-        side=body.side,
-        target_price=body.target_price,
-        quantity=body.quantity,
-        name=body.name,
-    )
+    try:
+        alert = await service.create_alert(
+            ticker=body.ticker,
+            target_price=body.target_price,
+            alert_type=body.alert_type,
+            side=body.side,
+            quantity=body.quantity,
+            direction=body.direction,
+            broker=body.broker,
+            name=body.name,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     await db.commit()
     return _serialize(alert)
 

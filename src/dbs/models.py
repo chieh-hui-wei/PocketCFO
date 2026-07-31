@@ -374,8 +374,26 @@ class PriceAlertStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+class PriceAlertType(str, enum.Enum):
+    AUTO_TRADE = "auto_trade"
+    NOTIFY_PRICE = "notify_price"
+    NOTIFY_MA20 = "notify_ma20"
+
+
+class PriceAlertDirection(str, enum.Enum):
+    ABOVE = "above"
+    BELOW = "below"
+
+
+class PriceAlertBroker(str, enum.Enum):
+    ESUN = "esun"
+    TAISHIN = "taishin"
+    SINOPAC = "sinopac"
+
+
 class PriceAlert(Base):
-    """User-defined target price watch that auto-places a limit order via E-Sun when hit."""
+    """User-defined target price / MA20 watch. Either auto-places a limit order via a broker,
+    or sends a plain notification email, when the condition is hit."""
 
     __tablename__ = "price_alerts"
 
@@ -383,9 +401,16 @@ class PriceAlert(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     ticker: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     name: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    side: Mapped[PriceAlertSide] = mapped_column(Enum(PriceAlertSide), nullable=False)
+    alert_type: Mapped[PriceAlertType] = mapped_column(
+        Enum(PriceAlertType), nullable=False, default=PriceAlertType.AUTO_TRADE
+    )
+    side: Mapped[PriceAlertSide | None] = mapped_column(Enum(PriceAlertSide), nullable=True)
+    direction: Mapped[PriceAlertDirection | None] = mapped_column(Enum(PriceAlertDirection), nullable=True)
+    broker: Mapped[PriceAlertBroker | None] = mapped_column(
+        Enum(PriceAlertBroker), nullable=True, default=PriceAlertBroker.ESUN
+    )
     target_price: Mapped[float] = mapped_column(Float, nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)  # shares
+    quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)  # shares, only for AUTO_TRADE
     status: Mapped[PriceAlertStatus] = mapped_column(
         Enum(PriceAlertStatus), nullable=False, default=PriceAlertStatus.ACTIVE, index=True
     )

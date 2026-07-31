@@ -82,6 +82,95 @@ def parse_stock_transaction(txn: Any) -> Tuple[Optional[str], float, Optional[st
 
 
 _PRICE_CACHE: dict[tuple[str, date], float] = {}
+_MA20_CACHE: dict[tuple[str, date], float] = {}
+
+_YAHOO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "max-age=0",
+}
+
+
+def _tickers_to_try(ticker: str) -> list[str]:
+    if ticker.isdigit():
+        return [f"{ticker}.TW", f"{ticker}.TWO"]
+    return [ticker]
+
+
+async def _fetch_yahoo_chart_prices(ticker: str, period1: int, period2: int) -> list[float]:
+    """
+    Fetches the daily close price series for a ticker from Yahoo Finance v8 chart API
+    between period1 and period2 (unix timestamps). Returns prices ordered oldest-to-newest,
+    trying .TW then .TWO suffixes for numeric (Taiwan) tickers.
+    """
+    async with httpx.AsyncClient() as client:
+        for t in _tickers_to_try(ticker):
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{t}?period1={period1}&period2={period2}&interval=1d"
+            try:
+                response = await client.get(url, headers=_YAHOO_HEADERS, timeout=10.0)
+                if response.status_code == 200:
+                    res_json = response.json()
+                    result = res_json.get("chart", {}).get("result")
+                    if result and len(result) > 0:
+                        adjclose = result[0].get("indicators", {}).get("adjclose", [{}])[0].get("adjclose", [])
+                        close = result[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
+
+                        prices = adjclose if adjclose else close
+                        valid_prices = [float(p) for p in prices if p is not None]
+                        if valid_prices:
+                            return valid_prices
+            except Exception as e:
+                log.warning(f"Error querying Yahoo Finance for {t}: {e}")
+
+    return []
+
+
+async def fetch_daily_close_series(ticker: str, lookback_days: int = 45) -> Optional[list[float]]:
+    """
+    Fetches the daily close price series for the last `lookback_days` calendar days
+    (enough to cover at least 20 trading days including weekends/holidays), ordered
+    oldest-to-newest. Returns None if no data could be fetched.
+    """
+    ticker = ticker.strip()
+    if not ticker:
+        return None
+
+    today = date.today()
+    start_dt = datetime(today.year, today.month, today.day) - timedelta(days=lookback_days)
+    end_dt = datetime(today.year, today.month, today.day) + timedelta(days=1)
+
+    prices = await _fetch_yahoo_chart_prices(ticker, int(start_dt.timestamp()), int(end_dt.timestamp()))
+    return prices or None
+
+
+def calculate_ma20(closes: list[float]) -> Optional[float]:
+    """Returns the 20-day simple moving average of the given close price series
+    (expects oldest-to-newest order), or None if fewer than 20 data points are available."""
+    if len(closes) < 20:
+        return None
+    return sum(closes[-20:]) / 20
+
+
+async def fetch_ma20(ticker: str) -> Optional[float]:
+    """Fetches and caches today's MA20 for a ticker (computed once per trading day)."""
+    ticker = ticker.strip()
+    if not ticker:
+        return None
+
+    today = date.today()
+    cache_key = (ticker, today)
+    if cache_key in _MA20_CACHE:
+        return _MA20_CACHE[cache_key]
+
+    closes = await fetch_daily_close_series(ticker)
+    if not closes:
+        return None
+
+    ma20 = calculate_ma20(closes)
+    if ma20 is not None:
+        _MA20_CACHE[cache_key] = ma20
+    return ma20
 
 
 async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[float]:
@@ -105,13 +194,6 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
         log.info(f"Price cache hit for {ticker} on {period_date}: {_PRICE_CACHE[cache_key]}")
         return _PRICE_CACHE[cache_key]
 
-    # Handle Taiwan tickers: if numeric, try .TW first, then .TWO
-    tickers_to_try = []
-    if ticker.isdigit():
-        tickers_to_try = [f"{ticker}.TW", f"{ticker}.TWO"]
-    else:
-        tickers_to_try = [ticker]
-
     # Period bounds
     # Start 7 days before the 1st to ensure at least one valid trading day in the window
     start_dt = datetime(period_date.year, period_date.month, 1) - timedelta(days=7)
@@ -123,38 +205,13 @@ async def fetch_month_end_price(ticker: str, period_date: date) -> Optional[floa
         # Fetch until last day of month + 2 days to account for weekends / timezones
         end_dt = datetime(period_date.year, period_date.month, last_day) + timedelta(days=2)
 
-    period1 = int(start_dt.timestamp())
-    period2 = int(end_dt.timestamp())
+    valid_prices = await _fetch_yahoo_chart_prices(ticker, int(start_dt.timestamp()), int(end_dt.timestamp()))
+    if valid_prices:
+        last_price = valid_prices[-1]
+        _PRICE_CACHE[cache_key] = last_price
+        log.info(f"Successfully fetched price for {ticker} ({'live' if is_current_month else 'month-end'} {period_date}): {last_price}")
+        return last_price
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "max-age=0"
-    }
-
-    async with httpx.AsyncClient() as client:
-        for t in tickers_to_try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{t}?period1={period1}&period2={period2}&interval=1d"
-            try:
-                response = await client.get(url, headers=headers, timeout=10.0)
-                if response.status_code == 200:
-                    res_json = response.json()
-                    result = res_json.get("chart", {}).get("result")
-                    if result and len(result) > 0:
-                        adjclose = result[0].get("indicators", {}).get("adjclose", [{}])[0].get("adjclose", [])
-                        close = result[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
-                        
-                        prices = adjclose if adjclose else close
-                        valid_prices = [p for p in prices if p is not None]
-                        if valid_prices:
-                            last_price = float(valid_prices[-1])
-                            _PRICE_CACHE[cache_key] = last_price
-                            log.info(f"Successfully fetched price for {t} ({'live' if is_current_month else 'month-end'} {period_date}): {last_price}")
-                            return last_price
-            except Exception as e:
-                log.warning(f"Error querying Yahoo Finance for {t}: {e}")
-                
     return None
 
 

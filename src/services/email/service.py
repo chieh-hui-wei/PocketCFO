@@ -284,3 +284,67 @@ async def send_price_alert_result_email(to_email: str, ticker: str, side: str, t
     print(f"\n--- [PRICE ALERT RESULT EMAIL SENT] ---\nTo: {to_email}\nTicker: {ticker}\nSuccess: {success}\n----------------------------------------\n")
 
 
+async def send_price_alert_notify_email(
+    to_email: str, ticker: str, alert_type: str, current_price: float, reference_value: float, direction: str
+):
+    """
+    Notify the user that a notify-only price alert (target price or MA20) has been
+    triggered. Unlike send_price_alert_result_email, no order is placed.
+    """
+    condition_label = "MA20 均線" if alert_type == "notify_ma20" else "目標價"
+    direction_label = "漲破" if direction == "above" else "跌破"
+    subject = f"[pocketCFO] 股價通知 - {ticker} 已{direction_label}{condition_label}"
+    color = "#2563eb"
+    bg_color = "#eff6ff"
+    border_color = "#bfdbfe"
+    title = f"{ticker} 現價已{direction_label}{condition_label}"
+    detail = f"現價 {current_price:,.2f} 已{direction_label}{condition_label} {reference_value:,.2f}。"
+
+    body_html = f"""
+    <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 40px 20px; color: #0f172a;">
+        <div style="max-width: 640px; margin: 0 auto; background-color: #ffffff; padding: 36px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04);">
+          <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 24px;">
+            <span style="font-size: 11px; font-weight: 800; color: {color}; letter-spacing: 0.05em; text-transform: uppercase; background-color: {bg_color}; padding: 3px 10px; border-radius: 4px;">POCKETCFO PRICE ALERT</span>
+            <h2 style="color: #0f172a; margin: 12px 0 4px 0; font-size: 20px; font-weight: 800;">{title}</h2>
+          </div>
+
+          <div style="background-color: {bg_color}; border: 1px solid {border_color}; border-left: 4px solid {color}; padding: 18px; border-radius: 8px; margin-bottom: 24px;">
+            <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.6;">{detail}</p>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0;">
+            <tbody>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px; color: #64748b;">股票代號</td>
+                <td style="padding: 10px; text-align: right; font-weight: 700;">{ticker}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px; color: #64748b;">觸發類型</td>
+                <td style="padding: 10px; text-align: right; font-weight: 700;">{condition_label}（{direction_label}）</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px; color: #64748b;">現價</td>
+                <td style="padding: 10px; text-align: right; font-family: monospace;">{current_price:,.2f}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; color: #64748b;">比較值</td>
+                <td style="padding: 10px; text-align: right; font-family: monospace;">{reference_value:,.2f}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 28px 0 16px 0;" />
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">此郵件由 PocketCFO 資產管理系統自動生成與傳送。此提醒僅觸發一次，不會重複通知。</p>
+        </div>
+      </body>
+    </html>
+    """
+    try:
+        await asyncio.to_thread(send_smtp_email_sync, to_email, subject, body_html)
+    except Exception as e:
+        log.error(f"Failed to send price alert notify email to {to_email}: {e}")
+
+    print(f"\n--- [PRICE ALERT NOTIFY EMAIL SENT] ---\nTo: {to_email}\nTicker: {ticker}\nType: {alert_type}\n----------------------------------------\n")
+
+

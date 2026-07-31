@@ -148,6 +148,37 @@ async def run_migrations() -> None:
         """,
         # 2026-07-07: drop is_active from accounts (replaced by hard cascade delete)
         "ALTER TABLE accounts DROP COLUMN IF EXISTS is_active",
+        # 2026-07-31: price_alerts — support notify-only alerts (target price / MA20) and broker selection
+        """
+        DO $$
+        BEGIN
+            CREATE TYPE pricealerttype AS ENUM ('auto_trade', 'notify_price', 'notify_ma20');
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+        END $$
+        """,
+        """
+        DO $$
+        BEGIN
+            CREATE TYPE pricealertdirection AS ENUM ('above', 'below');
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+        END $$
+        """,
+        """
+        DO $$
+        BEGIN
+            CREATE TYPE pricealertbroker AS ENUM ('esun', 'taishin', 'sinopac');
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+        END $$
+        """,
+        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS alert_type pricealerttype NOT NULL DEFAULT 'auto_trade'",
+        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS direction pricealertdirection",
+        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS broker pricealertbroker DEFAULT 'esun'",
+        "UPDATE price_alerts SET broker = 'esun' WHERE broker IS NULL",
+        "ALTER TABLE price_alerts ALTER COLUMN side DROP NOT NULL",
+        "ALTER TABLE price_alerts ALTER COLUMN quantity DROP NOT NULL",
     ]
 
     async with engine.begin() as conn:

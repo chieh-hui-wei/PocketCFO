@@ -800,9 +800,12 @@ export interface PriceAlert {
   id: number;
   ticker: string;
   name: string | null;
-  side: "buy" | "sell";
+  alert_type: "auto_trade" | "notify_price" | "notify_ma20";
+  side: "buy" | "sell" | null;
+  direction: "above" | "below" | null;
+  broker: "esun" | "taishin" | "sinopac" | null;
   target_price: number;
-  quantity: number;
+  quantity: number | null;
   status: "active" | "filled" | "failed" | "cancelled";
   order_result: string | null;
   triggered_at: string | null;
@@ -817,9 +820,12 @@ export async function listPriceAlerts() {
 export async function createPriceAlert(payload: {
   ticker: string;
   name?: string;
-  side: "buy" | "sell";
+  alert_type?: "auto_trade" | "notify_price" | "notify_ma20";
+  side?: "buy" | "sell";
+  quantity?: number;
+  broker?: "esun" | "taishin" | "sinopac";
+  direction?: "above" | "below";
   target_price: number;
-  quantity: number;
 }) {
   const { data } = await api.post("/price-alerts/", payload);
   return data as PriceAlert;
