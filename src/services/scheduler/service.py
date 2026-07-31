@@ -597,9 +597,9 @@ async def check_and_run_tasks(now: datetime) -> None:
     else:
         taipei_now = now.astimezone(tz_taipei)
 
-    # Daily Sync: Run DAILY (starting at 17:00 Taipei time or later)
+    # Daily Sync: Run DAILY (starting at 14:00 Taipei time or later)
     # Syncs current month's trades, current assets, and previous month's trades (during the first 5 days of the month)
-    if taipei_now.hour >= 17:
+    if taipei_now.hour >= 14:
         current_day = taipei_now.date()
         last_asset_sync = get_last_asset_sync_day()
         if last_asset_sync != current_day:
