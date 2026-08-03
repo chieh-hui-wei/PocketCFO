@@ -152,7 +152,9 @@ async def run_migrations() -> None:
         """
         DO $$
         BEGIN
-            CREATE TYPE pricealerttype AS ENUM ('auto_trade', 'notify_price', 'notify_ma20');
+            -- Labels are the Python enum member NAMES: that is what SQLAlchemy's
+            -- Enum(PyEnum) persists, matching the pre-existing pricealertside/status types.
+            CREATE TYPE pricealerttype AS ENUM ('AUTO_TRADE', 'NOTIFY_PRICE', 'NOTIFY_MA20');
         EXCEPTION
             WHEN duplicate_object THEN NULL;
         END $$
@@ -160,7 +162,7 @@ async def run_migrations() -> None:
         """
         DO $$
         BEGIN
-            CREATE TYPE pricealertdirection AS ENUM ('above', 'below');
+            CREATE TYPE pricealertdirection AS ENUM ('ABOVE', 'BELOW');
         EXCEPTION
             WHEN duplicate_object THEN NULL;
         END $$
@@ -168,15 +170,15 @@ async def run_migrations() -> None:
         """
         DO $$
         BEGIN
-            CREATE TYPE pricealertbroker AS ENUM ('esun', 'taishin', 'sinopac');
+            CREATE TYPE pricealertbroker AS ENUM ('ESUN', 'TAISHIN', 'SINOPAC');
         EXCEPTION
             WHEN duplicate_object THEN NULL;
         END $$
         """,
-        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS alert_type pricealerttype NOT NULL DEFAULT 'auto_trade'",
+        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS alert_type pricealerttype NOT NULL DEFAULT 'AUTO_TRADE'",
         "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS direction pricealertdirection",
-        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS broker pricealertbroker DEFAULT 'esun'",
-        "UPDATE price_alerts SET broker = 'esun' WHERE broker IS NULL",
+        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS broker pricealertbroker DEFAULT 'ESUN'",
+        "UPDATE price_alerts SET broker = 'ESUN' WHERE broker IS NULL",
         "ALTER TABLE price_alerts ALTER COLUMN side DROP NOT NULL",
         "ALTER TABLE price_alerts ALTER COLUMN quantity DROP NOT NULL",
     ]
