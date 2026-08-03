@@ -458,12 +458,12 @@ class PriceAlertRepository:
         self.db = db
         self.user_id = user_id
 
-    async def list_all(self) -> Sequence[PriceAlert]:
-        result = await self.db.execute(
-            select(PriceAlert)
-            .where(PriceAlert.user_id == self.user_id)
-            .order_by(PriceAlert.created_at.desc())
-        )
+    async def list_all(self, include_cancelled: bool = False) -> Sequence[PriceAlert]:
+        """Cancelled alerts are kept in the DB but hidden by default to keep the list short."""
+        stmt = select(PriceAlert).where(PriceAlert.user_id == self.user_id)
+        if not include_cancelled:
+            stmt = stmt.where(PriceAlert.status != PriceAlertStatus.CANCELLED)
+        result = await self.db.execute(stmt.order_by(PriceAlert.created_at.desc()))
         return result.scalars().all()
 
     async def get_by_id(self, alert_id: int) -> PriceAlert | None:
