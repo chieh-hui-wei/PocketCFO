@@ -6,7 +6,7 @@ Updated for multi-user user_id data isolation.
 from __future__ import annotations
 
 from datetime import date
-from typing import Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import select, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -483,5 +483,14 @@ class PriceAlertRepository:
         if not alert or alert.status != PriceAlertStatus.ACTIVE:
             return None
         alert.status = PriceAlertStatus.CANCELLED
+        await self.db.flush()
+        return alert
+
+    async def update(self, alert_id: int, **fields: Any) -> PriceAlert | None:
+        alert = await self.get_by_id(alert_id)
+        if not alert or alert.status != PriceAlertStatus.ACTIVE:
+            return None
+        for key, value in fields.items():
+            setattr(alert, key, value)
         await self.db.flush()
         return alert

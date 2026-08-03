@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   listPriceAlerts,
   createPriceAlert,
+  updatePriceAlert,
   cancelPriceAlert,
   PriceAlert,
 } from "../services/api";
@@ -38,6 +39,7 @@ export default function PriceAlertsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // auto_trade form state
+  const [editingAutoId, setEditingAutoId] = useState<number | null>(null);
   const [ticker, setTicker] = useState("");
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [broker, setBroker] = useState<"esun" | "taishin" | "sinopac">("esun");
@@ -45,6 +47,7 @@ export default function PriceAlertsPage() {
   const [quantity, setQuantity] = useState("");
 
   // notify form state
+  const [editingNotifyId, setEditingNotifyId] = useState<number | null>(null);
   const [notifyTicker, setNotifyTicker] = useState("");
   const [notifyCondition, setNotifyCondition] = useState<"target_price" | "ma20">("target_price");
   const [notifyDirection, setNotifyDirection] = useState<"above" | "below">("above");
@@ -79,24 +82,47 @@ export default function PriceAlertsPage() {
     }
     setSubmitting(true);
     try {
-      await createPriceAlert({
+      const payload = {
         ticker: ticker.trim().toUpperCase(),
-        alert_type: "auto_trade",
+        alert_type: "auto_trade" as const,
         side,
         broker,
         target_price: Number(targetPrice),
         quantity: Number(quantity),
-      });
-      setToastMsg("✅ 已建立到價自動下單監控");
+      };
+      if (editingAutoId != null) {
+        await updatePriceAlert(editingAutoId, payload);
+        setToastMsg("✅ 已更新監控條件");
+      } else {
+        await createPriceAlert(payload);
+        setToastMsg("✅ 已建立到價自動下單監控");
+      }
+      setEditingAutoId(null);
       setTicker("");
       setTargetPrice("");
       setQuantity("");
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ 建立失敗: ${err.response?.data?.detail || err.message}`);
+      setToastMsg(`❌ ${editingAutoId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEditAutoTrade = (a: PriceAlert) => {
+    setEditingAutoId(a.id);
+    setTicker(a.ticker);
+    setSide(a.side ?? "buy");
+    setBroker(a.broker ?? "esun");
+    setTargetPrice(String(a.target_price));
+    setQuantity(String(a.quantity ?? ""));
+  };
+
+  const cancelEditAutoTrade = () => {
+    setEditingAutoId(null);
+    setTicker("");
+    setTargetPrice("");
+    setQuantity("");
   };
 
   const handleCreateNotify = async (e: React.FormEvent) => {
@@ -107,23 +133,46 @@ export default function PriceAlertsPage() {
     }
     setSubmitting(true);
     try {
-      await createPriceAlert({
+      const payload = {
         ticker: notifyTicker.trim().toUpperCase(),
-        alert_type: notifyCondition === "ma20" ? "notify_ma20" : "notify_price",
+        alert_type: (notifyCondition === "ma20" ? "notify_ma20" : "notify_price") as
+          | "notify_ma20"
+          | "notify_price",
         direction: notifyDirection,
         // MA20 alerts don't use a fixed target price; backend requires target_price > 0,
         // so pass a placeholder that's ignored for notify_ma20 comparisons.
         target_price: notifyCondition === "ma20" ? Number(notifyTargetPrice || 1) : Number(notifyTargetPrice),
-      });
-      setToastMsg("✅ 已建立通知監控");
+      };
+      if (editingNotifyId != null) {
+        await updatePriceAlert(editingNotifyId, payload);
+        setToastMsg("✅ 已更新監控條件");
+      } else {
+        await createPriceAlert(payload);
+        setToastMsg("✅ 已建立通知監控");
+      }
+      setEditingNotifyId(null);
       setNotifyTicker("");
       setNotifyTargetPrice("");
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ 建立失敗: ${err.response?.data?.detail || err.message}`);
+      setToastMsg(`❌ ${editingNotifyId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEditNotify = (a: PriceAlert) => {
+    setEditingNotifyId(a.id);
+    setNotifyTicker(a.ticker);
+    setNotifyCondition(a.alert_type === "notify_ma20" ? "ma20" : "target_price");
+    setNotifyDirection(a.direction ?? "above");
+    setNotifyTargetPrice(a.alert_type === "notify_ma20" ? "" : String(a.target_price));
+  };
+
+  const cancelEditNotify = () => {
+    setEditingNotifyId(null);
+    setNotifyTicker("");
+    setNotifyTargetPrice("");
   };
 
   const handleCancel = async (id: number) => {
@@ -185,7 +234,9 @@ export default function PriceAlertsPage() {
           </div>
 
           <form onSubmit={handleCreateAutoTrade} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2">新增目標價監控</h3>
+            <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2">
+              {editingAutoId != null ? "編輯目標價監控" : "新增目標價監控"}
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">股票代號</label>
@@ -248,13 +299,22 @@ export default function PriceAlertsPage() {
                 />
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {editingAutoId != null && (
+                <button
+                  type="button"
+                  onClick={cancelEditAutoTrade}
+                  className="px-4 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  取消編輯
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={submitting}
                 className="px-4 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-300 cursor-pointer"
               >
-                {submitting ? "建立中..." : "建立監控"}
+                {submitting ? "儲存中..." : editingAutoId != null ? "儲存變更" : "建立監控"}
               </button>
             </div>
           </form>
@@ -269,7 +329,9 @@ export default function PriceAlertsPage() {
           </div>
 
           <form onSubmit={handleCreateNotify} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2">新增通知監控</h3>
+            <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2">
+              {editingNotifyId != null ? "編輯通知監控" : "新增通知監控"}
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">股票代號</label>
@@ -319,13 +381,22 @@ export default function PriceAlertsPage() {
                 </div>
               )}
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {editingNotifyId != null && (
+                <button
+                  type="button"
+                  onClick={cancelEditNotify}
+                  className="px-4 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  取消編輯
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={submitting}
                 className="px-4 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-300 cursor-pointer"
               >
-                {submitting ? "建立中..." : "建立監控"}
+                {submitting ? "儲存中..." : editingNotifyId != null ? "儲存變更" : "建立監控"}
               </button>
             </div>
           </form>
@@ -409,12 +480,20 @@ export default function PriceAlertsPage() {
                     <td className="py-3 px-3 text-[11px] text-slate-500">{formatUtc8(a.created_at, true)}</td>
                     <td className="py-3 px-3 text-center">
                       {a.status === "active" ? (
-                        <button
-                          onClick={() => handleCancel(a.id)}
-                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
-                        >
-                          取消
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => (tab === "auto_trade" ? handleEditAutoTrade(a) : handleEditNotify(a))}
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                          >
+                            編輯
+                          </button>
+                          <button
+                            onClick={() => handleCancel(a.id)}
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                          >
+                            取消
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-slate-300">-</span>
                       )}

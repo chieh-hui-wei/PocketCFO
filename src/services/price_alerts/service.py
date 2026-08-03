@@ -89,6 +89,40 @@ class PriceAlertService:
             await self.db.commit()
         return alert
 
+    async def update_alert(
+        self,
+        alert_id: int,
+        ticker: str,
+        target_price: float,
+        alert_type: str = "auto_trade",
+        side: str | None = None,
+        quantity: int | None = None,
+        direction: str | None = None,
+        broker: str | None = None,
+        name: str | None = None,
+    ) -> PriceAlert | None:
+        """Edit the conditions of an ACTIVE alert. Only ACTIVE alerts can be edited."""
+        resolved_type = PriceAlertType(alert_type)
+        fields: dict[str, Any] = {
+            "ticker": ticker.strip().upper(),
+            "name": name,
+            "alert_type": resolved_type,
+            "target_price": target_price,
+        }
+
+        if resolved_type == PriceAlertType.AUTO_TRADE:
+            resolved_broker = PriceAlertBroker(broker or "esun")
+            if resolved_broker not in BROKERS_SUPPORTING_ORDERS:
+                raise ValueError(f"該券商尚未支援自動下單：{resolved_broker.value}")
+            fields.update(side=PriceAlertSide(side), quantity=quantity, broker=resolved_broker, direction=None)
+        else:
+            fields.update(direction=PriceAlertDirection(direction), side=None, quantity=None, broker=None)
+
+        alert = await self.repo.update(alert_id, **fields)
+        if alert:
+            await self.db.commit()
+        return alert
+
 
 def _is_triggered(alert: PriceAlert, current_price: float, reference_value: float) -> bool:
     if alert.alert_type == PriceAlertType.AUTO_TRADE:

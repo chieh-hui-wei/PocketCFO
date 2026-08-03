@@ -831,6 +831,23 @@ export async function createPriceAlert(payload: {
   return data as PriceAlert;
 }
 
+export async function updatePriceAlert(
+  alertId: number,
+  payload: {
+    ticker: string;
+    name?: string;
+    alert_type?: "auto_trade" | "notify_price" | "notify_ma20";
+    side?: "buy" | "sell";
+    quantity?: number;
+    broker?: "esun" | "taishin" | "sinopac";
+    direction?: "above" | "below";
+    target_price: number;
+  }
+) {
+  const { data } = await api.put(`/price-alerts/${alertId}`, payload);
+  return data as PriceAlert;
+}
+
 export async function cancelPriceAlert(alertId: number) {
   const { data } = await api.delete(`/price-alerts/${alertId}`);
   return data as PriceAlert;

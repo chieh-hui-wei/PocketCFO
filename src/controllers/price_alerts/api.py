@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.instances.database import get_db
 from src.middleware.auth import verify_token
 from src.dbs.models import User
-from src.controllers.price_alerts.model import CreatePriceAlertRequest
+from src.controllers.price_alerts.model import CreatePriceAlertRequest, UpdatePriceAlertRequest
 from src.services.price_alerts.service import PriceAlertService
 
 log = logging.getLogger(__name__)
@@ -70,6 +70,34 @@ async def create_price_alert(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     await db.commit()
+    return _serialize(alert)
+
+
+@router.put("/{alert_id}")
+async def update_price_alert(
+    alert_id: int,
+    body: UpdatePriceAlertRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    """Edit the conditions of an active target-price alert."""
+    service = PriceAlertService(db, current_user.id)
+    try:
+        alert = await service.update_alert(
+            alert_id,
+            ticker=body.ticker,
+            target_price=body.target_price,
+            alert_type=body.alert_type,
+            side=body.side,
+            quantity=body.quantity,
+            direction=body.direction,
+            broker=body.broker,
+            name=body.name,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found or not active")
     return _serialize(alert)
 
 
