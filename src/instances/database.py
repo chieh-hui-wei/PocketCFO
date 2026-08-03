@@ -181,13 +181,15 @@ async def run_migrations() -> None:
         "ALTER TABLE price_alerts ALTER COLUMN quantity DROP NOT NULL",
     ]
 
-    async with engine.begin() as conn:
-        for stmt in migrations:
-            try:
+    # Each statement gets its own transaction: on Postgres a single failed statement
+    # aborts the whole transaction, which would silently skip every later migration.
+    for stmt in migrations:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(__import__("sqlalchemy").text(stmt))
-                log.info(f"migration.ok: {stmt}")
-            except Exception as e:
-                log.warning(f"migration.skip: {stmt} — {e}")
+            log.info(f"migration.ok: {stmt}")
+        except Exception as e:
+            log.warning(f"migration.skip: {stmt} — {e}")
 
 
 async def create_all_tables() -> None:
