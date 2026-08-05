@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { sendAIChatStream, executeSQLQuery, confirmAIAction, ChatMessage, SQLResult, PendingAction } from "../services/api";
+import { formatMessageTime } from "../utils/formatTime";
 
 const ACTION_LABEL: Record<string, string> = {
   create_price_alert: "建立到價自動下單",
@@ -52,9 +53,10 @@ export default function AIChatbox() {
         ...prev,
         {
           role: "model",
-          content: !isDevMode 
-            ? "⚠️ **Developer Mode Unlocked!** You can now access the database via the SQL Console tab above or by typing `/sql <query>`." 
-            : "ℹ️ Developer Mode Disabled."
+          content: !isDevMode
+            ? "⚠️ **Developer Mode Unlocked!** You can now access the database via the SQL Console tab above or by typing `/sql <query>`."
+            : "ℹ️ Developer Mode Disabled.",
+          timestamp: Date.now(),
         }
       ]);
     }
@@ -69,7 +71,7 @@ export default function AIChatbox() {
     setInput("");
     
     // Add user message to state
-    const newHistory = [...messages, { role: "user", content: userMessage } as ChatMessage];
+    const newHistory = [...messages, { role: "user", content: userMessage, timestamp: Date.now() } as ChatMessage];
     setMessages(newHistory);
 
     // Check if command is a shortcut /sql query
@@ -91,9 +93,9 @@ export default function AIChatbox() {
         } else {
           tableMarkdown += "Query completed successfully. No rows returned.";
         }
-        setMessages((prev) => [...prev, { role: "model", content: tableMarkdown }]);
+        setMessages((prev) => [...prev, { role: "model", content: tableMarkdown, timestamp: Date.now() }]);
       } catch (err: any) {
-        setMessages((prev) => [...prev, { role: "model", content: `❌ **SQL Error:** ${err.response?.data?.detail || err.message}` }]);
+        setMessages((prev) => [...prev, { role: "model", content: `❌ **SQL Error:** ${err.response?.data?.detail || err.message}`, timestamp: Date.now() }]);
       } finally {
         setIsLoading(false);
       }
@@ -102,7 +104,7 @@ export default function AIChatbox() {
 
     // Call standard Gemini Chat with Streaming
     setIsLoading(true);
-    setMessages((prev) => [...prev, { role: "model", content: "" }]);
+    setMessages((prev) => [...prev, { role: "model", content: "", timestamp: Date.now() }]);
 
     try {
       await sendAIChatStream(
@@ -139,9 +141,9 @@ export default function AIChatbox() {
         const updated = [...prev];
         const lastIndex = updated.length - 1;
         if (lastIndex >= 0 && updated[lastIndex].role === "model" && !updated[lastIndex].content) {
-          updated[lastIndex] = { role: "model", content: `❌ Failed to communicate with AI: ${err.message}` };
+          updated[lastIndex] = { role: "model", content: `❌ Failed to communicate with AI: ${err.message}`, timestamp: Date.now() };
         } else {
-          updated.push({ role: "model", content: `\n❌ Error: ${err.message}` });
+          updated.push({ role: "model", content: `\n❌ Error: ${err.message}`, timestamp: Date.now() });
         }
         return updated;
       });
@@ -158,12 +160,12 @@ export default function AIChatbox() {
       await confirmAIAction(pendingAction.action, pendingAction.args);
       setMessages((prev) => [
         ...prev,
-        { role: "model", content: `✅ 已送出：${ACTION_LABEL[pendingAction.action] || pendingAction.action}` },
+        { role: "model", content: `✅ 已送出：${ACTION_LABEL[pendingAction.action] || pendingAction.action}`, timestamp: Date.now() },
       ]);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "model", content: `❌ 執行失敗：${err.response?.data?.detail || err.message}` },
+        { role: "model", content: `❌ 執行失敗：${err.response?.data?.detail || err.message}`, timestamp: Date.now() },
       ]);
     } finally {
       setConfirmingAction(false);
@@ -172,7 +174,7 @@ export default function AIChatbox() {
   };
 
   const handleCancelAction = () => {
-    setMessages((prev) => [...prev, { role: "model", content: "已取消該動作。" }]);
+    setMessages((prev) => [...prev, { role: "model", content: "已取消該動作。", timestamp: Date.now() }]);
     setPendingAction(null);
   };
 
@@ -305,12 +307,19 @@ export default function AIChatbox() {
                     }`}>
                       {msg.role === "user" ? "👤" : "🤖"}
                     </div>
-                    <div className={`px-3.5 py-2.5 rounded-2xl max-w-[80%] text-sm leading-relaxed shadow-sm font-medium ${
-                      msg.role === "user"
-                        ? "bg-indigo-600 text-white rounded-tr-none"
-                        : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
-                    }`}>
-                      {msg.role === "user" ? msg.content : <MarkdownText content={msg.content} />}
+                    <div className={`flex flex-col max-w-[80%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                      <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm font-medium ${
+                        msg.role === "user"
+                          ? "bg-indigo-600 text-white rounded-tr-none"
+                          : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
+                      }`}>
+                        {msg.role === "user" ? msg.content : <MarkdownText content={msg.content} />}
+                      </div>
+                      {msg.timestamp && (
+                        <span className="text-[10px] text-slate-400 mt-1 px-1">
+                          {formatMessageTime(msg.timestamp)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
