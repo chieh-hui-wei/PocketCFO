@@ -40,7 +40,7 @@ async def chat_assistant(
         return StreamingResponse(event_gen, media_type="text/event-stream")
     except Exception as e:
         log.error(f"Failed in Text-to-SQL chat assistant: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"AI Assistant Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="AI Assistant is temporarily unavailable. Please try again.")
 
 
 @router.post("/ai/chat/confirm-action")

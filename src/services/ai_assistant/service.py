@@ -196,7 +196,7 @@ class AIAssistantService:
                 log.info(f"Text-to-SQL Executed SQL: {generated_sql} | Results count: {len(rows)}")
             except Exception as sql_err:
                 log.warning(f"SQL validation or execution failed: {sql_err}. Falling back to general chat.")
-                db_results_str = f"Error executing database query: {str(sql_err)}"
+                db_results_str = "The database query could not be completed due to an internal error."
 
         # Tool-use stage: let Gemini decide whether the user's request requires a
         # write action (e.g. add a transaction, create a price alert). Actions in
@@ -234,14 +234,17 @@ class AIAssistantService:
                     tool_result_str = f"[System context: Tool '{call.name}' was executed with args {call_args}. Result: {json.dumps(result, ensure_ascii=False, default=str)}]"
                 except Exception as tool_err:
                     log.error(f"Tool call '{call.name}' failed: {tool_err}")
-                    tool_result_str = f"[System context: Tool '{call.name}' failed with error: {tool_err}]"
+                    tool_result_str = f"[System context: The '{call.name}' action could not be completed due to an internal error.]"
         except Exception as tool_stage_err:
             log.warning(f"Tool-use stage failed, continuing without tools: {tool_stage_err}")
 
         system_instruction = (
             "You are pocketCFO AI Assistant, a helpful personal finance assistant.\n"
             "Help the user track assets, liabilities, bank statements, and stock transactions.\n"
-            "Keep responses concise, clear, and professional. Use markdown formatting where helpful."
+            "Keep responses concise, clear, and professional. Use markdown formatting where helpful.\n"
+            "Never repeat or paraphrase internal error messages, exception text, SQL, table/column names, "
+            "or stack traces to the user. If a system context note says an action or query failed, just "
+            "apologize briefly and offer to retry or rephrase the request."
         )
 
         final_prompt_parts = []
