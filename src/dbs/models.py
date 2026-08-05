@@ -350,8 +350,11 @@ class RebalanceStrategy(Base):
     target_stock_pct: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
     target_bond_pct: Mapped[float] = mapped_column(Float, nullable=False, default=10.0)
     target_cash_pct: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
-    stock_trigger_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=60.0)  # Max upper bound
-    stock_min_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)      # Min lower bound
+    stock_trigger_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=60.0)  # Max upper bound (derived)
+    stock_min_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)      # Min lower bound (derived)
+    # Stock price rise % used to derive both thresholds: rise -> stock_trigger_threshold directly,
+    # and the round-trip fall back to the pre-rise price -> stock_min_threshold.
+    assumed_rise_pct: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
     bond_tickers: Mapped[str] = mapped_column(String(255), nullable=False, default="00931B,BND")
     custom_cash_amount: Mapped[float | None] = mapped_column(Float, nullable=True)  # Manual override for cash amount
     enable_email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

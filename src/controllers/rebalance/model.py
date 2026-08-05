@@ -12,8 +12,7 @@ class UpdateRebalanceSettingsRequest(BaseModel):
     target_stock_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
     target_bond_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
     target_cash_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
-    stock_trigger_threshold: Optional[float] = Field(None, ge=0.0, le=100.0)
-    stock_min_threshold: Optional[float] = Field(None, ge=0.0, le=100.0)
+    assumed_rise_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
     bond_tickers: Optional[str] = None
     custom_cash_amount: Optional[float] = None
     enable_email_alert: Optional[bool] = None

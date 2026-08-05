@@ -18,8 +18,7 @@ export default function RebalancePage() {
   const [targetStock, setTargetStock] = useState(50);
   const [targetBond, setTargetBond] = useState(10);
   const [targetCash, setTargetCash] = useState(40);
-  const [triggerThreshold, setTriggerThreshold] = useState(60);
-  const [targetMinStock, setTargetMinStock] = useState(40);
+  const [assumedRisePct, setAssumedRisePct] = useState(50);
   const [bondTickers, setBondTickers] = useState("00931B,BND");
   const [customCash, setCustomCash] = useState<string>("");
   const [savingSettings, setSavingSettings] = useState(false);
@@ -33,8 +32,7 @@ export default function RebalancePage() {
       setTargetStock(res.target_stock_pct);
       setTargetBond(res.target_bond_pct);
       setTargetCash(res.target_cash_pct);
-      setTriggerThreshold(res.stock_trigger_threshold);
-      setTargetMinStock(res.stock_min_threshold || 40);
+      setAssumedRisePct(res.assumed_rise_pct ?? 50);
       setBondTickers(res.bond_tickers);
       setCustomCash(res.custom_cash_amount != null ? String(res.custom_cash_amount) : "");
     } catch (err: any) {
@@ -62,8 +60,7 @@ export default function RebalancePage() {
         target_stock_pct: Number(targetStock),
         target_bond_pct: Number(targetBond),
         target_cash_pct: Number(targetCash),
-        stock_trigger_threshold: Number(triggerThreshold),
-        stock_min_threshold: Number(targetMinStock),
+        assumed_rise_pct: Number(assumedRisePct),
         bond_tickers: bondTickers,
         custom_cash_amount: customCash.trim() !== "" ? Number(customCash) : -1,
       });
@@ -253,22 +250,14 @@ export default function RebalancePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1">目標股票佔比 (%)</label>
               <input
                 type="number"
                 step="1"
                 value={targetStock}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setTargetStock(val);
-                  const S = val / 100.0;
-                  const upper = S > 0 ? (S * 1.5) / (1.0 + 0.5 * S) * 100.0 : 0;
-                  const lower = S > 0 ? (S * (2.0 / 3.0)) / (1.0 - (1.0 / 3.0) * S) * 100.0 : 0;
-                  setTriggerThreshold(Number(upper.toFixed(2)));
-                  setTargetMinStock(Number(lower.toFixed(2)));
-                }}
+                onChange={(e) => setTargetStock(Number(e.target.value))}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
                 required
               />
@@ -295,28 +284,47 @@ export default function RebalancePage() {
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">股票下限門檻 (下跌% Trigger)</label>
-              <input
-                type="number"
-                step="1"
-                value={targetMinStock}
-                onChange={(e) => setTargetMinStock(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                required
-              />
+          </div>
+
+          {/* Separate sub-section: trigger thresholds are always derived from these assumed
+              rise %, never edited directly, to avoid confusing them with allocation %.
+              Fall threshold is the round-trip fall back to the pre-rise price
+              (fall_frac = rise_frac / (1 + rise_frac)), not an independent input. */}
+          <div className="pt-3 border-t border-slate-100 space-y-3">
+            <h4 className="text-xs font-extrabold text-slate-700">
+              警戒門檻計算假設（股價上漲幅度）
+            </h4>
+            <p className="text-[11px] text-slate-400">
+              系統會用下方假設的股價上漲幅度，反推出「股票佔比」的上下警戒門檻——上限對應股價上漲此幅度後的佔比；
+              下限對應股價從那個高點跌回原始價格後的佔比（跌回原點所需跌幅小於漲幅，例如漲50%只需跌33.33%就回到原點）。
+              實際觸發仍以股票佔總資產比例判斷，而非直接偵測股價漲跌幅。
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">假設股價上漲 (%)</label>
+                <input
+                  type="number"
+                  step="1"
+                  value={assumedRisePct}
+                  onChange={(e) => setAssumedRisePct(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">股票上限門檻 (上漲% Trigger)</label>
-              <input
-                type="number"
-                step="1"
-                value={triggerThreshold}
-                onChange={(e) => setTriggerThreshold(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
+            {(() => {
+              const S = Number(targetStock) / 100.0;
+              const r = Number(assumedRisePct) / 100.0;
+              const f = r / (1 + r);
+              const upper = S > 0 ? ((S * (1 + r)) / (1 + r * S)) * 100.0 : 0;
+              const lower = S > 0 ? ((S * (1 - f)) / (1 - f * S)) * 100.0 : 0;
+              return (
+                <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/60 p-2 rounded-lg">
+                  預覽門檻：股票佔比達 <span className="font-bold text-rose-600">{upper.toFixed(2)}%</span> 觸發上漲警戒，
+                  達 <span className="font-bold text-blue-600">{lower.toFixed(2)}%</span> 觸發下跌警戒（相當於跌幅 {(f * 100).toFixed(2)}%，儲存後由後端重新計算）。
+                </p>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

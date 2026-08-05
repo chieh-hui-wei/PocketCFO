@@ -38,35 +38,57 @@ class RebalanceService:
                 target_stock_pct=50.0,
                 target_bond_pct=10.0,
                 target_cash_pct=40.0,
-                stock_trigger_threshold=60.0,
-                stock_min_threshold=40.0,
+                assumed_rise_pct=50.0,
                 bond_tickers="00931B,BND",
                 enable_email_alert=True
             )
+            self._recompute_thresholds(strategy)
             self.db.add(strategy)
             await self.db.flush()
         return strategy
+
+    @staticmethod
+    def _recompute_thresholds(strategy: RebalanceStrategy) -> None:
+        """
+        Derive stock_trigger_threshold / stock_min_threshold from the current
+        target_stock_pct and the user's assumed stock price rise % (not user-editable directly).
+
+        Upper bound: stock price rises by assumed_rise_pct, bond/cash unchanged.
+        Lower bound: stock price then falls back to its pre-rise level (the round-trip
+        fall % is smaller than the rise %, since it's a fall off a higher base:
+        fall_frac = rise_frac / (1 + rise_frac)).
+        """
+        s_frac = strategy.target_stock_pct / 100.0
+        r_frac = strategy.assumed_rise_pct / 100.0
+        f_frac = r_frac / (1.0 + r_frac)
+        strategy.stock_trigger_threshold = round(
+            (s_frac * (1.0 + r_frac) / (1.0 + r_frac * s_frac)) * 100.0, 2
+        )
+        strategy.stock_min_threshold = round(
+            (s_frac * (1.0 - f_frac) / (1.0 - f_frac * s_frac)) * 100.0, 2
+        )
 
     async def update_strategy(
         self,
         target_stock_pct: float | None = None,
         target_bond_pct: float | None = None,
         target_cash_pct: float | None = None,
-        stock_trigger_threshold: float | None = None,
-        stock_min_threshold: float | None = None,
+        assumed_rise_pct: float | None = None,
         bond_tickers: str | None = None,
         custom_cash_amount: float | None = None,
         enable_email_alert: bool | None = None,
     ) -> RebalanceStrategy:
         strategy = await self.get_or_create_strategy()
 
+        thresholds_dirty = False
         if target_stock_pct is not None:
             strategy.target_stock_pct = target_stock_pct
-            s_frac = target_stock_pct / 100.0
-            # Stock price +50% rise formula: S*1.5 / (1 + 0.5*S)
-            strategy.stock_trigger_threshold = round((s_frac * 1.5 / (1.0 + 0.5 * s_frac)) * 100.0, 2)
-            # Stock price -33.33% drop formula: S*(2/3) / (1 - (1/3)*S)
-            strategy.stock_min_threshold = round((s_frac * (2.0 / 3.0) / (1.0 - (1.0 / 3.0) * s_frac)) * 100.0, 2)
+            thresholds_dirty = True
+        if assumed_rise_pct is not None:
+            strategy.assumed_rise_pct = assumed_rise_pct
+            thresholds_dirty = True
+        if thresholds_dirty:
+            self._recompute_thresholds(strategy)
         if target_bond_pct is not None:
             strategy.target_bond_pct = target_bond_pct
         if target_cash_pct is not None:
@@ -292,6 +314,7 @@ class RebalanceService:
             "target_cash_pct": strategy.target_cash_pct,
             "stock_trigger_threshold": strategy.stock_trigger_threshold,
             "stock_min_threshold": getattr(strategy, "stock_min_threshold", 40.0),
+            "assumed_rise_pct": getattr(strategy, "assumed_rise_pct", 50.0),
             "bond_tickers": strategy.bond_tickers,
             "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
             "is_custom_cash": is_custom_cash,

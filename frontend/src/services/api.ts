@@ -763,6 +763,7 @@ export interface RebalanceAnalysis {
   target_cash_pct: number;
   stock_trigger_threshold: number;
   stock_min_threshold: number;
+  assumed_rise_pct: number;
   bond_tickers: string;
   custom_cash_amount?: number | null;
   is_custom_cash?: boolean;
@@ -781,8 +782,7 @@ export async function updateRebalanceSettings(payload: {
   target_stock_pct?: number;
   target_bond_pct?: number;
   target_cash_pct?: number;
-  stock_trigger_threshold?: number;
-  stock_min_threshold?: number;
+  assumed_rise_pct?: number;
   bond_tickers?: string;
   custom_cash_amount?: number | null;
   enable_email_alert?: boolean;

@@ -181,6 +181,23 @@ async def run_migrations() -> None:
         "UPDATE price_alerts SET broker = 'ESUN' WHERE broker IS NULL",
         "ALTER TABLE price_alerts ALTER COLUMN side DROP NOT NULL",
         "ALTER TABLE price_alerts ALTER COLUMN quantity DROP NOT NULL",
+        # 2026-08-05: rebalance_strategies — replace directly-editable trigger thresholds
+        # with a single assumed stock price rise % that both thresholds are derived from.
+        # (stock_min_threshold uses the round-trip fall back to the pre-rise price:
+        #  fall_frac = rise_frac / (1 + rise_frac).)
+        "ALTER TABLE rebalance_strategies ADD COLUMN IF NOT EXISTS assumed_rise_pct FLOAT NOT NULL DEFAULT 50.0",
+        "ALTER TABLE rebalance_strategies DROP COLUMN IF EXISTS assumed_fall_pct",
+        """
+        UPDATE rebalance_strategies SET
+            stock_trigger_threshold = round((
+                (target_stock_pct / 100.0) * (1.0 + assumed_rise_pct / 100.0)
+                / (1.0 + (assumed_rise_pct / 100.0) * (target_stock_pct / 100.0))
+            ) * 100.0, 2),
+            stock_min_threshold = round((
+                (target_stock_pct / 100.0) * (1.0 - (assumed_rise_pct / 100.0) / (1.0 + assumed_rise_pct / 100.0))
+                / (1.0 - ((assumed_rise_pct / 100.0) / (1.0 + assumed_rise_pct / 100.0)) * (target_stock_pct / 100.0))
+            ) * 100.0, 2)
+        """,
     ]
 
     # Each statement gets its own transaction: on Postgres a single failed statement
