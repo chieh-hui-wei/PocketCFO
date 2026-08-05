@@ -1,6 +1,8 @@
 """
 src/services/ai_assistant/service.py
-Service layer for AI Assistant: Text-to-SQL planning, safe execution, and streaming responses.
+Service layer for AI Assistant: tool-calling (read + write) and streaming
+responses. Raw SQL execution (validate_safe_sql/execute_raw_sql) is retained
+separately for the developer SQL console only.
 """
 from __future__ import annotations
 
@@ -13,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from google.genai import types
 
-from src.controllers.ai_assistant.model import ChatRequest, SQLPlannerResponse
+from src.controllers.ai_assistant.model import ChatRequest
 from src.dbs.models import User
 from src.instances.config import get_settings
 from src.instances.gemini import (
@@ -24,100 +26,6 @@ from src.services.ai_assistant.tools import CONFIRMATION_REQUIRED, FUNCTION_DECL
 
 log = logging.getLogger(__name__)
 settings = get_settings()
-
-DB_SCHEMA_PROMPT = """
-You are pocketCFO SQL planner. Analyze the user's natural language question and generate a single PostgreSQL read-only query (SELECT/WITH) to answer the user's question, if data retrieval is needed.
-
-Important Rules:
-1. You MUST ONLY generate read-only SELECT or WITH queries. Mutating operations (INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, etc.) are strictly forbidden.
-2. Crucially, you must filter ALL queries by the current user's ID using the bind parameter `:user_id`. Ensure that data belonging to other users cannot be accessed.
-3. Use correct table names and join on keys correctly.
-4. Output a valid JSON response matching the required schema.
-
-Database Schema:
-- Table: `accounts` (User's bank/credit/liability accounts)
-  - `id`: integer (primary key)
-  - `user_id`: integer (foreign key to users)
-  - `code`: string (unique code, e.g. "sinopac_stock", "richart_cash")
-  - `name`: string (account display name)
-  - `account_type`: Enum ('cash', 'bank', 'credit_card', 'investment', 'liability', 'asset', 'brokerage')
-  - `institution`: string (e.g. "台新", "玉山證券")
-  - `currency`: string (default "TWD")
-  - `is_internal`: boolean (True if user-owned, exclude from external transfers)
-  - `notes`: string/text (contains account number, custom notes)
-  - `is_installment`: boolean
-  - `installment_amount`: float
-  - `created_at`: datetime
-
-- Table: `account_snapshots` (Monthly cash balances)
-  - `id`: integer (primary key)
-  - `account_id`: integer (foreign key to accounts)
-  - `period_date`: date (always 1st of month)
-  - `balance`: float (cash balance at month-end)
-  - `original_balance`: float
-  - `currency`: string
-  - `exchange_rate`: float (to TWD)
-  - `payment_due_date`: date
-  - Note: This table does not have user_id. You must JOIN with the `accounts` table and filter by `accounts.user_id = :user_id`.
-
-- Table: `securities` (Monthly stock holdings)
-  - `id`: integer (primary key)
-  - `user_id`: integer
-  - `account_id`: integer
-  - `period_date`: date (always 1st of month)
-  - `ticker`: string (e.g., stock code)
-  - `name`: string
-  - `quantity`: float
-  - `avg_cost`: float
-  - `current_price`: float
-  - `market_value`: float
-  - `unrealized_pnl`: float
-  - `currency`: string
-  - `exchange_rate`: float
-
-- Table: `transactions` (Individual cash ledger entries)
-  - `id`: integer (primary key)
-  - `user_id`: integer
-  - `account_id`: integer
-  - `txn_date`: date
-  - `merchant`: string
-  - `description`: string
-  - `amount`: float (positive = deposit/credit, negative = withdrawal/debit)
-  - `category`: Enum (e.g., 'food', 'transportation', 'housing', 'utilities', 'entertainment', 'other')
-  - `is_internal_transfer`: boolean
-
-- Table: `balance_sheets` (Computed monthly balance sheet)
-  - `id`: integer
-  - `user_id`: integer
-  - `period_date`: date
-  - `total_cash`: float
-  - `total_securities_market_value`: float
-  - `total_assets`: float
-  - `total_credit_card_payable`: float
-  - `total_liabilities`: float
-  - `net_worth`: float
-
-- Table: `income_statements` (Computed monthly income statements)
-  - `id`: integer
-  - `user_id`: integer
-  - `period_date`: date
-  - `total_income`: float
-  - `salary_income`: float
-  - `investment_income`: float
-  - `other_income`: float
-  - `total_expenses`: float
-  - `credit_card_expenses`: float
-  - `bank_expenses`: float
-  - `net_savings`: float
-
-Example queries:
-- To find total assets:
-  `SELECT total_assets FROM balance_sheets WHERE user_id = :user_id ORDER BY period_date DESC LIMIT 1;`
-- To find transactions list:
-  `SELECT txn_date, description, amount FROM transactions WHERE user_id = :user_id ORDER BY txn_date DESC LIMIT 10;`
-- To find bank accounts and balances:
-  `SELECT a.name, s.balance FROM accounts a JOIN account_snapshots s ON a.id = s.account_id WHERE a.user_id = :user_id AND s.period_date = '2026-07-01';`
-"""
 
 
 def validate_safe_sql(query: str, require_user_id: bool = True) -> None:
@@ -156,64 +64,42 @@ class AIAssistantService:
         current_user: User,
     ) -> AsyncGenerator[str, None]:
         """
-        Process chat prompt, execute read-only SQL if needed, and yield SSE formatted chunks.
+        Process chat prompt: let Gemini decide whether to call a read tool
+        (fetch the user's financial data), a write tool (mutate it, subject to
+        confirmation), or neither — then stream the final response.
         """
         requested_model = request.model or settings.gemini_model
 
-        plan_prompt = f"{DB_SCHEMA_PROMPT}\n\nUser Question: {request.message}\n"
-        
-        plan_response, _ = await generate_content_with_fallback(
-            contents=[plan_prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=SQLPlannerResponse,
-                temperature=0.0,
-            ),
-            primary_model=requested_model,
-        )
+        history_contents = []
+        for msg in request.history:
+            role = "user" if msg.role == "user" else "model"
+            history_contents.append(
+                types.Content(role=role, parts=[types.Part.from_text(text=msg.content)])
+            )
 
-        plan_data = json.loads(plan_response.text)
-        needs_db = plan_data.get("needs_db", False)
-        generated_sql = plan_data.get("sql")
-
-        db_results_str = ""
-        executed_sql = None
-
-        if needs_db and generated_sql:
-            try:
-                validate_safe_sql(generated_sql, require_user_id=True)
-                executed_sql = generated_sql
-
-                result = await db.execute(text(generated_sql), {"user_id": user_id})
-                columns = list(result.keys())
-                rows = result.fetchall()
-
-                formatted_rows = [
-                    dict(zip(columns, [str(v) if v is not None else "None" for v in row]))
-                    for row in rows
-                ]
-                db_results_str = json.dumps(formatted_rows, ensure_ascii=False, indent=2)
-                log.info(f"Text-to-SQL Executed SQL: {generated_sql} | Results count: {len(rows)}")
-            except Exception as sql_err:
-                log.warning(f"SQL validation or execution failed: {sql_err}. Falling back to general chat.")
-                db_results_str = "The database query could not be completed due to an internal error."
-
-        # Tool-use stage: let Gemini decide whether the user's request requires a
-        # write action (e.g. add a transaction, create a price alert). Actions in
-        # CONFIRMATION_REQUIRED are never executed here — they are surfaced to the
-        # frontend as a pending_action event and only run after explicit user
-        # confirmation via /ai/chat/confirm-action.
-        tool_result_str = ""
-        tool_context_prompt = f"{db_results_str}\n\nUser Question: {request.message}" if db_results_str else request.message
+        # Tool-use stage: a single Gemini call, with full conversation history,
+        # decides whether the user's request needs data (read tools) and/or a
+        # write action (e.g. add a transaction, create a price alert). Actions
+        # in CONFIRMATION_REQUIRED are never executed here — they are surfaced
+        # to the frontend as a pending_action event and only run after explicit
+        # user confirmation via /ai/chat/confirm-action.
+        tool_result_parts: list[str] = []
         try:
             tool_response, _ = await generate_content_with_fallback(
-                contents=[tool_context_prompt],
+                contents=[*history_contents, types.Content(role="user", parts=[types.Part.from_text(text=request.message)])],
                 config=types.GenerateContentConfig(
                     system_instruction=(
-                        "You are pocketCFO AI Assistant. Decide if the user's request requires calling one "
-                        "of the available tools (e.g. creating/updating/deleting a transaction, creating or "
-                        "cancelling a price alert). Only call a tool if the user clearly asked for that action "
-                        "with enough information. Otherwise, do not call any tool."
+                        "You are pocketCFO AI Assistant. Decide whether answering the user's request requires "
+                        "calling one or more of the available tools first.\n"
+                        "- Call a read tool (get_accounts, get_account_balances, get_transactions, "
+                        "get_securities, get_balance_sheet, get_income_statement, get_price_alerts) whenever "
+                        "the answer depends on the user's actual financial data (balances, transactions, "
+                        "holdings, net worth, income/expenses, alerts) rather than something you already know "
+                        "from the conversation. Prefer calling a read tool over guessing or saying you don't "
+                        "have access to the data — you do, via these tools.\n"
+                        "- Call a write tool (create/update/delete-style) only if the user clearly asked for "
+                        "that action with enough information to do it.\n"
+                        "- If the request is general conversation that needs neither, do not call any tool."
                     ),
                     tools=[types.Tool(function_declarations=FUNCTION_DECLARATIONS)],
                     temperature=0.0,
@@ -221,8 +107,7 @@ class AIAssistantService:
                 primary_model=requested_model,
             )
             function_calls = getattr(tool_response, "function_calls", None) or []
-            if function_calls:
-                call = function_calls[0]
+            for call in function_calls:
                 call_args = dict(call.args or {})
                 if call.name in CONFIRMATION_REQUIRED:
                     data = json.dumps({"type": "pending_action", "action": call.name, "args": call_args}, ensure_ascii=False)
@@ -231,10 +116,12 @@ class AIAssistantService:
                     return
                 try:
                     result = await execute_tool_call(call.name, call_args, user_id, current_user, db)
-                    tool_result_str = f"[System context: Tool '{call.name}' was executed with args {call_args}. Result: {json.dumps(result, ensure_ascii=False, default=str)}]"
+                    tool_result_parts.append(
+                        f"[System context: Tool '{call.name}' was called with args {call_args}. Result: {json.dumps(result, ensure_ascii=False, default=str)}]"
+                    )
                 except Exception as tool_err:
                     log.error(f"Tool call '{call.name}' failed: {tool_err}")
-                    tool_result_str = f"[System context: The '{call.name}' action could not be completed due to an internal error.]"
+                    tool_result_parts.append(f"[System context: The '{call.name}' action could not be completed due to an internal error.]")
         except Exception as tool_stage_err:
             log.warning(f"Tool-use stage failed, continuing without tools: {tool_stage_err}")
 
@@ -247,25 +134,11 @@ class AIAssistantService:
             "apologize briefly and offer to retry or rephrase the request."
         )
 
-        final_prompt_parts = []
-        if executed_sql:
-            final_prompt_parts.append(f"[System context: The following read-only SQL was run against the user's database: {executed_sql}]")
-            final_prompt_parts.append(f"[System context: Query results returned from database:\n{db_results_str}]")
-        elif needs_db:
-            final_prompt_parts.append(f"[System context: DB query failed: {db_results_str}]")
-        if tool_result_str:
-            final_prompt_parts.append(tool_result_str)
-
+        final_prompt_parts = list(tool_result_parts)
         final_prompt_parts.append(f"User Question: {request.message}")
         final_prompt = "\n\n".join(final_prompt_parts)
 
-        contents = []
-        for msg in request.history:
-            role = "user" if msg.role == "user" else "model"
-            contents.append(
-                types.Content(role=role, parts=[types.Part.from_text(text=msg.content)])
-            )
-
+        contents = list(history_contents)
         contents.append(
             types.Content(role="user", parts=[types.Part.from_text(text=final_prompt)])
         )

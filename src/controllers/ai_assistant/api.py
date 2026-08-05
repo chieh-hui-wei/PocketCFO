@@ -27,8 +27,9 @@ async def chat_assistant(
     current_user: User = Depends(verify_token)
 ):
     """
-    Text-to-SQL chatbot endpoint. Checks if user question needs DB data,
-    safely runs read-only SQL, and feeds results back to Gemini with streaming output.
+    Chatbot endpoint. Lets Gemini decide whether to call a read tool (fetch the
+    user's financial data) and/or a write tool (mutate it, subject to
+    confirmation) before streaming the final response.
     """
     try:
         event_gen = AIAssistantService.process_chat_stream(

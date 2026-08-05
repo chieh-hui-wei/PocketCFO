@@ -27,9 +27,3 @@ class ConfirmActionRequest(BaseModel):
 
 class SQLRequest(BaseModel):
     query: str
-
-
-class SQLPlannerResponse(BaseModel):
-    needs_db: bool
-    sql: Optional[str] = None
-    reasoning: str
