@@ -253,8 +253,13 @@ async def get_transactions(args: dict[str, Any], user_id: int, current_user: Use
 })
 async def get_securities(args: dict[str, Any], user_id: int, current_user: User, db: AsyncSession) -> dict[str, Any]:
     """
-    查詢使用者股票／證券庫存，包含股票代號、股數、成本、現價、市值、未實現損益等。
-    當使用者詢問「我持有哪些股票」、「庫存市值」、「未實現損益」時使用。
+    查詢使用者「個股層級」的股票／證券庫存明細，包含股票代號、股數、成本、現價、
+    市值、未實現損益等逐檔資料。
+    當使用者詢問「我持有哪些股票」、「某檔股票庫存市值／未實現損益」等針對個別
+    股票的問題時使用。
+    注意：若使用者詢問的是「資產配置」「現金／股票／債券佔比」「目標配置 vs 實際配置」
+    等再平衡策略相關的總覽性問題，應改用 get_asset_allocation，不要用本工具
+    （本工具只回傳個股明細，不含現金／債券分類與配置比例）。
     若不提供 period，回傳每個帳戶最新一筆庫存快照。
     """
     repo = SecurityRepository(db, user_id)
@@ -273,9 +278,10 @@ async def get_balance_sheet(args: dict[str, Any], user_id: int, current_user: Us
     """
     查詢使用者某個月份（或最新一期）已計算好的資產負債表總覽，包含總現金、
     證券市值、總資產、信用卡應付、總負債、淨資產。
-    當使用者詢問「我的淨資產」、「總資產／總負債」、「資產負債表」、
-    「資產配置」「現金／股票／負債佔比」等橫跨多種資產類別的總覽性問題時使用，
+    當使用者詢問「我的淨資產」、「總資產／總負債」、「資產負債表」時使用，
     比自己用 get_account_balances / get_securities 加總更準確、更快。
+    注意：若使用者問的是「資產配置」「現金／股票／債券佔比」「目標 vs 實際配置」，
+    請改用 get_asset_allocation，該工具才有實際的配置比例與再平衡目標資料。
     """
     repo = BalanceSheetRepository(db, user_id)
     period = _parse_period(args.get("period"))
@@ -284,6 +290,35 @@ async def get_balance_sheet(args: dict[str, Any], user_id: int, current_user: Us
         return {"balance_sheet": _serialize_balance_sheet(bs) if bs else None}
     all_sheets = await repo.list_all()
     return {"balance_sheet": _serialize_balance_sheet(all_sheets[0]) if all_sheets else None}
+
+
+@tool(parameters={
+    "type": "object",
+    "properties": {
+        "period": {
+            "type": "string",
+            "description": "查詢月份，格式 YYYY-MM。省略則預設為當月第一天。",
+        },
+    },
+})
+async def get_asset_allocation(args: dict[str, Any], user_id: int, current_user: User, db: AsyncSession) -> dict[str, Any]:
+    """
+    查詢使用者「資產配置」的實際比例 vs. 目標比例（來自資產再平衡策略設定），
+    包含目前股票／債券／現金各佔投資組合的實際百分比（current_stock_pct /
+    current_bond_pct / current_cash_pct）、使用者設定的目標百分比
+    （target_stock_pct / target_bond_pct / target_cash_pct）、總投資組合市值、
+    是否觸發再平衡提醒（is_triggered / trigger_direction），以及每檔證券／現金
+    的明細（rebalance_items，含 actual_pct、target_pct、建議交易金額等）。
+    當使用者詢問「資產配置」「現金／股票／債券佔比」「要不要再平衡」「離目標配置
+    差多少」時使用此工具，這是使用者真正在意的資產配置資料來源，
+    不要誤用 get_securities（只有個股明細，無配置比例）或
+    get_balance_sheet（只有現金/證券/負債總額，無目標比例與再平衡建議）。
+    """
+    from src.services.rebalance.service import RebalanceService
+
+    period = _parse_period(args.get("period"))
+    service = RebalanceService(db, user_id)
+    return await service.analyze_rebalance(target_date=period)
 
 
 @tool(parameters={
