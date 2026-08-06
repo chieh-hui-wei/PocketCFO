@@ -18,7 +18,7 @@ from src.controllers.transactions.model import (
 from src.dbs.models import User
 from src.dbs.repository import (
     AccountRepository,
-    AccountSnapshotRepository,
+    SnapshotRepository,
     BalanceSheetRepository,
     IncomeStatementRepository,
     PriceAlertRepository,
@@ -193,7 +193,7 @@ async def get_account_balances(args: dict[str, Any], user_id: int, current_user:
     當使用者詢問「我現在／某月有多少錢」、「戶頭餘額」、「信用卡欠多少」時使用。
     若不提供 period，預設回傳每個帳戶『最新一筆』快照（不一定是同一個月份）。
     """
-    repo = AccountSnapshotRepository(db, user_id)
+    repo = SnapshotRepository(db, user_id)
     period = _parse_period(args.get("period"))
     snapshots = await (repo.get_by_period(period) if period else repo.get_latest_before_or_equal(date.today()))
     return {"balances": [_serialize_snapshot(s) for s in snapshots]}
