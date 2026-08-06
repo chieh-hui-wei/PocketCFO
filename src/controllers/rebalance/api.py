@@ -43,6 +43,30 @@ async def get_rebalance_analysis(
         raise HTTPException(status_code=500, detail="Failed to compute rebalance analysis")
 
 
+@router.get("/settings")
+async def get_rebalance_settings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    """
+    Lightweight read of the user's rebalance strategy settings (no holdings/analysis computed).
+    """
+    service = RebalanceService(db, current_user.id)
+    strategy = await service.get_or_create_strategy()
+    return {
+        "target_stock_pct": strategy.target_stock_pct,
+        "target_bond_pct": strategy.target_bond_pct,
+        "target_cash_pct": strategy.target_cash_pct,
+        "stock_trigger_threshold": strategy.stock_trigger_threshold,
+        "stock_min_threshold": getattr(strategy, "stock_min_threshold", 40.0),
+        "assumed_rise_pct": getattr(strategy, "assumed_rise_pct", 50.0),
+        "bond_tickers": strategy.bond_tickers,
+        "leveraged_tickers": getattr(strategy, "leveraged_tickers", "") or "",
+        "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
+        "enable_email_alert": strategy.enable_email_alert,
+    }
+
+
 @router.put("/settings")
 async def update_rebalance_settings(
     body: UpdateRebalanceSettingsRequest,

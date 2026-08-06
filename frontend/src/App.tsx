@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, NavLink } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import BalanceSheetPage from "./pages/BalanceSheetPage";
 import IncomeStatementPage from "./pages/IncomeStatementPage";
 import UploadPage from "./pages/UploadPage";
 import UploadHistoryPage from "./pages/UploadHistoryPage";
 import TransactionsPage from "./pages/TransactionsPage";
-import StockTransactionsPage from "./pages/StockTransactionsPage";
-import StockHoldingsPage from "./pages/StockHoldingsPage";
-import RebalancePage from "./pages/RebalancePage";
+import StockPage from "./pages/StockPage";
 import PriceAlertsPage from "./pages/PriceAlertsPage";
 import AccountsPage from "./pages/AccountsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -42,8 +40,8 @@ const NAV_GROUPS = [
           </svg>
         )
       },
-      { 
-        to: "/income-statement", 
+      {
+        to: "/income-statement",
         label: "損益表",
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,13 +49,8 @@ const NAV_GROUPS = [
           </svg>
         )
       },
-    ]
-  },
-  {
-    title: "交易與資產",
-    items: [
-      { 
-        to: "/transactions", 
+      {
+        to: "/transactions",
         label: "交易明細",
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,31 +58,18 @@ const NAV_GROUPS = [
           </svg>
         )
       },
-      { 
-        to: "/stock-holdings", 
-        label: "股票庫存",
+    ]
+  },
+  {
+    title: "資產",
+    items: [
+      {
+        to: "/stocks",
+        label: "股票",
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-          </svg>
-        )
-      },
-      { 
-        to: "/stock-transactions", 
-        label: "股票交易明細",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21h8a2 2 0 002-2v-9a2 2 0 00-2-2H8a2 2 0 00-2 2v9a2 2 0 002 2z" />
-          </svg>
-        )
-      },
-      {
-        to: "/rebalance",
-        label: "資產再平衡策略",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 18h12l3-18H3zm6 6h6m-6 4h6" />
           </svg>
         )
       },
@@ -426,9 +406,10 @@ export default function App() {
               <Route path="/balance-sheet" element={<BalanceSheetPage />} />
               <Route path="/income-statement" element={<IncomeStatementPage />} />
               <Route path="/transactions" element={<TransactionsPage />} />
-              <Route path="/stock-transactions" element={<StockTransactionsPage />} />
-              <Route path="/stock-holdings" element={<StockHoldingsPage />} />
-              <Route path="/rebalance" element={<RebalancePage />} />
+              <Route path="/stocks" element={<StockPage />} />
+              <Route path="/stock-holdings" element={<Navigate to="/stocks?tab=holdings" replace />} />
+              <Route path="/stock-transactions" element={<Navigate to="/stocks?tab=transactions" replace />} />
+              <Route path="/rebalance" element={<Navigate to="/stocks?tab=rebalance" replace />} />
               <Route path="/price-alerts" element={<PriceAlertsPage />} />
               <Route path="/accounts" element={<AccountsPage />} />
               <Route path="/upload" element={<UploadPage />} />

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { 
-  getAccounts, 
-  createAccount, 
-  getSecuritiesForPeriod, 
+import {
+  getAccounts,
+  createAccount,
+  getSecuritiesForPeriod,
   saveSecuritiesForAccount,
   Account,
   SecurityRecord,
-  getSecuritiesHistory
+  getSecuritiesHistory,
+  getRebalanceSettings
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "../store/useToastStore";
@@ -36,6 +37,17 @@ export default function StockHoldingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [bondTickerSet, setBondTickerSet] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getRebalanceSettings()
+      .then(res => {
+        setBondTickerSet(new Set(res.bond_tickers.split(",").map(t => t.trim().toUpperCase()).filter(Boolean)));
+      })
+      .catch(() => {
+        // Non-critical: category tag simply won't render if this fails
+      });
+  }, []);
   
   // Account Form
   const [newBrokerName, setNewBrokerName] = useState("");
@@ -238,7 +250,8 @@ export default function StockHoldingsPage() {
   const aggregateList = Object.values(tickerGroups).map(g => ({
     ...g,
     avgCost: g.totalQty > 0 ? g.totalCost / g.totalQty : 0,
-    roi: g.totalCost > 0 ? (g.unrealizedPnl / g.totalCost) * 100 : 0
+    roi: g.totalCost > 0 ? (g.unrealizedPnl / g.totalCost) * 100 : 0,
+    category: (bondTickerSet.has(g.ticker.trim().toUpperCase()) ? "BOND" : "STOCK") as "STOCK" | "BOND"
   })).sort((a, b) => b.totalMarketValue - a.totalMarketValue);
 
   const brokerSums: Record<number, { accountName: string; marketValue: number; totalCost: number; unrealizedPnl: number; stockCount: number }> = {};
@@ -820,20 +833,21 @@ export default function StockHoldingsPage() {
                     <table className="w-full text-left text-sm min-w-[900px]">
                       <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                         <tr>
-                          <th className="px-3 py-3">標的名稱</th>
-                          <th className="px-3 py-3 text-right">總股數</th>
-                          <th className="px-3 py-3 text-right">平均成本</th>
-                          <th className="px-3 py-3 text-right">收盤現價</th>
-                          <th className="px-3 py-3 text-right">估算市值</th>
-                          <th className="px-3 py-3 text-right min-w-[110px]">未實現損益</th>
-                          <th className="px-3 py-3 text-right">報酬率</th>
-                          <th className="px-3 py-3 text-right min-w-[100px]">資產佔比</th>
+                          <th className="px-3 py-3 w-[1%] whitespace-nowrap">標的名稱</th>
+                          <th className="px-3 py-3 text-center whitespace-nowrap">類別</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">總股數</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">平均成本</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">收盤現價</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">估算市值</th>
+                          <th className="px-3 py-3 text-right min-w-[110px] whitespace-nowrap">未實現損益</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">報酬率</th>
+                          <th className="px-3 py-3 text-right min-w-[100px] whitespace-nowrap">資產佔比</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-mono">
                         {aggregateList.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="text-center py-12 text-slate-400 font-sans">
+                            <td colSpan={9} className="text-center py-12 text-slate-400 font-sans">
                               這個月目前沒有任何持股庫存資料。
                             </td>
                           </tr>
@@ -847,6 +861,17 @@ export default function StockHoldingsPage() {
                                   <div className="text-[10px] text-slate-400 mt-1 whitespace-nowrap font-sans">
                                     <span className="font-mono bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-normal">{item.ticker}</span>
                                   </div>
+                                </td>
+                                <td className="px-3 py-3 text-center whitespace-nowrap">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block whitespace-nowrap ${
+                                      item.category === "BOND"
+                                        ? "bg-blue-50 text-blue-700 border border-blue-100"
+                                        : "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                                    }`}
+                                  >
+                                    {item.category === "BOND" ? "債券" : "股票"}
+                                  </span>
                                 </td>
                                 <td className="px-3 py-3 text-right font-semibold">{item.totalQty.toLocaleString()}</td>
                                 <td className="px-3 py-3 text-right text-slate-500">
