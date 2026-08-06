@@ -36,7 +36,11 @@ async def get_rebalance_analysis(
             raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
 
     service = RebalanceService(db, current_user.id)
-    return await service.analyze_rebalance(target_date)
+    try:
+        return await service.analyze_rebalance(target_date)
+    except Exception as e:
+        log.error(f"Failed to compute rebalance analysis: {e}")
+        raise HTTPException(status_code=500, detail="Failed to compute rebalance analysis")
 
 
 @router.put("/settings")

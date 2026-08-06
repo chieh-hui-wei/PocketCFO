@@ -189,14 +189,14 @@ async def run_migrations() -> None:
         "ALTER TABLE rebalance_strategies DROP COLUMN IF EXISTS assumed_fall_pct",
         """
         UPDATE rebalance_strategies SET
-            stock_trigger_threshold = round((
+            stock_trigger_threshold = round(((
                 (target_stock_pct / 100.0) * (1.0 + assumed_rise_pct / 100.0)
                 / (1.0 + (assumed_rise_pct / 100.0) * (target_stock_pct / 100.0))
-            ) * 100.0, 2),
-            stock_min_threshold = round((
+            ) * 100.0)::numeric, 2),
+            stock_min_threshold = round(((
                 (target_stock_pct / 100.0) * (1.0 - (assumed_rise_pct / 100.0) / (1.0 + assumed_rise_pct / 100.0))
                 / (1.0 - ((assumed_rise_pct / 100.0) / (1.0 + assumed_rise_pct / 100.0)) * (target_stock_pct / 100.0))
-            ) * 100.0, 2)
+            ) * 100.0)::numeric, 2)
         """,
     ]
 
