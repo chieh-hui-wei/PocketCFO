@@ -356,6 +356,9 @@ class RebalanceStrategy(Base):
     # and the round-trip fall back to the pre-rise price -> stock_min_threshold.
     assumed_rise_pct: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
     bond_tickers: Mapped[str] = mapped_column(String(255), nullable=False, default="00931B,BND")
+    # Comma-separated "TICKER:MULTIPLIER" pairs, e.g. "TQQQ:3,SSO:2" — multiplier applied to that ticker's market value
+    # when computing portfolio-level leveraged exposure.
+    leveraged_tickers: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     custom_cash_amount: Mapped[float | None] = mapped_column(Float, nullable=True)  # Manual override for cash amount
     enable_email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_alert_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

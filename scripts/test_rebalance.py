@@ -131,6 +131,72 @@ async def test_rebalance_analysis_fall():
     print("✅ test_rebalance_analysis_fall passed (Dips buying trigger)!")
 
 
+async def test_rebalance_leverage_ratio():
+    from src.services.rebalance.service import RebalanceService
+    from src.dbs.models import RebalanceStrategy, Security
+
+    db = MagicMock()
+
+    strategy = RebalanceStrategy(
+        user_id=1,
+        target_stock_pct=50.0,
+        target_bond_pct=10.0,
+        target_cash_pct=40.0,
+        stock_trigger_threshold=60.0,
+        stock_min_threshold=40.0,
+        bond_tickers="00931B,BND",
+        leveraged_tickers="TQQQ:3",
+        enable_email_alert=True
+    )
+
+    service = RebalanceService(db, user_id=1)
+    service.get_or_create_strategy = AsyncMock(return_value=strategy)
+
+    # Leveraged holding: TQQQ 100,000 TWD (3x) -> leveraged exposure 300,000
+    sec_leveraged = MagicMock(spec=Security)
+    sec_leveraged.id = 1
+    sec_leveraged.ticker = "TQQQ"
+    sec_leveraged.name = "TQQQ"
+    sec_leveraged.quantity = 1000.0
+    sec_leveraged.current_price = 100.0
+    sec_leveraged.market_value = 100000.0
+    sec_leveraged.currency = "TWD"
+    sec_leveraged.exchange_rate = 1.0
+    sec_leveraged.original_market_value = None
+    sec_leveraged.original_current_price = None
+
+    # Plain stock holding: no leverage
+    sec_plain = MagicMock(spec=Security)
+    sec_plain.id = 2
+    sec_plain.ticker = "0050"
+    sec_plain.name = "0050"
+    sec_plain.quantity = 1000.0
+    sec_plain.current_price = 100.0
+    sec_plain.market_value = 100000.0
+    sec_plain.currency = "TWD"
+    sec_plain.exchange_rate = 1.0
+    sec_plain.original_market_value = None
+    sec_plain.original_current_price = None
+
+    securities = [sec_leveraged, sec_plain]
+
+    # Cash = 300,000 TWD -> Total portfolio = 500,000 TWD
+    with patch_stock_holding(securities), patch_balance_sheet(300000.0):
+        analysis = await service.analyze_rebalance(date(2025, 1, 1))
+
+    # Total stock exposure = TQQQ 100,000*3 + 0050 100,000*1 = 400,000
+    assert analysis["leveraged_exposure_value"] == 400000
+    # leverage_ratio = (stock exposure 400,000 + bond 0 + cash 300,000) / total 500,000 = 1.4
+    assert analysis["leverage_ratio"] == 1.4
+
+    item_leveraged = next(i for i in analysis["rebalance_items"] if i["ticker"] == "TQQQ")
+    item_plain = next(i for i in analysis["rebalance_items"] if i["ticker"] == "0050")
+    assert item_leveraged["leverage_multiplier"] == 3.0
+    assert item_plain["leverage_multiplier"] == 1.0
+
+    print("✅ test_rebalance_leverage_ratio passed (leverage exposure & per-item multiplier)!")
+
+
 def patch_stock_holding(securities):
     return patch("src.services.reports.stock_holding.StockHoldingService.get_or_compute_portfolio", AsyncMock(return_value=([], securities)))
 
@@ -145,6 +211,7 @@ async def main():
     print("\n--- Running Portfolio Rebalance Unit Tests ---\n")
     await test_rebalance_analysis_rise()
     await test_rebalance_analysis_fall()
+    await test_rebalance_leverage_ratio()
     print("\n✅ All rebalance tests passed cleanly.\n")
 
 

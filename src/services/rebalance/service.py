@@ -40,6 +40,7 @@ class RebalanceService:
                 target_cash_pct=40.0,
                 assumed_rise_pct=50.0,
                 bond_tickers="00931B,BND",
+                leveraged_tickers="",
                 enable_email_alert=True
             )
             self._recompute_thresholds(strategy)
@@ -68,6 +69,24 @@ class RebalanceService:
             (s_frac * (1.0 - f_frac) / (1.0 - f_frac * s_frac)) * 100.0, 2
         )
 
+    @staticmethod
+    def _parse_leveraged_tickers(raw: str) -> Dict[str, float]:
+        """Parse "TICKER:MULTIPLIER,TICKER:MULTIPLIER" into an upper-cased ticker -> multiplier map."""
+        multipliers: Dict[str, float] = {}
+        for pair in raw.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            ticker, _, multiplier_str = pair.partition(":")
+            ticker = ticker.strip().upper()
+            try:
+                multiplier = float(multiplier_str.strip())
+            except ValueError:
+                continue
+            if ticker and multiplier > 0:
+                multipliers[ticker] = multiplier
+        return multipliers
+
     async def update_strategy(
         self,
         target_stock_pct: float | None = None,
@@ -75,6 +94,7 @@ class RebalanceService:
         target_cash_pct: float | None = None,
         assumed_rise_pct: float | None = None,
         bond_tickers: str | None = None,
+        leveraged_tickers: str | None = None,
         custom_cash_amount: float | None = None,
         enable_email_alert: bool | None = None,
     ) -> RebalanceStrategy:
@@ -95,6 +115,8 @@ class RebalanceService:
             strategy.target_cash_pct = target_cash_pct
         if bond_tickers is not None:
             strategy.bond_tickers = bond_tickers.strip()
+        if leveraged_tickers is not None:
+            strategy.leveraged_tickers = leveraged_tickers.strip()
         if custom_cash_amount is not None:
             # If set to negative (e.g. -1), treat as clearing custom override
             strategy.custom_cash_amount = custom_cash_amount if custom_cash_amount >= 0 else None
@@ -114,6 +136,7 @@ class RebalanceService:
 
         strategy = await self.get_or_create_strategy()
         bond_ticker_set = {t.strip().upper() for t in strategy.bond_tickers.split(",") if t.strip()}
+        leverage_multipliers = self._parse_leveraged_tickers(getattr(strategy, "leveraged_tickers", "") or "")
 
         # 1. Fetch stock holdings
         stock_service = StockHoldingService(self.db, self.user_id)
@@ -221,6 +244,7 @@ class RebalanceService:
         rebalance_items = []
 
         # 1) Individual Stock holdings (Pro-rata target allocation based on existing stock weight)
+        leveraged_exposure_twd = 0.0
         for sec_item in stock_items:
             item_weight_in_stock = (sec_item["market_value"] / stock_mv_total) if stock_mv_total > 0 else (1.0 / max(len(stock_items), 1))
             item_target_mv = target_stock_mv * item_weight_in_stock
@@ -231,6 +255,8 @@ class RebalanceService:
             post_shares = sec_item["quantity"] + trade_shares
             post_mv = item_target_mv
             post_pct = (post_mv / safe_total_mv) * 100.0
+            leverage_multiplier = leverage_multipliers.get((sec_item["ticker"] or "").strip().upper(), 1.0)
+            leveraged_exposure_twd += sec_item["market_value"] * leverage_multiplier
 
             rebalance_items.append({
                 "category": "STOCK",
@@ -246,6 +272,7 @@ class RebalanceService:
                 "post_rebalance_shares": round(post_shares),
                 "post_rebalance_market_value": round(post_mv),
                 "post_rebalance_pct": post_pct,
+                "leverage_multiplier": leverage_multiplier,
             })
 
         # 2) Individual Bond holdings
@@ -274,6 +301,7 @@ class RebalanceService:
                 "post_rebalance_shares": round(post_shares),
                 "post_rebalance_market_value": round(post_mv),
                 "post_rebalance_pct": post_pct,
+                "leverage_multiplier": 1.0,
             })
 
         # 3) Cash item
@@ -292,7 +320,11 @@ class RebalanceService:
             "post_rebalance_shares": 1,
             "post_rebalance_market_value": round(target_cash_mv),
             "post_rebalance_pct": strategy.target_cash_pct,
+            "leverage_multiplier": 1.0,
         })
+
+        # Leverage ratio = total leveraged exposure (market value x multiplier, non-leveraged assets counted at 1x) / total portfolio net value
+        leverage_ratio = (leveraged_exposure_twd + bond_mv_total + total_cash_twd) / safe_total_mv
 
         is_triggered_rise = actual_stock_pct >= strategy.stock_trigger_threshold
         is_triggered_fall = actual_stock_pct <= getattr(strategy, "stock_min_threshold", 40.0)
@@ -316,6 +348,9 @@ class RebalanceService:
             "stock_min_threshold": getattr(strategy, "stock_min_threshold", 40.0),
             "assumed_rise_pct": getattr(strategy, "assumed_rise_pct", 50.0),
             "bond_tickers": strategy.bond_tickers,
+            "leveraged_tickers": getattr(strategy, "leveraged_tickers", "") or "",
+            "leveraged_exposure_value": round(leveraged_exposure_twd),
+            "leverage_ratio": round(leverage_ratio, 3),
             "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
             "is_custom_cash": is_custom_cash,
             "enable_email_alert": strategy.enable_email_alert,

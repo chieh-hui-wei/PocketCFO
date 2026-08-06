@@ -71,6 +71,7 @@ async def update_rebalance_settings(
         target_cash_pct=body.target_cash_pct,
         assumed_rise_pct=body.assumed_rise_pct,
         bond_tickers=body.bond_tickers,
+        leveraged_tickers=body.leveraged_tickers,
         custom_cash_amount=body.custom_cash_amount,
         enable_email_alert=body.enable_email_alert,
     )
@@ -84,6 +85,7 @@ async def update_rebalance_settings(
             "stock_min_threshold": getattr(strategy, "stock_min_threshold", 40.0),
             "assumed_rise_pct": getattr(strategy, "assumed_rise_pct", 50.0),
             "bond_tickers": strategy.bond_tickers,
+            "leveraged_tickers": getattr(strategy, "leveraged_tickers", "") or "",
             "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
             "enable_email_alert": strategy.enable_email_alert,
         }

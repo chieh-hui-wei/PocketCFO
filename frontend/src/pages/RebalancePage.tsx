@@ -20,6 +20,7 @@ export default function RebalancePage() {
   const [targetCash, setTargetCash] = useState(40);
   const [assumedRisePct, setAssumedRisePct] = useState(50);
   const [bondTickers, setBondTickers] = useState("00931B,BND");
+  const [leveragedTickers, setLeveragedTickers] = useState("");
   const [customCash, setCustomCash] = useState<string>("");
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -34,6 +35,7 @@ export default function RebalancePage() {
       setTargetCash(res.target_cash_pct);
       setAssumedRisePct(res.assumed_rise_pct ?? 50);
       setBondTickers(res.bond_tickers);
+      setLeveragedTickers(res.leveraged_tickers ?? "");
       setCustomCash(res.custom_cash_amount != null ? String(res.custom_cash_amount) : "");
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "載入再平衡資料失敗");
@@ -62,6 +64,7 @@ export default function RebalancePage() {
         target_cash_pct: Number(targetCash),
         assumed_rise_pct: Number(assumedRisePct),
         bond_tickers: bondTickers,
+        leveraged_tickers: leveragedTickers,
         custom_cash_amount: customCash.trim() !== "" ? Number(customCash) : -1,
       });
       setToastMsg("✅ 再平衡策略設定已更新");
@@ -344,6 +347,20 @@ export default function RebalancePage() {
             </div>
 
             <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">槓桿標的倍數清單 (格式: 代號:倍數，以逗號分隔)</label>
+              <input
+                type="text"
+                value={leveragedTickers}
+                onChange={(e) => setLeveragedTickers(e.target.value)}
+                placeholder="TQQQ:3,SSO:2"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:outline-none focus:border-blue-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                系統將依此倍數計算槓桿曝險，未列出的標的視為 1 倍（無槓桿）。
+              </p>
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-slate-600 mb-1">
                 自訂當前現金總額 TWD (選填)
               </label>
@@ -382,7 +399,7 @@ export default function RebalancePage() {
 
       {/* Asset Overview Cards */}
       {analysis && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">總投資組合價值</div>
             <div className="text-xl font-black text-slate-900 mt-1">NT$ {formatMoney(analysis.total_portfolio_value)}</div>
@@ -439,6 +456,16 @@ export default function RebalancePage() {
               實際佔比: <span className="text-amber-600">{analysis.current_cash_pct}%</span>
             </div>
           </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">槓桿比例</div>
+            <div className={`text-xl font-black mt-1 ${analysis.leverage_ratio > 1 ? "text-rose-600" : "text-slate-900"}`}>
+              {analysis.leverage_ratio.toFixed(2)}x
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              槓桿曝險 NT$ {formatMoney(analysis.leveraged_exposure_value)} / 淨資產
+            </div>
+          </div>
         </div>
       )}
 
@@ -458,6 +485,7 @@ export default function RebalancePage() {
                 <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px]">
                   <th className="py-3 px-4">標的 / 資產</th>
                   <th className="py-3 px-3 text-center w-20 whitespace-nowrap">類別</th>
+                  <th className="py-3 px-3 text-center whitespace-nowrap">槓桿倍數</th>
                   <th className="py-3 px-3 text-right whitespace-nowrap">目前股數</th>
                   <th className="py-3 px-3 text-right bg-slate-100/70 text-slate-900 whitespace-nowrap">預計比例</th>
                   <th className="py-3 px-3 text-right whitespace-nowrap">現價 (TWD)</th>
@@ -492,6 +520,17 @@ export default function RebalancePage() {
                         >
                           {item.category === "STOCK" ? "股票" : item.category === "BOND" ? "債券" : "現金"}
                         </span>
+                      </td>
+
+                      {/* 槓桿倍數 */}
+                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                        {item.leverage_multiplier > 1 ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                            {item.leverage_multiplier}x
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">1x</span>
+                        )}
                       </td>
 
                       {/* 股數 */}

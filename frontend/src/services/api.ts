@@ -748,6 +748,7 @@ export interface RebalanceItem {
   post_rebalance_shares: number;
   post_rebalance_market_value: number;
   post_rebalance_pct: number;
+  leverage_multiplier: number;
 }
 
 export interface RebalanceAnalysis {
@@ -766,6 +767,9 @@ export interface RebalanceAnalysis {
   stock_min_threshold: number;
   assumed_rise_pct: number;
   bond_tickers: string;
+  leveraged_tickers: string;
+  leveraged_exposure_value: number;
+  leverage_ratio: number;
   custom_cash_amount?: number | null;
   is_custom_cash?: boolean;
   enable_email_alert: boolean;
@@ -785,6 +789,7 @@ export async function updateRebalanceSettings(payload: {
   target_cash_pct?: number;
   assumed_rise_pct?: number;
   bond_tickers?: string;
+  leveraged_tickers?: string;
   custom_cash_amount?: number | null;
   enable_email_alert?: boolean;
 }) {
