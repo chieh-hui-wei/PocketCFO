@@ -864,21 +864,21 @@ export default function UploadPage() {
                 </button>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto">
                 {editData.kind === "brokerage" ? (
                   /* Brokerage specific transaction table */
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm min-w-[1080px]">
                     <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                       <tr>
-                        <th className="px-3 py-2 w-28">交易日期</th>
-                        <th className="px-3 py-2 w-20">標的</th>
-                        <th className="px-3 py-2 w-28">動作</th>
-                        <th className="px-3 py-2 w-24 text-right">交易股數</th>
-                        <th className="px-3 py-2 w-24 text-right">成交單價</th>
-                        <th className="px-3 py-2 w-20 text-right">手續費</th>
-                        <th className="px-3 py-2 w-32 text-right">收付金額</th>
-                        <th className="px-3 py-2">交易說明</th>
-                        <th className="px-3 py-2 text-center w-12">操作</th>
+                        <th className="px-3 py-2 w-36">交易日期</th>
+                        <th className="px-3 py-2 w-24">標的</th>
+                        <th className="px-3 py-2 w-40">動作</th>
+                        <th className="px-3 py-2 w-28 text-right">交易股數</th>
+                        <th className="px-3 py-2 w-28 text-right">成交單價</th>
+                        <th className="px-3 py-2 w-24 text-right">手續費</th>
+                        <th className="px-3 py-2 w-36 text-right">收付金額</th>
+                        <th className="px-3 py-2 w-48">交易說明</th>
+                        <th className="px-3 py-2 text-center w-16">操作</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1012,14 +1012,14 @@ export default function UploadPage() {
                     </tbody>
                   </table>
                 ) : (
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm min-w-[720px]">
                     <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                       <tr>
-                        <th className="px-3 py-2 w-28">交易日期</th>
-                        <th className="px-3 py-2 w-32">交易類別</th>
+                        <th className="px-3 py-2 w-36">交易日期</th>
+                        <th className="px-3 py-2 w-40">交易類別</th>
                         <th className="px-3 py-2">交易摘要 / 商家</th>
-                        <th className="px-3 py-2 text-right w-36">金額 (原始幣別)</th>
-                        <th className="px-3 py-2 text-center w-12">操作</th>
+                        <th className="px-3 py-2 text-right w-40">金額 (原始幣別)</th>
+                        <th className="px-3 py-2 text-center w-16">操作</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
