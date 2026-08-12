@@ -240,6 +240,12 @@ class RebalanceService:
         target_bond_mv = (strategy.target_bond_pct / 100.0) * total_portfolio_mv
         target_cash_mv = (strategy.target_cash_pct / 100.0) * total_portfolio_mv
 
+        # Only suggest trades when the stock allocation has actually drifted outside the
+        # configured trigger band -- otherwise the current allocation is fine as-is.
+        is_triggered_rise = actual_stock_pct >= strategy.stock_trigger_threshold
+        is_triggered_fall = actual_stock_pct <= getattr(strategy, "stock_min_threshold", 40.0)
+        is_triggered = is_triggered_rise or is_triggered_fall
+
         # Per-item calculation logic
         rebalance_items = []
 
@@ -249,14 +255,24 @@ class RebalanceService:
             item_weight_in_stock = (sec_item["market_value"] / stock_mv_total) if stock_mv_total > 0 else (1.0 / max(len(stock_items), 1))
             item_target_mv = target_stock_mv * item_weight_in_stock
             item_actual_pct = (sec_item["market_value"] / safe_total_mv) * 100.0
-            trade_amount = item_target_mv - sec_item["market_value"]
-            unit_price = max(sec_item["current_price"], 0.001)
-            trade_shares = trade_amount / unit_price
-            post_shares = sec_item["quantity"] + trade_shares
-            post_mv = item_target_mv
-            post_pct = (post_mv / safe_total_mv) * 100.0
             leverage_multiplier = leverage_multipliers.get((sec_item["ticker"] or "").strip().upper(), 1.0)
             leveraged_exposure_twd += sec_item["market_value"] * leverage_multiplier
+
+            if is_triggered:
+                trade_amount = item_target_mv - sec_item["market_value"]
+                unit_price = max(sec_item["current_price"], 0.001)
+                trade_shares = trade_amount / unit_price
+                post_shares = sec_item["quantity"] + trade_shares
+                post_mv = item_target_mv
+                post_pct = (post_mv / safe_total_mv) * 100.0
+                target_pct = (item_target_mv / safe_total_mv) * 100.0
+            else:
+                trade_amount = 0.0
+                trade_shares = 0.0
+                post_shares = sec_item["quantity"]
+                post_mv = sec_item["market_value"]
+                post_pct = item_actual_pct
+                target_pct = item_actual_pct
 
             rebalance_items.append({
                 "category": "STOCK",
@@ -266,7 +282,7 @@ class RebalanceService:
                 "current_price": sec_item["current_price"],
                 "current_market_value": sec_item["market_value"],
                 "actual_pct": item_actual_pct,
-                "target_pct": (item_target_mv / safe_total_mv) * 100.0,
+                "target_pct": target_pct,
                 "trade_amount": round(trade_amount),
                 "trade_shares": round(trade_shares),
                 "post_rebalance_shares": round(post_shares),
@@ -280,12 +296,22 @@ class RebalanceService:
             item_weight_in_bond = (sec_item["market_value"] / bond_mv_total) if bond_mv_total > 0 else (1.0 / max(len(bond_items), 1))
             item_target_mv = target_bond_mv * item_weight_in_bond
             item_actual_pct = (sec_item["market_value"] / safe_total_mv) * 100.0
-            trade_amount = item_target_mv - sec_item["market_value"]
-            unit_price = max(sec_item["current_price"], 0.001)
-            trade_shares = trade_amount / unit_price
-            post_shares = sec_item["quantity"] + trade_shares
-            post_mv = item_target_mv
-            post_pct = (post_mv / safe_total_mv) * 100.0
+
+            if is_triggered:
+                trade_amount = item_target_mv - sec_item["market_value"]
+                unit_price = max(sec_item["current_price"], 0.001)
+                trade_shares = trade_amount / unit_price
+                post_shares = sec_item["quantity"] + trade_shares
+                post_mv = item_target_mv
+                post_pct = (post_mv / safe_total_mv) * 100.0
+                target_pct = (item_target_mv / safe_total_mv) * 100.0
+            else:
+                trade_amount = 0.0
+                trade_shares = 0.0
+                post_shares = sec_item["quantity"]
+                post_mv = sec_item["market_value"]
+                post_pct = item_actual_pct
+                target_pct = item_actual_pct
 
             rebalance_items.append({
                 "category": "BOND",
@@ -295,7 +321,7 @@ class RebalanceService:
                 "current_price": sec_item["current_price"],
                 "current_market_value": sec_item["market_value"],
                 "actual_pct": item_actual_pct,
-                "target_pct": (item_target_mv / safe_total_mv) * 100.0,
+                "target_pct": target_pct,
                 "trade_amount": round(trade_amount),
                 "trade_shares": round(trade_shares),
                 "post_rebalance_shares": round(post_shares),
@@ -305,7 +331,9 @@ class RebalanceService:
             })
 
         # 3) Cash item
-        cash_trade_amount = target_cash_mv - total_cash_twd
+        cash_trade_amount = (target_cash_mv - total_cash_twd) if is_triggered else 0.0
+        cash_post_mv = target_cash_mv if is_triggered else total_cash_twd
+        cash_post_pct = strategy.target_cash_pct if is_triggered else actual_cash_pct
         rebalance_items.append({
             "category": "CASH",
             "ticker": "現金總額",
@@ -314,22 +342,18 @@ class RebalanceService:
             "current_price": total_cash_twd,
             "current_market_value": total_cash_twd,
             "actual_pct": actual_cash_pct,
-            "target_pct": strategy.target_cash_pct,
+            "target_pct": cash_post_pct,
             "trade_amount": round(cash_trade_amount),
             "trade_shares": 0,
             "post_rebalance_shares": 1,
-            "post_rebalance_market_value": round(target_cash_mv),
-            "post_rebalance_pct": strategy.target_cash_pct,
+            "post_rebalance_market_value": round(cash_post_mv),
+            "post_rebalance_pct": cash_post_pct,
             "leverage_multiplier": 1.0,
         })
 
         # Exposure ratio = total leveraged stock exposure (market value x multiplier) / total portfolio net value
         # e.g. 1x holdings contribute mv/total, 2x holdings contribute mv*2/total
         exposure_ratio = leveraged_exposure_twd / safe_total_mv
-
-        is_triggered_rise = actual_stock_pct >= strategy.stock_trigger_threshold
-        is_triggered_fall = actual_stock_pct <= getattr(strategy, "stock_min_threshold", 40.0)
-        is_triggered = is_triggered_rise or is_triggered_fall
 
         trigger_direction = "RISE" if is_triggered_rise else ("FALL" if is_triggered_fall else "NONE")
 

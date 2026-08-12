@@ -197,6 +197,56 @@ async def test_rebalance_leverage_ratio():
     print("✅ test_rebalance_leverage_ratio passed (leverage exposure & per-item multiplier)!")
 
 
+async def test_rebalance_no_trade_when_within_band():
+    from src.services.rebalance.service import RebalanceService
+    from src.dbs.models import RebalanceStrategy, Security
+
+    db = MagicMock()
+
+    strategy = RebalanceStrategy(
+        user_id=1,
+        target_stock_pct=50.0,
+        target_bond_pct=10.0,
+        target_cash_pct=40.0,
+        stock_trigger_threshold=60.0,
+        stock_min_threshold=40.0,
+        bond_tickers="00931B,BND",
+        enable_email_alert=True
+    )
+
+    service = RebalanceService(db, user_id=1)
+    service.get_or_create_strategy = AsyncMock(return_value=strategy)
+
+    # Stock 51,000 TWD, cash 49,000 TWD -> total 100,000 TWD, stock % = 51%
+    # Between stock_min_threshold (40%) and stock_trigger_threshold (60%) -> NOT triggered
+    sec_stock = MagicMock(spec=Security)
+    sec_stock.id = 1
+    sec_stock.ticker = "0050"
+    sec_stock.name = "0050"
+    sec_stock.quantity = 100.0
+    sec_stock.current_price = 510.0
+    sec_stock.market_value = 51000.0
+    sec_stock.currency = "TWD"
+    sec_stock.exchange_rate = 1.0
+    sec_stock.original_market_value = None
+    sec_stock.original_current_price = None
+
+    securities = [sec_stock]
+
+    with patch_stock_holding(securities), patch_balance_sheet(49000.0):
+        analysis = await service.analyze_rebalance(date(2025, 1, 1))
+
+    assert analysis["is_triggered"] is False
+    item_stock = next(i for i in analysis["rebalance_items"] if i["ticker"] == "0050")
+    cash_item = next(i for i in analysis["rebalance_items"] if i["category"] == "CASH")
+    assert item_stock["trade_amount"] == 0
+    assert item_stock["trade_shares"] == 0
+    assert item_stock["post_rebalance_market_value"] == 51000
+    assert cash_item["trade_amount"] == 0
+
+    print("✅ test_rebalance_no_trade_when_within_band passed (no suggestions when allocation is within band)!")
+
+
 def patch_stock_holding(securities):
     return patch("src.services.reports.stock_holding.StockHoldingService.get_or_compute_portfolio", AsyncMock(return_value=([], securities)))
 
@@ -212,6 +262,7 @@ async def main():
     await test_rebalance_analysis_rise()
     await test_rebalance_analysis_fall()
     await test_rebalance_leverage_ratio()
+    await test_rebalance_no_trade_when_within_band()
     print("\n✅ All rebalance tests passed cleanly.\n")
 
 
