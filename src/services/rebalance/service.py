@@ -323,8 +323,9 @@ class RebalanceService:
             "leverage_multiplier": 1.0,
         })
 
-        # Leverage ratio = total leveraged exposure (market value x multiplier, non-leveraged assets counted at 1x) / total portfolio net value
-        leverage_ratio = (leveraged_exposure_twd + bond_mv_total + total_cash_twd) / safe_total_mv
+        # Exposure ratio = total leveraged stock exposure (market value x multiplier) / total portfolio net value
+        # e.g. 1x holdings contribute mv/total, 2x holdings contribute mv*2/total
+        exposure_ratio = leveraged_exposure_twd / safe_total_mv
 
         is_triggered_rise = actual_stock_pct >= strategy.stock_trigger_threshold
         is_triggered_fall = actual_stock_pct <= getattr(strategy, "stock_min_threshold", 40.0)
@@ -350,7 +351,7 @@ class RebalanceService:
             "bond_tickers": strategy.bond_tickers,
             "leveraged_tickers": getattr(strategy, "leveraged_tickers", "") or "",
             "leveraged_exposure_value": round(leveraged_exposure_twd),
-            "leverage_ratio": round(leverage_ratio, 3),
+            "exposure_ratio": round(exposure_ratio, 3),
             "custom_cash_amount": getattr(strategy, "custom_cash_amount", None),
             "is_custom_cash": is_custom_cash,
             "enable_email_alert": strategy.enable_email_alert,

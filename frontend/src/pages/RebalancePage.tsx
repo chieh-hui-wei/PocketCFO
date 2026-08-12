@@ -458,12 +458,12 @@ export default function RebalancePage() {
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">槓桿比例</div>
-            <div className={`text-xl font-black mt-1 ${analysis.leverage_ratio > 1 ? "text-rose-600" : "text-slate-900"}`}>
-              {analysis.leverage_ratio.toFixed(2)}x
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">曝險比例</div>
+            <div className={`text-xl font-black mt-1 ${analysis.exposure_ratio > 1 ? "text-rose-600" : "text-slate-900"}`}>
+              {analysis.exposure_ratio.toFixed(2)}x
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
-              槓桿曝險 NT$ {formatMoney(analysis.leveraged_exposure_value)} / 淨資產
+              股票曝險 NT$ {formatMoney(analysis.leveraged_exposure_value)} / 淨資產
             </div>
           </div>
         </div>

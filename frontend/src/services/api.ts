@@ -769,7 +769,7 @@ export interface RebalanceAnalysis {
   bond_tickers: string;
   leveraged_tickers: string;
   leveraged_exposure_value: number;
-  leverage_ratio: number;
+  exposure_ratio: number;
   custom_cash_amount?: number | null;
   is_custom_cash?: boolean;
   enable_email_alert: boolean;

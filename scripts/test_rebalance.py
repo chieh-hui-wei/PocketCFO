@@ -186,8 +186,8 @@ async def test_rebalance_leverage_ratio():
 
     # Total stock exposure = TQQQ 100,000*3 + 0050 100,000*1 = 400,000
     assert analysis["leveraged_exposure_value"] == 400000
-    # leverage_ratio = (stock exposure 400,000 + bond 0 + cash 300,000) / total 500,000 = 1.4
-    assert analysis["leverage_ratio"] == 1.4
+    # exposure_ratio = stock exposure 400,000 / total 500,000 = 0.8
+    assert analysis["exposure_ratio"] == 0.8
 
     item_leveraged = next(i for i in analysis["rebalance_items"] if i["ticker"] == "TQQQ")
     item_plain = next(i for i in analysis["rebalance_items"] if i["ticker"] == "0050")
