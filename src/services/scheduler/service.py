@@ -403,12 +403,16 @@ async def sync_taishin_assets(year: int, month: int, user_id: int = 1, target_da
                     )
                 )
                 
-            # Delete old securities for this account and day first to prevent sold/stale positions from persisting
+            # Delete old securities for this account within the month first, so daily syncs
+            # don't accumulate multiple stale/duplicate snapshots that inflate monthly totals
+            month_start = date(year, month, 1)
+            month_end = date(year, month, calendar.monthrange(year, month)[1])
             await db.execute(
                 delete(Security).where(
                     Security.user_id == user_id,
                     Security.account_id == account_id,
-                    Security.period_date == period
+                    Security.period_date >= month_start,
+                    Security.period_date <= month_end
                 )
             )
 
@@ -529,12 +533,16 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date:
                     )
                 )
                 
-            # Delete old securities for this account and day first to prevent sold/stale positions from persisting
+            # Delete old securities for this account within the month first, so daily syncs
+            # don't accumulate multiple stale/duplicate snapshots that inflate monthly totals
+            month_start = date(year, month, 1)
+            month_end = date(year, month, calendar.monthrange(year, month)[1])
             await db.execute(
                 delete(Security).where(
                     Security.user_id == user_id,
                     Security.account_id == account_id,
-                    Security.period_date == period
+                    Security.period_date >= month_start,
+                    Security.period_date <= month_end
                 )
             )
 

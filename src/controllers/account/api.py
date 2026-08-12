@@ -100,6 +100,18 @@ async def list_securities_history(
     result = await db.execute(stmt)
     securities = result.scalars().all()
 
+    # The sync scheduler writes a new Security snapshot every day it runs, keyed by
+    # that day's date, without clearing prior days within the same month. Keep only
+    # the latest period_date per (account_id, ticker, year, month) so a month's total
+    # reflects one snapshot instead of summing every daily sync.
+    latest_by_key = {}
+    for sec in securities:
+        key = (sec.account_id, sec.ticker, sec.period_date.year, sec.period_date.month)
+        current = latest_by_key.get(key)
+        if current is None or sec.period_date > current.period_date:
+            latest_by_key[key] = sec
+    securities = sorted(latest_by_key.values(), key=lambda s: (s.period_date, s.ticker), reverse=True)
+
     acc_stmt = select(Account.id, Account.name).where(Account.user_id == current_user.id)
     acc_res = await db.execute(acc_stmt)
     acc_map = {row.id: row.name for row in acc_res.all()}
