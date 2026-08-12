@@ -398,26 +398,26 @@ export default function StockHoldingsPage() {
             <div className="text-xs font-bold text-slate-400 mb-1">
               {selectedAccountId === "overview" ? "年底整體股票市值" : "年底券商股票市值"}
             </div>
-            <div className="text-2xl font-bold text-slate-800">{formatCurrency(yearEndValue)}</div>
+            <div className="text-2xl font-bold text-slate-800 whitespace-nowrap">{formatCurrency(yearEndValue)}</div>
             <div className="text-[10px] text-slate-400 mt-1">
               {latestActiveIndex !== -1 ? `${selectedYear}年${latestActiveIndex + 1}月最後計值` : "本年度尚無計值資料"}
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="text-xs font-bold text-slate-400 mb-1">年度市值高點</div>
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(maxValInYear)}</div>
+            <div className="text-2xl font-bold text-blue-600 whitespace-nowrap">{formatCurrency(maxValInYear)}</div>
             <div className="text-[10px] text-slate-400 mt-1">本年度單月估值最高峰</div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="text-xs font-bold text-slate-400 mb-1">年度未實現損益</div>
-            <div className={`text-2xl font-bold ${yearEndPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+            <div className={`text-2xl font-bold whitespace-nowrap ${yearEndPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
               {yearEndPnl >= 0 ? `+ ${formatCurrency(yearEndPnl)}` : `- ${formatCurrency(Math.abs(yearEndPnl))}`}
             </div>
             <div className="text-[10px] text-slate-400 mt-1">年度累計未實現損益估值</div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="text-xs font-bold text-slate-400 mb-1">年度曾持有標的數</div>
-            <div className="text-2xl font-bold text-slate-800">{totalUniqueStocks} 檔</div>
+            <div className="text-2xl font-bold text-slate-800 whitespace-nowrap">{totalUniqueStocks} 檔</div>
             <div className="text-[10px] text-slate-400 mt-1">本年度累計持有的不同股票</div>
           </div>
         </div>
