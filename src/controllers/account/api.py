@@ -4,6 +4,7 @@ Web API Router for Account Management endpoints.
 """
 from __future__ import annotations
 
+import calendar
 import re
 import time
 from datetime import datetime
@@ -101,14 +102,23 @@ async def list_securities_history(
     securities = result.scalars().all()
 
     # The sync scheduler writes a new Security snapshot every day it runs, keyed by
-    # that day's date, without clearing prior days within the same month. Keep only
-    # the latest period_date per (account_id, ticker, year, month) so a month's total
-    # reflects one snapshot instead of summing every daily sync.
+    # that day's date, without clearing prior days within the same month. Pick the
+    # month-end snapshot per (account_id, ticker, year, month) if present; otherwise
+    # fall back to the latest day actually recorded within that month. This keeps a
+    # month's total reflecting one snapshot instead of summing every daily sync.
     latest_by_key = {}
     for sec in securities:
         key = (sec.account_id, sec.ticker, sec.period_date.year, sec.period_date.month)
+        month_end_day = calendar.monthrange(sec.period_date.year, sec.period_date.month)[1]
+        is_month_end = sec.period_date.day == month_end_day
         current = latest_by_key.get(key)
-        if current is None or sec.period_date > current.period_date:
+        if current is None:
+            latest_by_key[key] = sec
+            continue
+        current_is_month_end = current.period_date.day == calendar.monthrange(current.period_date.year, current.period_date.month)[1]
+        if is_month_end and not current_is_month_end:
+            latest_by_key[key] = sec
+        elif is_month_end == current_is_month_end and sec.period_date > current.period_date:
             latest_by_key[key] = sec
     securities = sorted(latest_by_key.values(), key=lambda s: (s.period_date, s.ticker), reverse=True)
 
