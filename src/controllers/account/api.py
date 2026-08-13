@@ -128,12 +128,10 @@ async def list_securities_history(
 
     output = []
     for sec in securities:
-        market_val = sec.market_value
-        unrealized = sec.unrealized_pnl
-        if sec.currency and sec.currency != "TWD" and sec.exchange_rate and sec.exchange_rate > 0:
-            market_val = sec.market_value * sec.exchange_rate
-            unrealized = sec.unrealized_pnl * sec.exchange_rate
-
+        # sec.market_value / sec.unrealized_pnl are already TWD-converted at write time
+        # (see stock_holding.py and the manual statement upload endpoint); sec.exchange_rate
+        # is kept only for reference/back-conversion of the original_* fields, not for
+        # reapplying to market_value here.
         output.append({
             "id": sec.id,
             "account_id": sec.account_id,
@@ -144,12 +142,12 @@ async def list_securities_history(
             "quantity": sec.quantity,
             "avg_cost": sec.avg_cost,
             "current_price": sec.current_price,
-            "market_value": market_val,
-            "unrealized_pnl": unrealized,
-            "original_avg_cost": sec.avg_cost,
-            "original_current_price": sec.current_price,
-            "original_market_value": sec.market_value,
-            "original_unrealized_pnl": sec.unrealized_pnl,
+            "market_value": sec.market_value,
+            "unrealized_pnl": sec.unrealized_pnl,
+            "original_avg_cost": sec.original_avg_cost,
+            "original_current_price": sec.original_current_price,
+            "original_market_value": sec.original_market_value,
+            "original_unrealized_pnl": sec.original_unrealized_pnl,
             "currency": sec.currency or "TWD",
             "exchange_rate": sec.exchange_rate or 1.0,
             "created_at": str(sec.created_at) if sec.created_at else None,
