@@ -241,7 +241,7 @@ class BalanceSheetService:
                     # Fallback to institution match if only one such account exists
                     if not matched:
                         matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids), None)
-                        
+
                     if matched:
                         allocated_live_ids.add(matched.id)
                         if matched.id in seen_ids:
@@ -259,6 +259,22 @@ class BalanceSheetService:
                                 item["original_balance"] = snap.original_balance
                             detail_changed = True
                     deduped_cash.append(item)
+                # Add any bank accounts that have a snapshot for this period but were never
+                # part of the cached detail (e.g. created/entered after this month was first computed)
+                for acct_id, snap in db_snaps.items():
+                    acct = accounts.get(acct_id)
+                    if not acct or acct.account_type != AccountType.BANK or acct_id in allocated_live_ids:
+                        continue
+                    deduped_cash.append({
+                        "name": acct.name,
+                        "institution": acct.institution or "",
+                        "currency": snap.currency or "TWD",
+                        "balance": snap.balance,
+                        "original_balance": snap.original_balance,
+                        "exchange_rate": snap.exchange_rate,
+                    })
+                    allocated_live_ids.add(acct_id)
+                    detail_changed = True
                 detail["cash"] = deduped_cash
 
             # 2. Sync brokerage cash (names & balances) with deduplication and unique binding
@@ -308,6 +324,40 @@ class BalanceSheetService:
                             detail_changed = True
                     deduped_cc.append(item)
                 detail["credit_cards"] = deduped_cc
+
+            # 4. Sync other (e.g. long-term) liabilities with deduplication and unique binding
+            if "liabilities" not in detail:
+                detail["liabilities"] = []
+            seen_ids = set()
+            allocated_live_ids = set()
+            deduped_liab = []
+            for item in detail["liabilities"]:
+                matched = next((a for a in accounts.values() if a.account_type == AccountType.LIABILITY and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                if matched:
+                    allocated_live_ids.add(matched.id)
+                    if matched.id in seen_ids:
+                        detail_changed = True
+                        continue
+                    seen_ids.add(matched.id)
+
+                    if item.get("name") != matched.name:
+                        item["name"] = matched.name
+                        detail_changed = True
+                    snap = db_snaps.get(matched.id)
+                    if snap and item.get("balance") != abs(snap.balance):
+                        item["balance"] = abs(snap.balance)
+                        detail_changed = True
+                deduped_liab.append(item)
+            # Add any liability accounts that have a snapshot for this period but were never
+            # part of the cached detail (e.g. entered after this month was first computed)
+            for acct_id, snap in db_snaps.items():
+                acct = accounts.get(acct_id)
+                if not acct or acct.account_type != AccountType.LIABILITY or acct_id in allocated_live_ids:
+                    continue
+                deduped_liab.append({"name": acct.name, "balance": abs(snap.balance)})
+                allocated_live_ids.add(acct_id)
+                detail_changed = True
+            detail["liabilities"] = deduped_liab
 
             # If any names or balances were edited directly in DB, recompute total fields of the BalanceSheet record
             if detail_changed:
