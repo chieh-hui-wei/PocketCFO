@@ -22,6 +22,7 @@ _FALLBACK_RATES: dict[str, float] = {
     "sgd": 24.0,
     "cny": 4.5,
     "chf": 36.0,
+    "krw": 0.024,
 }
 
 

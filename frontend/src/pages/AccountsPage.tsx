@@ -609,6 +609,16 @@ export default function AccountsPage() {
                   >
                     <option value="TWD">台幣 (TWD)</option>
                     <option value="USD">美金 (USD)</option>
+                    <option value="JPY">日圓 (JPY)</option>
+                    <option value="KRW">韓元 (KRW)</option>
+                    <option value="EUR">歐元 (EUR)</option>
+                    <option value="GBP">英鎊 (GBP)</option>
+                    <option value="AUD">澳幣 (AUD)</option>
+                    <option value="CAD">加幣 (CAD)</option>
+                    <option value="HKD">港幣 (HKD)</option>
+                    <option value="SGD">新加坡幣 (SGD)</option>
+                    <option value="CNY">人民幣 (CNY)</option>
+                    <option value="CHF">瑞士法郎 (CHF)</option>
                   </select>
                 </div>
               </div>
@@ -880,6 +890,16 @@ export default function AccountsPage() {
                   >
                     <option value="TWD">台幣 (TWD)</option>
                     <option value="USD">美金 (USD)</option>
+                    <option value="JPY">日圓 (JPY)</option>
+                    <option value="KRW">韓元 (KRW)</option>
+                    <option value="EUR">歐元 (EUR)</option>
+                    <option value="GBP">英鎊 (GBP)</option>
+                    <option value="AUD">澳幣 (AUD)</option>
+                    <option value="CAD">加幣 (CAD)</option>
+                    <option value="HKD">港幣 (HKD)</option>
+                    <option value="SGD">新加坡幣 (SGD)</option>
+                    <option value="CNY">人民幣 (CNY)</option>
+                    <option value="CHF">瑞士法郎 (CHF)</option>
                   </select>
                 </div>
               </div>
