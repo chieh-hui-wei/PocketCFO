@@ -66,7 +66,13 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     setSelectedTxnIds([]);
+    setCurrentPage(1);
   }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pageJumpInput, setPageJumpInput] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -296,11 +302,12 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleSelectAll = (checked: boolean, filteredTxns: TransactionRecord[]) => {
+  const handleSelectAll = (checked: boolean, rows: TransactionRecord[]) => {
+    const rowIds = new Set(rows.map(t => t.id));
     if (checked) {
-      setSelectedTxnIds(filteredTxns.map(t => t.id));
+      setSelectedTxnIds(prev => [...prev.filter(id => !rowIds.has(id)), ...rows.map(t => t.id)]);
     } else {
-      setSelectedTxnIds([]);
+      setSelectedTxnIds(prev => prev.filter(id => !rowIds.has(id)));
     }
   };
 
@@ -357,6 +364,39 @@ export default function TransactionsPage() {
       return t.account_id === parseInt(selectedAccountId);
     });
 
+  const totalPages = Math.max(1, Math.ceil(filteredTxns.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
+  const paginatedTxns = filteredTxns.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleJumpToPage = () => {
+    const target = parseInt(pageJumpInput);
+    if (!isNaN(target) && target >= 1 && target <= totalPages) {
+      setCurrentPage(target);
+    }
+    setPageJumpInput("");
+  };
+
+  const getPageNumbers = (current: number, total: number): (number | "ellipsis")[] => {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages: (number | "ellipsis")[] = [1];
+    if (current > 4) pages.push("ellipsis");
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (current < total - 3) pages.push("ellipsis");
+    pages.push(total);
+    return pages;
+  };
+
   const categoryStats = (() => {
     const stats: Record<string, { income: number; expense: number }> = {};
     filteredTxns.forEach(t => {
@@ -389,9 +429,9 @@ export default function TransactionsPage() {
   const totalIncomeFiltered = categoryStats.reduce((sum, item) => sum + item.income, 0);
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">交易明細</h1>
           <p className="text-sm text-slate-500 mt-1">完整檢視您每個月的所有收支紀錄，並可自由修改或刪除資料</p>
@@ -456,7 +496,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-wrap justify-between items-center gap-4 mb-6">
+      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-wrap justify-between items-center gap-4 mb-6 shrink-0">
         <div className="flex items-center gap-3">
           {/* Account Filter */}
           <select
@@ -575,7 +615,7 @@ export default function TransactionsPage() {
 
       {/* Collapsible Category Breakdown Panel */}
       {showBreakdown && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6 animate-in fade-in slide-in-from-top-4 duration-300 shrink-0 overflow-y-auto max-h-[40vh]">
           <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
               <span>📊</span>
@@ -683,9 +723,9 @@ export default function TransactionsPage() {
       )}
 
       {/* Main Content */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
         {(() => {
-          // Use precalculated filteredTxns
+          // Use precalculated filteredTxns / paginatedTxns
           return isLoading ? (
             <div className="py-20 text-center text-slate-500 font-bold">載入中...</div>
           ) : filteredTxns.length === 0 ? (
@@ -694,36 +734,38 @@ export default function TransactionsPage() {
               <div className="text-sm mt-2">請上傳對帳單或調整篩選條件以產生資料</div>
             </div>
           ) : (
-            <table className="w-full text-left text-sm relative">
-              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-4 w-12 text-center">
-                    <input
-                      type="checkbox"
-                      checked={filteredTxns.length > 0 && selectedTxnIds.length === filteredTxns.length}
-                      ref={input => {
-                        if (input) {
-                          input.indeterminate = selectedTxnIds.length > 0 && selectedTxnIds.length < filteredTxns.length;
-                        }
-                      }}
-                      onChange={e => handleSelectAll(e.target.checked, filteredTxns)}
-                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-                    />
-                  </th>
-                  <th className="px-4 py-4 whitespace-nowrap">日期</th>
-                  <th className="px-4 py-4 whitespace-nowrap">來源</th>
-                  <th className="px-4 py-4 whitespace-nowrap">類別</th>
-                  <th className="px-4 py-4">摘要 / 商家</th>
-                  <th className="px-4 py-4 text-right whitespace-nowrap">金額</th>
-                  <th className="px-4 py-4 text-center whitespace-nowrap">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredTxns.map((t) => {
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <table className="w-full text-left text-sm relative">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-4 w-12 text-center bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={paginatedTxns.length > 0 && paginatedTxns.every(t => selectedTxnIds.includes(t.id))}
+                        ref={input => {
+                          if (input) {
+                            const selectedCount = paginatedTxns.filter(t => selectedTxnIds.includes(t.id)).length;
+                            input.indeterminate = selectedCount > 0 && selectedCount < paginatedTxns.length;
+                          }
+                        }}
+                        onChange={e => handleSelectAll(e.target.checked, paginatedTxns)}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </th>
+                    <th className="px-4 py-4 whitespace-nowrap bg-slate-50">日期</th>
+                    <th className="px-4 py-4 whitespace-nowrap bg-slate-50">來源</th>
+                    <th className="px-4 py-4 whitespace-nowrap bg-slate-50">類別</th>
+                    <th className="px-4 py-4 bg-slate-50">摘要 / 商家</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap bg-slate-50">金額</th>
+                    <th className="px-4 py-4 text-center whitespace-nowrap bg-slate-50">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedTxns.map((t) => {
                   const isEditing = editingTxnId === t.id;
                   const isSelected = selectedTxnIds.includes(t.id);
                   return (
-                    <tr key={t.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/20' : ''}`}>
+                      <tr key={t.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/20' : ''}`}>
                       {/* Checkbox */}
                       <td className="px-4 py-3 text-center">
                         <input
@@ -856,10 +898,84 @@ export default function TransactionsPage() {
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           );
         })()}
+
+        {/* Pagination (el-pagination style) */}
+        {filteredTxns.length > 0 && (
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-white text-xs text-slate-500">
+            <div className="font-medium">共 {filteredTxns.length} 筆</div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <select
+                value={pageSize}
+                onChange={e => handlePageSizeChange(parseInt(e.target.value))}
+                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-600 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {[10, 20, 50, 100].map(size => (
+                  <option key={size} value={size}>{size} 筆/頁</option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white cursor-pointer"
+                >
+                  {"<"}
+                </button>
+                {getPageNumbers(currentPage, totalPages).map((p, idx) =>
+                  p === "ellipsis" ? (
+                    <span key={`ellipsis-${idx}`} className="w-7 h-7 flex items-center justify-center text-slate-400">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                        p === currentPage
+                          ? "bg-blue-600 text-white"
+                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white cursor-pointer"
+                >
+                  {">"}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span>前往</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={pageJumpInput}
+                  onChange={e => setPageJumpInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleJumpToPage()}
+                  className="w-12 px-1.5 py-1 border border-slate-200 rounded-lg text-center text-xs focus:outline-none focus:border-blue-500"
+                />
+                <span>頁</span>
+                <button
+                  onClick={handleJumpToPage}
+                  className="px-2 py-1 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  跳轉
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showAddModal && (
