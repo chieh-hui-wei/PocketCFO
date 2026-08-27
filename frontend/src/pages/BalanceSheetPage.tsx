@@ -35,7 +35,7 @@ export default function BalanceSheetPage() {
     return d;
   });
 
-  const [activeTab, setActiveTab] = useState<"sheet" | "projection">("sheet");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "projection">("dashboard");
 
   const fetchHistory = () => {
     getBalanceSheetHistory().then(setHistory).catch(console.error);
@@ -210,26 +210,36 @@ export default function BalanceSheetPage() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500">
-      
+    <div className="animate-in fade-in duration-500 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-8 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">資產負債表</h1>
           <p className="text-sm text-slate-500 mt-1">了解你的財務狀況與資產負債結構</p>
         </div>
-        
+
         {/* Tab Switcher */}
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
           <button
-            onClick={() => setActiveTab("sheet")}
+            onClick={() => setActiveTab("dashboard")}
             className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
-              activeTab === "sheet"
+              activeTab === "dashboard"
                 ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            📋 歷史資產負債表
+            📊 儀表板
+          </button>
+          <button
+            onClick={() => setActiveTab("detail")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
+              activeTab === "detail"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            📋 明細
           </button>
           <button
             onClick={() => setActiveTab("projection")}
@@ -244,14 +254,14 @@ export default function BalanceSheetPage() {
         </div>
 
         <div className="flex gap-3">
-          {activeTab === "sheet" && (
+          {activeTab !== "projection" && (
             <>
               <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
                 <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
                 {formatMonth(currentDate)}
                 <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
               </div>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg border border-blue-700 shadow-sm text-sm font-bold hover:bg-blue-700 transition-colors"
               >
@@ -262,8 +272,8 @@ export default function BalanceSheetPage() {
         </div>
       </div>
 
-      {activeTab === "sheet" ? (
-        <>
+      {activeTab === "dashboard" ? (
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
 
       {/* Top Cards (3 Pillars) */}
       <div className="grid grid-cols-3 gap-6 mb-6">
@@ -484,19 +494,19 @@ export default function BalanceSheetPage() {
 
       </div>
 
-
-      {/* Bottom Section - Full Width Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
-        <h3 className="font-bold text-slate-800 mb-6">資產負債明細</h3>
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
+        </div>
+      ) : activeTab === "detail" ? (
+      <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <h3 className="font-bold text-slate-800 px-6 pt-6 pb-4 shrink-0">資產負債明細</h3>
+        <div className="mx-6 mb-6 flex-1 min-h-0 overflow-y-auto border border-slate-200 rounded-xl">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-3">項目</th>
-                <th className="px-4 py-3">分組分類</th>
-                <th className="px-4 py-3 text-right">本月金額</th>
-                <th className="px-4 py-3 text-right">變動金額</th>
-                <th className="px-4 py-3 text-right">變動%</th>
+                <th className="px-4 py-3 bg-slate-50">項目</th>
+                <th className="px-4 py-3 bg-slate-50">分組分類</th>
+                <th className="px-4 py-3 text-right bg-slate-50">本月金額</th>
+                <th className="px-4 py-3 text-right bg-slate-50">變動金額</th>
+                <th className="px-4 py-3 text-right bg-slate-50">變動%</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -795,9 +805,10 @@ export default function BalanceSheetPage() {
           </table>
         </div>
       </div>
-        </>
       ) : (
-        <ProjectionDashboard latestBs={latestBs} history={history} />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <ProjectionDashboard latestBs={latestBs} history={history} />
+        </div>
       )}
 
       {/* Manual adjustments Modal */}

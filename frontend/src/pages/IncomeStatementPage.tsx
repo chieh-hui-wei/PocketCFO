@@ -18,6 +18,7 @@ export default function IncomeStatementPage() {
 
   const [recentTxns, setRecentTxns] = useState<TransactionRecord[]>([]);
   const [txnType, setTxnType] = useState<"all" | "income" | "expense">("all");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "detail">("dashboard");
 
   useEffect(() => {
     getIncomeStatementHistory().then(setHistory).catch(console.error);
@@ -218,14 +219,39 @@ export default function IncomeStatementPage() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500">
-      
+    <div className="animate-in fade-in duration-500 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-8 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">損益表</h1>
           <p className="text-sm text-slate-500 mt-1">掌握你的收入與支出狀況</p>
         </div>
+
+        {/* Tab Switcher */}
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+          <button
+            onClick={() => setActiveTab("dashboard")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
+              activeTab === "dashboard"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            📊 儀表板
+          </button>
+          <button
+            onClick={() => setActiveTab("detail")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
+              activeTab === "detail"
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            📋 明細
+          </button>
+        </div>
+
         <div className="flex gap-3">
           <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrev}>{"<"}</span>
@@ -258,6 +284,9 @@ export default function IncomeStatementPage() {
           </button>
         </div>
       </div>
+
+      {activeTab === "dashboard" ? (
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-6 mb-6">
@@ -379,13 +408,14 @@ export default function IncomeStatementPage() {
 
       </div>
 
-      {/* Transaction List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <div className="flex justify-between items-center mb-6">
+      </div>
+      ) : (
+      <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="flex justify-between items-center px-6 pt-6 pb-4 shrink-0">
           <div className="flex items-center gap-6">
             <h3 className="font-bold text-slate-800">收支明細 (依日期)</h3>
             <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs">
-              <button 
+              <button
                 onClick={() => setTxnType("all")}
                 className={`rounded px-2.5 py-1 font-bold transition-colors cursor-pointer ${
                   txnType === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
@@ -393,7 +423,7 @@ export default function IncomeStatementPage() {
               >
                 全部
               </button>
-              <button 
+              <button
                 onClick={() => setTxnType("income")}
                 className={`rounded px-2.5 py-1 font-bold transition-colors cursor-pointer ${
                   txnType === "income" ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
@@ -401,7 +431,7 @@ export default function IncomeStatementPage() {
               >
                 收入
               </button>
-              <button 
+              <button
                 onClick={() => setTxnType("expense")}
                 className={`rounded px-2.5 py-1 font-bold transition-colors cursor-pointer ${
                   txnType === "expense" ? "bg-white text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
@@ -413,14 +443,14 @@ export default function IncomeStatementPage() {
           </div>
           <Link to={`/transactions?year=${currentDate.getFullYear()}&month=${currentDate.getMonth() + 1}${txnType !== "all" ? `&type=${txnType}` : ""}`} className="text-blue-600 text-sm font-bold hover:text-blue-700 transition-colors">查看全部交易 ➔</Link>
         </div>
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="mx-6 mb-6 flex-1 min-h-0 overflow-y-auto border border-slate-200 rounded-xl">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-4">日期</th>
-                <th className="px-6 py-4">項目</th>
-                <th className="px-6 py-4">分類</th>
-                <th className="px-6 py-4 text-right">金額</th>
+                <th className="px-6 py-4 bg-slate-50">日期</th>
+                <th className="px-6 py-4 bg-slate-50">項目</th>
+                <th className="px-6 py-4 bg-slate-50">分類</th>
+                <th className="px-6 py-4 text-right bg-slate-50">金額</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -432,8 +462,7 @@ export default function IncomeStatementPage() {
                     if (txnType === "income") return t.amount > 0;
                     if (txnType === "expense") return t.amount < 0;
                     return true;
-                  })
-                  .slice(0, 5);
+                  });
                 return filtered.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-6 py-8 text-center text-slate-500">暫無交易紀錄</td>
@@ -455,6 +484,7 @@ export default function IncomeStatementPage() {
           </table>
         </div>
       </div>
+      )}
 
     </div>
   );
