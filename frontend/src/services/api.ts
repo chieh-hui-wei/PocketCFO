@@ -151,7 +151,10 @@ export async function createAccount(
   currency: string = "TWD",
   code?: string,
   isInstallment: boolean = false,
-  installmentAmount: number = 0.0
+  installmentAmount: number = 0.0,
+  installmentStartDate?: string,
+  installmentCount?: number,
+  installmentPaymentDay?: number
 ) {
   const { data } = await api.post("/accounts/", {
     name,
@@ -161,6 +164,9 @@ export async function createAccount(
     code,
     is_installment: isInstallment,
     installment_amount: installmentAmount,
+    installment_start_date: installmentStartDate,
+    installment_count: installmentCount,
+    installment_payment_day: installmentPaymentDay,
   });
   return data;
 }
@@ -231,6 +237,9 @@ export interface Account {
   is_internal: boolean;
   is_installment?: boolean;
   installment_amount?: number;
+  installment_start_date?: string | null;
+  installment_count?: number | null;
+  installment_payment_day?: number | null;
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────
@@ -402,6 +411,9 @@ export async function updateAccount(
     notes?: string;
     is_installment?: boolean;
     installment_amount?: number;
+    installment_start_date?: string | null;
+    installment_count?: number;
+    installment_payment_day?: number;
   }
 ) {
   const { data } = await api.put(`/accounts/${accountId}`, payload);
@@ -829,12 +841,15 @@ export interface PriceAlert {
   direction: "above" | "below" | null;
   broker: "esun" | "taishin" | "sinopac" | null;
   target_price: number;
+  currency: string;
   quantity: number | null;
   status: "active" | "filled" | "failed" | "cancelled";
   order_result: string | null;
   triggered_at: string | null;
   created_at: string;
 }
+
+export const PRICE_ALERT_CURRENCIES = ["TWD", "USD", "EUR", "JPY", "GBP", "AUD", "CAD", "HKD", "SGD", "CNY", "CHF"] as const;
 
 export async function listPriceAlerts() {
   const { data } = await api.get("/price-alerts/");
@@ -850,6 +865,7 @@ export async function createPriceAlert(payload: {
   broker?: "esun" | "taishin" | "sinopac";
   direction?: "above" | "below";
   target_price: number;
+  currency?: string;
 }) {
   const { data } = await api.post("/price-alerts/", payload);
   return data as PriceAlert;
@@ -866,6 +882,7 @@ export async function updatePriceAlert(
     broker?: "esun" | "taishin" | "sinopac";
     direction?: "above" | "below";
     target_price: number;
+    currency?: string;
   }
 ) {
   const { data } = await api.put(`/price-alerts/${alertId}`, payload);

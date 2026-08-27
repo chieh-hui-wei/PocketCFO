@@ -20,6 +20,9 @@ class CreateAccountRequest(BaseModel):
     notes: Optional[str] = None
     is_installment: bool = False
     installment_amount: float = 0.0
+    installment_start_date: Optional[str] = None
+    installment_count: Optional[int] = None
+    installment_payment_day: Optional[int] = None
 
 
 class SaveSnapshotRequest(BaseModel):
@@ -49,3 +52,6 @@ class UpdateAccountRequest(BaseModel):
     notes: Optional[str] = None
     is_installment: Optional[bool] = None
     installment_amount: Optional[float] = None
+    installment_start_date: Optional[str] = None
+    installment_count: Optional[int] = None
+    installment_payment_day: Optional[int] = None

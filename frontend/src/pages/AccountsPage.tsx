@@ -46,6 +46,9 @@ export default function AccountsPage() {
   const [formIsInternal, setFormIsInternal] = useState(true);
   const [formIsInstallment, setFormIsInstallment] = useState(false);
   const [formInstallmentAmount, setFormInstallmentAmount] = useState<number>(0);
+  const [formInstallmentStartDate, setFormInstallmentStartDate] = useState<string>("");
+  const [formInstallmentCount, setFormInstallmentCount] = useState<number>(0);
+  const [formInstallmentPaymentDay, setFormInstallmentPaymentDay] = useState<number>(1);
 
   const fetchAccounts = async () => {
     setIsLoading(true);
@@ -88,6 +91,9 @@ export default function AccountsPage() {
     setFormIsInternal(true);
     setFormIsInstallment(false);
     setFormInstallmentAmount(0);
+    setFormInstallmentStartDate("");
+    setFormInstallmentCount(0);
+    setFormInstallmentPaymentDay(1);
     setShowAddModal(true);
   };
 
@@ -101,6 +107,9 @@ export default function AccountsPage() {
     setFormIsInternal(a.is_internal);
     setFormIsInstallment(a.is_installment || false);
     setFormInstallmentAmount(a.installment_amount || 0);
+    setFormInstallmentStartDate(a.installment_start_date || "");
+    setFormInstallmentCount(a.installment_count || 0);
+    setFormInstallmentPaymentDay(a.installment_payment_day || 1);
     setShowEditModal(true);
   };
 
@@ -118,7 +127,10 @@ export default function AccountsPage() {
         formCurrency,
         formCode || undefined,
         formIsInstallment,
-        formInstallmentAmount
+        formInstallmentAmount,
+        formIsInstallment ? (formInstallmentStartDate || undefined) : undefined,
+        formIsInstallment ? (formInstallmentCount || undefined) : undefined,
+        formIsInstallment ? (formInstallmentPaymentDay || undefined) : undefined
       );
       const list = await getAccounts();
       const created = list.find(x => x.name === formName && x.institution === formInstitution);
@@ -150,7 +162,10 @@ export default function AccountsPage() {
         is_internal: formIsInternal,
         code: formCode,
         is_installment: formIsInstallment,
-        installment_amount: formInstallmentAmount
+        installment_amount: formInstallmentAmount,
+        installment_start_date: formIsInstallment ? (formInstallmentStartDate || null) : null,
+        installment_count: formIsInstallment ? (formInstallmentCount || undefined) : undefined,
+        installment_payment_day: formIsInstallment ? (formInstallmentPaymentDay || undefined) : undefined
       });
       toast.success("帳戶修改已儲存！");
       setShowEditModal(false);
@@ -636,16 +651,52 @@ export default function AccountsPage() {
                     </label>
                   </div>
                   {formIsInstallment && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">每期應繳/扣除金額 (TWD)</label>
-                      <input
-                        type="number"
-                        value={formInstallmentAmount || ""}
-                        onChange={e => setFormInstallmentAmount(parseFloat(e.target.value) || 0)}
-                        placeholder="例如: 5000"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                      />
-                      <span className="block text-xxs text-slate-400 mt-1 font-normal">啟用後，系統每月份會自動從您的負債餘額中扣減此金額，直到餘額歸零。</span>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5">每期應繳/扣除金額 (TWD)</label>
+                        <input
+                          type="number"
+                          value={formInstallmentAmount || ""}
+                          onChange={e => setFormInstallmentAmount(parseFloat(e.target.value) || 0)}
+                          placeholder="例如: 5000"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1.5">起始日</label>
+                          <input
+                            type="date"
+                            value={formInstallmentStartDate}
+                            onChange={e => setFormInstallmentStartDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1.5">總期數</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={formInstallmentCount || ""}
+                            onChange={e => setFormInstallmentCount(parseInt(e.target.value) || 0)}
+                            placeholder="例如: 36"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5">每月還款日 (幾號)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={formInstallmentPaymentDay || ""}
+                          onChange={e => setFormInstallmentPaymentDay(parseInt(e.target.value) || 1)}
+                          placeholder="例如: 5"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <span className="block text-xxs text-slate-400 mt-1 font-normal">系統會依起始日與總期數，逐月扣減本金，直到期數屆滿或餘額歸零為止。</span>
                     </div>
                   )}
                 </div>
@@ -870,16 +921,52 @@ export default function AccountsPage() {
                     </label>
                   </div>
                   {formIsInstallment && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">每期應繳/扣除金額 (TWD)</label>
-                      <input
-                        type="number"
-                        value={formInstallmentAmount || ""}
-                        onChange={e => setFormInstallmentAmount(parseFloat(e.target.value) || 0)}
-                        placeholder="例如: 5000"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                      />
-                      <span className="block text-xxs text-slate-400 mt-1 font-normal">啟用後，系統每月份會自動從您的負債餘額中扣減此金額，直到餘額歸零。</span>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5">每期應繳/扣除金額 (TWD)</label>
+                        <input
+                          type="number"
+                          value={formInstallmentAmount || ""}
+                          onChange={e => setFormInstallmentAmount(parseFloat(e.target.value) || 0)}
+                          placeholder="例如: 5000"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1.5">起始日</label>
+                          <input
+                            type="date"
+                            value={formInstallmentStartDate}
+                            onChange={e => setFormInstallmentStartDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1.5">總期數</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={formInstallmentCount || ""}
+                            onChange={e => setFormInstallmentCount(parseInt(e.target.value) || 0)}
+                            placeholder="例如: 36"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5">每月還款日 (幾號)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={formInstallmentPaymentDay || ""}
+                          onChange={e => setFormInstallmentPaymentDay(parseInt(e.target.value) || 1)}
+                          placeholder="例如: 5"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <span className="block text-xxs text-slate-400 mt-1 font-normal">系統會依起始日與總期數，逐月扣減本金，直到期數屆滿或餘額歸零為止。</span>
                     </div>
                   )}
                 </div>

@@ -139,6 +139,9 @@ class Account(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     is_installment: Mapped[bool] = mapped_column(Boolean, default=False)
     installment_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    installment_start_date: Mapped[date | None] = mapped_column(Date)
+    installment_count: Mapped[int | None] = mapped_column(Integer)  # total number of installments (期數)
+    installment_payment_day: Mapped[int | None] = mapped_column(Integer)  # day of month payment is due (1-31)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     snapshots: Mapped[list["AccountSnapshot"]] = relationship(back_populates="account")

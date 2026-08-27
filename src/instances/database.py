@@ -198,6 +198,11 @@ async def run_migrations() -> None:
                 / (1.0 - ((assumed_rise_pct / 100.0) / (1.0 + assumed_rise_pct / 100.0)) * (target_stock_pct / 100.0))
             ) * 100.0)::numeric, 2)
         """,
+        # 2026-08-27: accounts — real installment schedule (起始日/期數/還款日) instead of
+        # the flat is_installment + installment_amount straight-line estimate.
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_start_date DATE",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_count INTEGER",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_payment_day INTEGER",
     ]
 
     # Each statement gets its own transaction: on Postgres a single failed statement

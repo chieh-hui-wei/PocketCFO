@@ -51,6 +51,9 @@ async def list_accounts(
             "is_internal": a.is_internal,
             "is_installment": getattr(a, "is_installment", False),
             "installment_amount": getattr(a, "installment_amount", 0.0),
+            "installment_start_date": str(a.installment_start_date) if a.installment_start_date else None,
+            "installment_count": a.installment_count,
+            "installment_payment_day": a.installment_payment_day,
         }
         for a in accounts
         if include_all or a.account_type not in (AccountType.CREDIT_CARD, AccountType.LIABILITY)
@@ -73,6 +76,9 @@ async def create_account(
         
     data = body.model_dump()
     data["code"] = code
+    if data.get("installment_start_date"):
+        from datetime import date as _date
+        data["installment_start_date"] = _date.fromisoformat(data["installment_start_date"])
     account = Account(**data)
     created = await repo.create(account)
     return {
@@ -85,6 +91,9 @@ async def create_account(
         "is_internal": created.is_internal,
         "is_installment": getattr(created, "is_installment", False),
         "installment_amount": getattr(created, "installment_amount", 0.0),
+        "installment_start_date": str(created.installment_start_date) if created.installment_start_date else None,
+        "installment_count": created.installment_count,
+        "installment_payment_day": created.installment_payment_day,
     }
 
 
@@ -394,6 +403,18 @@ async def update_account(
         name_or_institution_changed = True
     if body.installment_amount is not None and body.installment_amount != account.installment_amount:
         account.installment_amount = body.installment_amount
+        name_or_institution_changed = True
+    if body.installment_start_date is not None:
+        from datetime import date as _date
+        parsed_start = _date.fromisoformat(body.installment_start_date) if body.installment_start_date else None
+        if parsed_start != account.installment_start_date:
+            account.installment_start_date = parsed_start
+            name_or_institution_changed = True
+    if body.installment_count is not None and body.installment_count != account.installment_count:
+        account.installment_count = body.installment_count
+        name_or_institution_changed = True
+    if body.installment_payment_day is not None and body.installment_payment_day != account.installment_payment_day:
+        account.installment_payment_day = body.installment_payment_day
         name_or_institution_changed = True
 
     await db.flush()

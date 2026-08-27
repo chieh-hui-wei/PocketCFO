@@ -22,6 +22,21 @@ from src.services.exchange_rate.service import get_usd_twd_rate
 log = logging.getLogger(__name__)
 
 
+def _amortized_installment_balance(account: Account, base_snap: AccountSnapshot, target_date: date) -> float:
+    """
+    Compute the remaining principal of an installment liability as of target_date,
+    stepping down by installment_amount per elapsed month from the loan's start date
+    (falling back to the account's oldest snapshot date if no start date is set),
+    and never paying down more than installment_count installments in total.
+    """
+    start = account.installment_start_date or base_snap.period_date
+    months_elapsed = (target_date.year - start.year) * 12 + (target_date.month - start.month)
+    months_elapsed = max(0, months_elapsed)
+    if account.installment_count:
+        months_elapsed = min(months_elapsed, account.installment_count)
+    return min(0.0, base_snap.balance + months_elapsed * account.installment_amount)
+
+
 class StockHoldingService:
     def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
@@ -104,8 +119,7 @@ class StockHoldingService:
                         
                     # Apply auto-reduction for installment liabilities
                     if getattr(acct, 'is_installment', False) and getattr(acct, 'installment_amount', 0.0) > 0:
-                        months_diff = (end_date.year - snap.period_date.year) * 12 + (end_date.month - snap.period_date.month)
-                        adjusted_balance = min(0.0, snap.balance + (months_diff * getattr(acct, 'installment_amount', 0.0)))
+                        adjusted_balance = _amortized_installment_balance(acct, snap, end_date)
                         snap = AccountSnapshot(
                             id=snap.id,
                             user_id=snap.user_id,
@@ -154,8 +168,7 @@ class StockHoldingService:
                     base_res = await self.db.execute(base_stmt)
                     base_snap = base_res.scalar_one_or_none()
                     if base_snap:
-                        months_diff = (period_date.year - base_snap.period_date.year) * 12 + (period_date.month - base_snap.period_date.month)
-                        adjusted_balance = min(0.0, base_snap.balance + (months_diff * getattr(s.account, 'installment_amount', 0.0)))
+                        adjusted_balance = _amortized_installment_balance(s.account, base_snap, period_date)
                         s = AccountSnapshot(
                             id=s.id,
                             user_id=s.user_id,
