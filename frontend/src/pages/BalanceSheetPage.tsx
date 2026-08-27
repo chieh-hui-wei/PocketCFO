@@ -56,7 +56,10 @@ export default function BalanceSheetPage() {
         // Initialize editing state
         const balances: Record<number, string> = {};
         data.forEach(acc => {
-          balances[acc.id] = acc.balance !== null ? String(Math.abs(acc.balance)) : "";
+          // For foreign-currency accounts, edit in the account's native currency
+          // (original_balance) rather than the TWD-converted balance stored on the snapshot.
+          const nativeVal = acc.original_balance ?? acc.balance;
+          balances[acc.id] = nativeVal !== null ? String(Math.abs(nativeVal)) : "";
         });
         setEditBalances(balances);
       })
@@ -934,8 +937,8 @@ export default function BalanceSheetPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-500 text-sm font-bold">$</span>
-                          <input 
+                          <span className="text-slate-500 text-xs font-bold">{acc.currency && acc.currency !== "TWD" ? acc.currency : "$"}</span>
+                          <input
                             type="number"
                             placeholder="輸入餘額"
                             value={editBalances[acc.id] ?? ""}

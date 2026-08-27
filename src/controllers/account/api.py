@@ -191,6 +191,7 @@ async def list_snapshots_for_period(
             "currency": a.currency,
             "is_internal": a.is_internal,
             "balance": snap.balance if snap else None,
+            "original_balance": snap.original_balance if snap else None,
             "has_snapshot": snap is not None,
             "snapshot_source": snap.source if snap else None,
         })
@@ -205,17 +206,31 @@ async def save_snapshot(
     current_user: User = Depends(verify_token),
 ):
     snap_repo = SnapshotRepository(db, current_user.id)
+    acc_repo = AccountRepository(db, current_user.id)
     try:
         from datetime import date
         period = date.fromisoformat(body.period_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
 
+    account = await acc_repo.get_by_id(account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    is_foreign = bool(account.currency) and account.currency != "TWD"
+    rate = 1.0
+    if is_foreign:
+        from src.services.exchange_rate.service import get_currency_twd_rate
+        rate = await get_currency_twd_rate(period, from_currency=account.currency)
+
     snapshot = await snap_repo.upsert(
         AccountSnapshot(
             account_id=account_id,
             period_date=period,
-            balance=body.balance,
+            balance=round(body.balance * rate, 2) if is_foreign else body.balance,
+            original_balance=body.balance if is_foreign else None,
+            currency=account.currency or "TWD",
+            exchange_rate=rate,
             source="manual",
         )
     )

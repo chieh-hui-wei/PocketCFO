@@ -173,6 +173,7 @@ export async function createAccount(
 
 export interface AccountWithSnapshot extends Account {
   balance: number | null;
+  original_balance: number | null;
   has_snapshot: boolean;
   snapshot_source: string | null;
 }
