@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { forgotPassword, resetPassword } from "../services/api";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTriangleExclamation, faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -147,7 +149,7 @@ export default function ResetPasswordPage() {
 
               {errorMsg && (
                 <div className="text-xs font-semibold text-rose-500 mt-2 flex items-center gap-1.5 animate-in fade-in">
-                  <span>⚠️</span>
+                  <FontAwesomeIcon icon={faTriangleExclamation} />
                   <span>{errorMsg}</span>
                 </div>
               )}
@@ -211,14 +213,14 @@ export default function ResetPasswordPage() {
 
               {errorMsg && (
                 <div className="text-xs font-semibold text-rose-500 mt-2 flex items-center gap-1.5 animate-in fade-in">
-                  <span>⚠️</span>
+                  <FontAwesomeIcon icon={faTriangleExclamation} />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
               {successMsg && (
                 <div className="text-xs font-semibold text-emerald-400 mt-2 flex items-center gap-1.5 animate-in fade-in">
-                  <span>✅</span>
+                  <FontAwesomeIcon icon={faCircleCheck} />
                   <span>{successMsg}</span>
                 </div>
               )}

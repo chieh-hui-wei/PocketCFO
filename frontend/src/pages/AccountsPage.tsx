@@ -12,6 +12,8 @@ import {
   SavingsPot
 } from "../services/api";
 import { toast } from "../store/useToastStore";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBuildingColumns, faBullseye, faVault, faLock, faMoneyBillWave, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -336,7 +338,7 @@ export default function AccountsPage() {
                   <React.Fragment key={inst}>
                     <tr className="bg-slate-50/50">
                       <td colSpan={6} className="px-6 py-2.5 font-bold text-slate-500 text-xs uppercase tracking-wider bg-slate-100/50">
-                        🏛️ {inst}
+                        <FontAwesomeIcon icon={faBuildingColumns} className="mr-1.5" />{inst}
                       </td>
                     </tr>
                     {list.map((a) => (
@@ -396,12 +398,12 @@ export default function AccountsPage() {
         )}
       </div>
 
-      {/* 🎯 Virtual Savings Pots Section */}
+      {/* Virtual Savings Pots Section */}
       <div className="mt-10">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <span>🎯</span> 虛擬儲蓄分配桶
+              <FontAwesomeIcon icon={faBullseye} /> 虛擬儲蓄分配桶
             </h2>
             <p className="text-xs text-slate-500 mt-1">將您的實體活期存款分配給不同的儲蓄用途，專款專用不受轉帳影響</p>
           </div>
@@ -423,14 +425,14 @@ export default function AccountsPage() {
           return (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm animate-in fade-in duration-300">
-                <div className="text-xs font-bold text-slate-500 mb-1">🏦 活期現金總水庫</div>
+                <div className="text-xs font-bold text-slate-500 mb-1"><FontAwesomeIcon icon={faVault} className="mr-1.5" />活期現金總水庫</div>
                 <div className="text-xl font-extrabold text-slate-800">
                   ${totalCash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-1">所有實體銀行活存帳戶餘額加總</div>
               </div>
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm animate-in fade-in duration-300">
-                <div className="text-xs font-bold text-slate-500 mb-1">🔒 已分配儲蓄額度</div>
+                <div className="text-xs font-bold text-slate-500 mb-1"><FontAwesomeIcon icon={faLock} className="mr-1.5" />已分配儲蓄額度</div>
                 <div className="text-xl font-extrabold text-blue-600">
                   ${totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
@@ -438,12 +440,12 @@ export default function AccountsPage() {
               </div>
               <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-colors animate-in fade-in duration-300 ${isOverbudget ? 'border-red-200 bg-red-50/10' : 'border-slate-200'
                 }`}>
-                <div className="text-xs font-bold text-slate-500 mb-1">💸 可自由支配現金</div>
+                <div className="text-xs font-bold text-slate-500 mb-1"><FontAwesomeIcon icon={faMoneyBillWave} className="mr-1.5" />可自由支配現金</div>
                 <div className={`text-xl font-extrabold ${isOverbudget ? 'text-red-600' : 'text-emerald-600'}`}>
                   ${unallocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
                 {isOverbudget ? (
-                  <div className="text-[10px] text-red-500 font-bold mt-1">⚠️ 警告：已分配額度超出可用實體餘額！</div>
+                  <div className="text-[10px] text-red-500 font-bold mt-1"><FontAwesomeIcon icon={faTriangleExclamation} className="mr-1" />警告：已分配額度超出可用實體餘額！</div>
                 ) : (
                   <div className="text-[10px] text-slate-400 mt-1">尚未分配給任何目標的可用現金</div>
                 )}
@@ -455,7 +457,7 @@ export default function AccountsPage() {
         {/* Missing statement warnings */}
         {latestPeriod && missingAccounts.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
-            <span className="text-lg">⚠️</span>
+            <FontAwesomeIcon icon={faTriangleExclamation} className="text-lg" />
             <div className="text-xs text-amber-800 leading-relaxed">
               <span className="font-bold">未全數更新餘額提醒：</span>
               您目前看到的是 {latestPeriod.split('-')[0]} 年 {parseInt(latestPeriod.split('-')[1])} 月的活水總額。但此月份您尚未上傳

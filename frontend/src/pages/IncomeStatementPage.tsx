@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { getIncomeStatementHistory, IncomeStatementRecord, getTransactions, TransactionRecord } from "../services/api";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChartPie, faTableList } from "@fortawesome/free-solid-svg-icons";
 
 const INCOME_COLORS = ["#10b981", "#f59e0b", "#64748b"];
 const EXPENSE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#f97316", "#14b8a6", "#84cc16", "#64748b"];
@@ -238,7 +240,7 @@ export default function IncomeStatementPage() {
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            📊 儀表板
+            <FontAwesomeIcon icon={faChartPie} className="mr-1.5" />儀表板
           </button>
           <button
             onClick={() => setActiveTab("detail")}
@@ -248,7 +250,7 @@ export default function IncomeStatementPage() {
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            📋 明細
+            <FontAwesomeIcon icon={faTableList} className="mr-1.5" />明細
           </button>
         </div>
 

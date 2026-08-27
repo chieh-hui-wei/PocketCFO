@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { sendAIChatStream, executeSQLQuery, confirmAIAction, ChatMessage, SQLResult, PendingAction } from "../services/api";
 import { formatMessageTime } from "../utils/formatTime";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRobot, faUser, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 const ACTION_LABEL: Record<string, string> = {
   create_price_alert: "建立到價自動下單",
@@ -54,8 +56,8 @@ export default function AIChatbox() {
         {
           role: "model",
           content: !isDevMode
-            ? "⚠️ **Developer Mode Unlocked!** You can now access the database via the SQL Console tab above or by typing `/sql <query>`."
-            : "ℹ️ Developer Mode Disabled.",
+            ? "**Developer Mode Unlocked!** You can now access the database via the SQL Console tab above or by typing `/sql <query>`."
+            : "Developer Mode Disabled.",
           timestamp: Date.now(),
         }
       ]);
@@ -95,7 +97,7 @@ export default function AIChatbox() {
         }
         setMessages((prev) => [...prev, { role: "model", content: tableMarkdown, timestamp: Date.now() }]);
       } catch (err: any) {
-        setMessages((prev) => [...prev, { role: "model", content: `❌ **SQL Error:** ${err.response?.data?.detail || err.message}`, timestamp: Date.now() }]);
+        setMessages((prev) => [...prev, { role: "model", content: `**SQL Error:** ${err.response?.data?.detail || err.message}`, timestamp: Date.now() }]);
       } finally {
         setIsLoading(false);
       }
@@ -141,9 +143,9 @@ export default function AIChatbox() {
         const updated = [...prev];
         const lastIndex = updated.length - 1;
         if (lastIndex >= 0 && updated[lastIndex].role === "model" && !updated[lastIndex].content) {
-          updated[lastIndex] = { role: "model", content: `❌ Failed to communicate with AI: ${err.message}`, timestamp: Date.now() };
+          updated[lastIndex] = { role: "model", content: `Failed to communicate with AI: ${err.message}`, timestamp: Date.now() };
         } else {
-          updated.push({ role: "model", content: `\n❌ Error: ${err.message}`, timestamp: Date.now() });
+          updated.push({ role: "model", content: `\nError: ${err.message}`, timestamp: Date.now() });
         }
         return updated;
       });
@@ -160,12 +162,12 @@ export default function AIChatbox() {
       await confirmAIAction(pendingAction.action, pendingAction.args);
       setMessages((prev) => [
         ...prev,
-        { role: "model", content: `✅ 已送出：${ACTION_LABEL[pendingAction.action] || pendingAction.action}`, timestamp: Date.now() },
+        { role: "model", content: `已送出：${ACTION_LABEL[pendingAction.action] || pendingAction.action}`, timestamp: Date.now() },
       ]);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "model", content: `❌ 執行失敗：${err.response?.data?.detail || err.message}`, timestamp: Date.now() },
+        { role: "model", content: `執行失敗：${err.response?.data?.detail || err.message}`, timestamp: Date.now() },
       ]);
     } finally {
       setConfirmingAction(false);
@@ -292,8 +294,8 @@ export default function AIChatbox() {
               <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
                 {/* System Initial Welcome */}
                 <div className="flex gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    🤖
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 text-blue-600">
+                    <FontAwesomeIcon icon={faRobot} />
                   </div>
                   <div className="bg-white px-3.5 py-2.5 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 max-w-[80%] text-sm text-slate-700 leading-relaxed font-medium">
                     您好！我是您的 pocketCFO 智慧助理。我可以幫您查詢或分析您的財務報表、交易明細或股票持倉。有什麼我可以協助您的嗎？
@@ -303,9 +305,9 @@ export default function AIChatbox() {
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                      msg.role === "user" ? "bg-indigo-100" : "bg-blue-100"
+                      msg.role === "user" ? "bg-indigo-100 text-indigo-600" : "bg-blue-100 text-blue-600"
                     }`}>
-                      {msg.role === "user" ? "👤" : "🤖"}
+                      <FontAwesomeIcon icon={msg.role === "user" ? faUser : faRobot} />
                     </div>
                     <div className={`flex flex-col max-w-[80%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
                       <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm font-medium ${
@@ -327,8 +329,8 @@ export default function AIChatbox() {
                 {/* Pending action confirmation card */}
                 {pendingAction && (
                   <div className="flex gap-2">
-                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                      ⚠️
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
+                      <FontAwesomeIcon icon={faTriangleExclamation} />
                     </div>
                     <div className="bg-amber-50 border border-amber-200 px-3.5 py-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] text-sm">
                       <div className="font-bold text-amber-900 mb-1">
@@ -358,8 +360,8 @@ export default function AIChatbox() {
                 {/* Loading state indicator */}
                 {isLoading && (
                   <div className="flex gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                      🤖
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 text-blue-600">
+                      <FontAwesomeIcon icon={faRobot} />
                     </div>
                     <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 flex items-center gap-1.5">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />

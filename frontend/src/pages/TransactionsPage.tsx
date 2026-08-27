@@ -11,6 +11,8 @@ import {
   bulkUpdateTransactionCategories
 } from "../services/api";
 import { toast } from "../store/useToastStore";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChartColumn, faCircle, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
 
 export default function TransactionsPage() {
   const [currentDate, setCurrentDate] = useState(() => {
@@ -476,7 +478,11 @@ export default function TransactionsPage() {
                     : "bg-red-50 hover:bg-red-100 border-red-200 text-red-600 cursor-pointer"
                 }`}
               >
-                {isBulkUpdating ? "⏳ 處理中" : "🗑️ 刪除所選"}
+                {isBulkUpdating ? (
+                  <><FontAwesomeIcon icon={faSpinner} spin className="mr-1" />處理中</>
+                ) : (
+                  <><FontAwesomeIcon icon={faTrash} className="mr-1" />刪除所選</>
+                )}
               </button>
             </div>
           )}
@@ -606,7 +612,7 @@ export default function TransactionsPage() {
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <span>📊</span>
+              <FontAwesomeIcon icon={faChartColumn} />
               <span>分類收支統計</span>
             </button>
           </div>
@@ -618,7 +624,7 @@ export default function TransactionsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6 animate-in fade-in slide-in-from-top-4 duration-300 shrink-0 overflow-y-auto max-h-[40vh]">
           <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
-              <span>📊</span>
+              <FontAwesomeIcon icon={faChartColumn} />
               <span>分類收支統計分析 ({formatMonth(currentDate)})</span>
             </h3>
             <span className="text-[10px] text-slate-400 font-bold">資料依目前篩選條件連動</span>
@@ -628,7 +634,7 @@ export default function TransactionsPage() {
             {/* Expense Section */}
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100/30">
-                <span className="text-xs font-bold text-rose-700">🔴 支出類別統計</span>
+                <span className="text-xs font-bold text-rose-700"><FontAwesomeIcon icon={faCircle} className="mr-1 text-[8px] align-middle" />支出類別統計</span>
                 <span className="text-xs font-bold text-rose-800">
                   總計: ${totalExpenseFiltered.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
@@ -675,7 +681,7 @@ export default function TransactionsPage() {
             {/* Income Section */}
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-emerald-50/50 px-3 py-2 rounded-lg border border-emerald-100/30">
-                <span className="text-xs font-bold text-emerald-700">🟢 收入類別統計</span>
+                <span className="text-xs font-bold text-emerald-700"><FontAwesomeIcon icon={faCircle} className="mr-1 text-[8px] align-middle" />收入類別統計</span>
                 <span className="text-xs font-bold text-emerald-800">
                   總計: ${totalIncomeFiltered.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>

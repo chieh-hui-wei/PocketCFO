@@ -9,6 +9,8 @@ import {
 } from "../services/api";
 import { toast } from "../store/useToastStore";
 import { formatUtc8 } from "../utils/formatters";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFileLines, faTriangleExclamation, faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 
 const KINDS = [
   { id: "bank", num: 1, title: "銀行對帳單", sub: "請上傳您的銀行對帳單", ext: "PDF 或 圖片檔案" },
@@ -479,7 +481,7 @@ export default function UploadPage() {
             {/* Instruction Card */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center">
               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner mb-4">
-                📄
+                <FontAwesomeIcon icon={faFileLines} />
               </div>
               <h2 className="text-base font-bold text-slate-800 mb-2">等待開始解析</h2>
               <p className="text-xs text-slate-500 max-w-md leading-relaxed">
@@ -1081,11 +1083,11 @@ export default function UploadPage() {
                                   <div className="flex items-center gap-2 mt-0.5">
                                     {t.is_duplicate ? (
                                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
-                                        ⚠️ 重複 (已在信用卡/帳單記錄)
+                                        <FontAwesomeIcon icon={faTriangleExclamation} className="mr-1" />重複 (已在信用卡/帳單記錄)
                                       </span>
                                     ) : (
                                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200/60">
-                                        ✨ 獨特 (將寫入資料庫)
+                                        <FontAwesomeIcon icon={faCircleCheck} className="mr-1" />獨特 (將寫入資料庫)
                                       </span>
                                     )}
                                     <label className="inline-flex items-center text-[10px] text-slate-500 font-semibold cursor-pointer hover:text-slate-700 select-none">

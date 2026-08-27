@@ -16,6 +16,8 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ToastContainer from "./components/ToastContainer";
 import { getDailyTip, getSavingsPots, SavingsPot } from "./services/api";
 import AIChatbox from "./components/AIChatbox";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLightbulb, faBullseye } from "@fortawesome/free-solid-svg-icons";
 
 const NAV_GROUPS = [
   {
@@ -362,7 +364,7 @@ export default function App() {
             <div className="p-4 border border-slate-100 bg-slate-50/50 m-3 rounded-2xl animate-in fade-in duration-300 relative group">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[11px] font-extrabold text-blue-600 flex items-center gap-1">
-                  <span>💡</span> 理財小妙招
+                  <FontAwesomeIcon icon={faLightbulb} /> 理財小妙招
                 </span>
                 <button
                   type="button"
@@ -382,7 +384,7 @@ export default function App() {
               {closestPot && (
                 <div className="mt-3 pt-3 border-t border-slate-200/60">
                   <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 mb-1">
-                    <span className="truncate max-w-[80px]" title={closestPot.name}>🎯 {closestPot.name}</span>
+                    <span className="truncate max-w-[80px]" title={closestPot.name}><FontAwesomeIcon icon={faBullseye} className="mr-1" />{closestPot.name}</span>
                     <span>{((closestPot.allocated_amount / closestPot.target_amount) * 100).toFixed(0)}%</span>
                   </div>
                   <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">

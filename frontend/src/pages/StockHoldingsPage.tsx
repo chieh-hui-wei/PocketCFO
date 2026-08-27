@@ -12,6 +12,8 @@ import {
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "../store/useToastStore";
 import { formatUtc8 } from "../utils/formatters";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLightbulb } from "@fortawesome/free-solid-svg-icons";
 
 interface EditableSecurity {
   ticker: string;
@@ -466,7 +468,7 @@ export default function StockHoldingsPage() {
                             </div>
                           ))}
                           <div className="pt-1.5 border-t border-slate-100 text-[10px] text-blue-500 font-bold flex items-center gap-1">
-                            <span>💡</span>
+                            <FontAwesomeIcon icon={faLightbulb} />
                             <span>點擊可切換至該月庫存明細</span>
                           </div>
                         </div>

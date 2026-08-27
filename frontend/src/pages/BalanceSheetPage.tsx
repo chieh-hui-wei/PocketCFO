@@ -10,6 +10,8 @@ import {
 } from "../services/api";
 import { LineChart, Line, ResponsiveContainer, BarChart, Bar, Cell, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "../store/useToastStore";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChartPie, faTableList, faChartLine, faBullseye, faLightbulb, faSackDollar, faArrowTrendUp } from "@fortawesome/free-solid-svg-icons";
 
 
 
@@ -229,7 +231,7 @@ export default function BalanceSheetPage() {
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            📊 儀表板
+            <FontAwesomeIcon icon={faChartPie} className="mr-1.5" />儀表板
           </button>
           <button
             onClick={() => setActiveTab("detail")}
@@ -239,7 +241,7 @@ export default function BalanceSheetPage() {
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            📋 明細
+            <FontAwesomeIcon icon={faTableList} className="mr-1.5" />明細
           </button>
           <button
             onClick={() => setActiveTab("projection")}
@@ -249,7 +251,7 @@ export default function BalanceSheetPage() {
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            🔮 未來淨值預測模擬
+            <FontAwesomeIcon icon={faChartLine} className="mr-1.5" />未來淨值預測模擬
           </button>
         </div>
 
@@ -1062,7 +1064,7 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
         {/* Baseline Info */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">🎯 當前資產基準</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><FontAwesomeIcon icon={faBullseye} className="mr-1.5" />當前資產基準</div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">現金存款：</span>
@@ -1083,14 +1085,14 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
             </div>
           </div>
           <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg mt-4 leading-normal">
-            💡 系統分析您過去的資產歷史，算出平均每月淨存入金額為 <strong>${averageMonthlySavings.toLocaleString()}</strong> 元。
+            <FontAwesomeIcon icon={faLightbulb} className="mr-1.5" />系統分析您過去的資產歷史，算出平均每月淨存入金額為 <strong>${averageMonthlySavings.toLocaleString()}</strong> 元。
           </div>
         </div>
 
         {/* Monthly Savings Slider */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">💸 每月預計淨儲蓄金</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3"><FontAwesomeIcon icon={faSackDollar} className="mr-1.5" />每月預計淨儲蓄金</div>
             <div className="text-3xl font-extrabold text-slate-800 mb-6">
               ${projectedSavings.toLocaleString()} <span className="text-xs text-slate-400 font-normal">/ 月</span>
             </div>
@@ -1117,7 +1119,7 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
         {/* Investment ROI Slider */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">📈 預估證券年化報酬率</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3"><FontAwesomeIcon icon={faArrowTrendUp} className="mr-1.5" />預估證券年化報酬率</div>
             <div className="text-3xl font-extrabold text-slate-800 mb-6">
               {expectedRoi}% <span className="text-xs text-slate-400 font-normal">/ 年</span>
             </div>
@@ -1147,7 +1149,7 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className="font-bold text-slate-800 text-sm">🔮 未來 12 個月資產淨值模擬折線圖</h3>
+            <h3 className="font-bold text-slate-800 text-sm"><FontAwesomeIcon icon={faChartLine} className="mr-1.5" />未來 12 個月資產淨值模擬折線圖</h3>
             <p className="text-xxs text-slate-400 mt-0.5">以當月為基準，結合儲蓄與複利公式計算出未來一年的資產軌跡</p>
           </div>
           <div className="flex gap-4 text-xs">

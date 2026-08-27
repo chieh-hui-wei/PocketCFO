@@ -5,6 +5,8 @@ import {
   listCategoryRules, createCategoryRule, updateCategoryRule, deleteCategoryRule, seedDefaultCategoryRules
 } from "../services/api";
 import { toast } from "../store/useToastStore";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTriangleExclamation, faCircleCheck, faWandMagicSparkles, faPlus, faListCheck, faLock, faArrowsRotate, faBolt } from "@fortawesome/free-solid-svg-icons";
 
 export default function SettingsPage() {
   const [settingsData, setSettingsData] = useState<CredentialsSettings | null>(null);
@@ -484,14 +486,14 @@ export default function SettingsPage() {
 
                 {profileError && (
                   <div className="text-xs font-semibold text-rose-500 flex items-center gap-1.5 animate-in fade-in">
-                    <span>⚠️</span>
+                    <FontAwesomeIcon icon={faTriangleExclamation} />
                     <span>{profileError}</span>
                   </div>
                 )}
 
                 {profileSuccess && (
                   <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
-                    <span>✅</span>
+                    <FontAwesomeIcon icon={faCircleCheck} />
                     <span>{profileSuccess}</span>
                   </div>
                 )}
@@ -569,13 +571,13 @@ export default function SettingsPage() {
                     onClick={handleSeedRules}
                     className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors border border-blue-100"
                   >
-                    ✨ 匯入系統預設自動規則
+                    <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-1.5" />匯入系統預設自動規則
                   </button>
                 </div>
 
                 {/* Add New Rule Form */}
                 <form onSubmit={handleCreateRule} className="bg-slate-50/80 rounded-2xl p-6 border border-slate-200/50 space-y-4">
-                  <h4 className="text-xs font-bold text-slate-700">➕ 新增自動分類規則</h4>
+                  <h4 className="text-xs font-bold text-slate-700"><FontAwesomeIcon icon={faPlus} className="mr-1.5" />新增自動分類規則</h4>
                   <div className="flex flex-col sm:flex-row gap-4 items-end">
                     <div className="flex-1 w-full">
                       <label className="block text-[11px] font-bold text-slate-500 mb-1">關鍵字 (不分大小寫)</label>
@@ -633,7 +635,7 @@ export default function SettingsPage() {
 
                 {/* Rules Table */}
                 <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-700">📋 目前已設定的規則 ({rules.length} 筆)</h4>
+                  <h4 className="text-xs font-bold text-slate-700"><FontAwesomeIcon icon={faListCheck} className="mr-1.5" />目前已設定的規則 ({rules.length} 筆)</h4>
                   
                   {isLoadingRules ? (
                     <div className="text-center py-10 text-slate-500 font-bold text-sm">載入規則中...</div>
@@ -772,7 +774,7 @@ export default function SettingsPage() {
                 {/* File Upload Section */}
                 <div className="p-5 bg-slate-50 rounded-xl border border-slate-150 space-y-4">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-700">🔐 上傳台新憑證檔案 (.pfx)</h4>
+                    <h4 className="text-xs font-bold text-slate-700"><FontAwesomeIcon icon={faLock} className="mr-1.5" />上傳台新憑證檔案 (.pfx)</h4>
                     <p className="text-[10px] text-slate-400 mt-0.5">請上傳從台新金網下載的 API 電子憑證檔</p>
                   </div>
                   <div className="flex gap-4 items-center">
@@ -877,7 +879,7 @@ export default function SettingsPage() {
                 {/* File Upload Section */}
                 <div className="p-5 bg-slate-50 rounded-xl border border-slate-150 space-y-4">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-700">🔐 上傳永豐金憑證檔案 (.pfx)</h4>
+                    <h4 className="text-xs font-bold text-slate-700"><FontAwesomeIcon icon={faLock} className="mr-1.5" />上傳永豐金憑證檔案 (.pfx)</h4>
                     <p className="text-[10px] text-slate-400 mt-0.5">請上傳從永豐金網站下載的 API 電子憑證檔</p>
                   </div>
                   <div className="flex gap-4 items-center">
@@ -982,7 +984,7 @@ export default function SettingsPage() {
                 {/* File Upload Section */}
                 <div className="p-5 bg-slate-50 rounded-xl border border-slate-150 space-y-4">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-700">🔐 上傳玉山憑證檔案 (.p12)</h4>
+                    <h4 className="text-xs font-bold text-slate-700"><FontAwesomeIcon icon={faLock} className="mr-1.5" />上傳玉山憑證檔案 (.p12)</h4>
                     <p className="text-[10px] text-slate-400 mt-0.5">請上傳檔名為 `esun_cert_20270611.p12` 的玉山 API 電子憑證</p>
                   </div>
                   <div className="flex gap-4 items-center">
@@ -1048,14 +1050,14 @@ export default function SettingsPage() {
                   
                   {inviteError && (
                     <div className="text-xs font-semibold text-rose-500 flex items-center gap-1.5 animate-in fade-in">
-                      <span>⚠️</span>
+                      <FontAwesomeIcon icon={faTriangleExclamation} />
                       <span>{inviteError}</span>
                     </div>
                   )}
 
                   {inviteSuccess && (
                     <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
-                      <span>✅</span>
+                      <FontAwesomeIcon icon={faCircleCheck} />
                       <span>{inviteSuccess}</span>
                     </div>
                   )}
@@ -1088,7 +1090,7 @@ export default function SettingsPage() {
                     disabled={isLoadingScheduler}
                     className="border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold px-4 py-2 rounded-xl text-xs transition-all duration-200 disabled:opacity-50"
                   >
-                    {isLoadingScheduler ? "重新整理中..." : "🔄 重新整理狀態"}
+                    {isLoadingScheduler ? "重新整理中..." : (<><FontAwesomeIcon icon={faArrowsRotate} className="mr-1.5" />重新整理狀態</>)}
                   </button>
                 </div>
 
@@ -1165,7 +1167,7 @@ export default function SettingsPage() {
                         disabled={isSyncing}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
                       >
-                        {isSyncing ? "同步中..." : "🚀 立即執行自動同步 (同步最新數據)"}
+                        {isSyncing ? "同步中..." : (<><FontAwesomeIcon icon={faBolt} className="mr-1.5" />立即執行自動同步 (同步最新數據)</>)}
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { login } from "../services/api";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -129,7 +131,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               {/* Error messages */}
               {errorMsg && (
                 <div className="text-xs font-semibold text-rose-500 mt-2 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
-                  <span>⚠️</span>
+                  <FontAwesomeIcon icon={faTriangleExclamation} />
                   <span>{errorMsg}</span>
                 </div>
               )}
