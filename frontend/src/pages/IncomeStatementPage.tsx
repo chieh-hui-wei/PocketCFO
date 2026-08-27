@@ -221,7 +221,7 @@ export default function IncomeStatementPage() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="animate-in fade-in duration-150 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* Header */}
       <div className="flex justify-between items-center mb-8 shrink-0">

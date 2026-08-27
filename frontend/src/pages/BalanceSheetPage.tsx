@@ -130,6 +130,7 @@ export default function BalanceSheetPage() {
     }
   }
   cashDepositsData.sort((a, b) => b.value - a.value);
+  const cashDepositsChartData = cashDepositsData.slice(0, 10);
 
   // 2. Investments Data (Securities by Ticker)
   const investmentsData: Array<{ name: string, value: number }> = [];
@@ -144,6 +145,7 @@ export default function BalanceSheetPage() {
     }
   }
   investmentsData.sort((a, b) => b.value - a.value);
+  const investmentsChartData = investmentsData.slice(0, 10);
 
   // 3. Individual Liabilities Data
   const liabDetailData: Array<{ name: string, value: number }> = [];
@@ -160,6 +162,7 @@ export default function BalanceSheetPage() {
     }
   }
   liabDetailData.sort((a, b) => b.value - a.value);
+  const liabDetailChartData = liabDetailData.slice(0, 10);
 
   const handleSaveBalances = async () => {
     try {
@@ -212,10 +215,10 @@ export default function BalanceSheetPage() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="animate-in fade-in duration-150 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* Header */}
-      <div className="flex justify-between items-center mb-8 shrink-0">
+      <div className="flex justify-between items-center mb-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">資產負債表</h1>
           <p className="text-sm text-slate-500 mt-1">了解你的財務狀況與資產負債結構</p>
@@ -275,19 +278,19 @@ export default function BalanceSheetPage() {
       </div>
 
       {activeTab === "dashboard" ? (
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
       {/* Top Cards (3 Pillars) */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        
+      <div className="grid grid-cols-3 gap-4 mb-4 shrink-0">
+
         {/* Assets */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col">
+          <div className="flex justify-between items-start mb-1">
             <div className="text-sm font-bold text-slate-500">資產總計</div>
           </div>
-          <div className="text-3xl font-bold text-slate-900 mb-6">${(latestBs?.total_assets ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-          
-          <div className="flex-1 space-y-4">
+          <div className="text-2xl font-bold text-slate-900 mb-3">${(latestBs?.total_assets ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+
+          <div className="flex-1 space-y-1.5">
             <div className="flex justify-between text-sm">
               <span className="font-bold text-slate-800">流動資產</span>
               <span className="font-bold text-slate-800">${(latestBs?.total_assets ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
@@ -304,13 +307,13 @@ export default function BalanceSheetPage() {
         </div>
 
         {/* Liabilities */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col">
+          <div className="flex justify-between items-start mb-1">
             <div className="text-sm font-bold text-slate-500">負債總計</div>
           </div>
-          <div className="text-3xl font-bold text-slate-900 mb-6">${(latestBs?.total_liabilities ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-          
-          <div className="flex-1 space-y-4">
+          <div className="text-2xl font-bold text-slate-900 mb-3">${(latestBs?.total_liabilities ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+
+          <div className="flex-1 space-y-1.5">
             <div className="flex justify-between text-sm">
               <span className="font-bold text-slate-800">流動負債</span>
               <span className="font-bold text-slate-800">${(latestBs?.total_liabilities ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
@@ -331,16 +334,16 @@ export default function BalanceSheetPage() {
         </div>
 
         {/* Net Worth */}
-        <div className="bg-blue-600 rounded-2xl shadow-md border border-blue-500 p-6 flex flex-col text-white">
-          <div className="flex justify-between items-start mb-2">
+        <div className="bg-blue-600 rounded-2xl shadow-md border border-blue-500 p-4 flex flex-col text-white">
+          <div className="flex justify-between items-start mb-1">
             <div className="text-sm font-bold text-blue-200">淨資產</div>
           </div>
-          <div className="text-3xl font-bold mb-1">${(latestBs?.net_worth ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-          <div className={`text-xs font-bold mb-4 ${growthInfo.isPositive ? 'text-green-300' : 'text-red-300'}`}>
+          <div className="text-2xl font-bold mb-1">${(latestBs?.net_worth ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          <div className={`text-xs font-bold mb-1 ${growthInfo.isPositive ? 'text-green-300' : 'text-red-300'}`}>
             {growthInfo.text}
           </div>
-          
-          <div className="flex-1 w-full h-[100px] mt-2">
+
+          <div className="flex-1 w-full min-h-[50px] mt-1">
             {finalTrendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={finalTrendData}>
@@ -355,142 +358,86 @@ export default function BalanceSheetPage() {
       </div>
 
       {/* Analysis Charts Row (Redesigned) */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        
+      <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
+
         {/* Chart 1: Cash & Deposits Breakdown */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">現金與存款佔比</h3>
-          <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
-            {cashDepositsData.length > 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col min-h-0">
+          <h3 className="font-bold text-slate-800 text-sm mb-2 shrink-0">現金與存款佔比</h3>
+          <div className="flex-1 flex items-center justify-center relative min-h-[70px] w-full">
+            {cashDepositsChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cashDepositsData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                <BarChart data={cashDepositsChartData} layout="vertical" barCategoryGap="20%" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={85} />
-                  <Tooltip 
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={100} interval={0} />
+                  <Tooltip
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "現金餘額"]}
                   />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
-                    {cashDepositsData.map((_, index) => (
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {cashDepositsChartData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={CASH_COLORS[index % CASH_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="w-[140px] h-[140px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
+              <div className="w-[100px] h-[100px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
             )}
-          </div>
-          <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
-            {cashDepositsData.map((d: any, i: number) => {
-              const total = latestBs?.total_cash || 1;
-              return (
-                <div key={i} className="flex justify-between items-center text-xs">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CASH_COLORS[i % CASH_COLORS.length] }} />
-                    <div className="min-w-0">
-                      <span className="text-slate-600 font-medium truncate block">{d.name}</span>
-                      {d.currency && d.currency !== 'TWD' && d.original_balance != null && (
-                        <span className="text-slate-400 text-[10px]">{d.currency} {d.original_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / total) * 100)}%)</span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
 
         {/* Chart 2: Investments Breakdown */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">投資項目各佔比</h3>
-          <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
-            {investmentsData.length > 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col min-h-0">
+          <h3 className="font-bold text-slate-800 text-sm mb-2 shrink-0">投資項目各佔比</h3>
+          <div className="flex-1 flex items-center justify-center relative min-h-[70px] w-full">
+            {investmentsChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={investmentsData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                <BarChart data={investmentsChartData} layout="vertical" barCategoryGap="20%" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={85} />
-                  <Tooltip 
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={100} interval={0} />
+                  <Tooltip
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "投資市值"]}
                   />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
-                    {investmentsData.map((_, index) => (
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {investmentsChartData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={INVEST_COLORS[index % INVEST_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="w-[140px] h-[140px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
+              <div className="w-[100px] h-[100px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
             )}
-          </div>
-          <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
-            {investmentsData.map((d, i) => {
-              const total = latestBs?.total_securities_market_value || 1;
-              return (
-                <div key={i} className="flex justify-between items-center text-xs">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: INVEST_COLORS[i % INVEST_COLORS.length] }} />
-                    <span className="text-slate-600 font-medium truncate">{d.name}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / total) * 100)}%)</span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
 
         {/* Chart 3: Individual Liabilities Breakdown */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-[400px]">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">負債個別佔比</h3>
-          <div className="flex-1 flex items-center justify-center relative min-h-[160px] w-full">
-            {liabDetailData.length > 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col min-h-0">
+          <h3 className="font-bold text-slate-800 text-sm mb-2 shrink-0">負債個別佔比</h3>
+          <div className="flex-1 flex items-center justify-center relative min-h-[70px] w-full">
+            {liabDetailChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={liabDetailData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
+                <BarChart data={liabDetailChartData} layout="vertical" barCategoryGap="20%" margin={{ left: -10, right: 10, top: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={85} />
-                  <Tooltip 
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'medium' }} width={100} interval={0} />
+                  <Tooltip
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     formatter={(value: number) => [`$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, "負債金額"]}
                   />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={12}>
-                    {liabDetailData.map((_, index) => (
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {liabDetailChartData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={LIAB_COLORS[index % LIAB_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="w-[140px] h-[140px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
+              <div className="w-[100px] h-[100px] border-4 border-slate-100 rounded-full border-dashed flex items-center justify-center text-slate-300 text-sm">無資料</div>
             )}
-          </div>
-          <div className="mt-4 space-y-2 overflow-y-auto max-h-[120px] pr-1 scrollbar-thin">
-            {liabDetailData.map((d, i) => {
-              const total = latestBs?.total_liabilities || 1;
-              return (
-                <div key={i} className="flex justify-between items-center text-xs">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: LIAB_COLORS[i % LIAB_COLORS.length] }} />
-                    <span className="text-slate-600 font-medium truncate">{d.name}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-bold text-slate-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    <span className="text-slate-400 text-[10px] ml-1">({Math.round((d.value / total) * 100)}%)</span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
 
@@ -808,7 +755,7 @@ export default function BalanceSheetPage() {
         </div>
       </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <ProjectionDashboard latestBs={latestBs} history={history} />
         </div>
       )}
@@ -1056,16 +1003,16 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
   })();
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      
+    <div className="flex flex-col h-full gap-4 animate-in fade-in duration-500">
+
       {/* Simulation Config Panel */}
-      <div className="grid grid-cols-3 gap-6">
-        
+      <div className="grid grid-cols-3 gap-4 shrink-0">
+
         {/* Baseline Info */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><FontAwesomeIcon icon={faBullseye} className="mr-1.5" />當前資產基準</div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">現金存款：</span>
                 <span className="font-bold text-slate-700">${currentCash.toLocaleString()}</span>
@@ -1074,7 +1021,7 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
                 <span className="text-slate-500">證券投資：</span>
                 <span className="font-bold text-slate-700">${currentInvestments.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-sm pb-2 border-b border-slate-100">
+              <div className="flex justify-between text-sm pb-1.5 border-b border-slate-100">
                 <span className="text-slate-500">未償負債：</span>
                 <span className="font-bold text-red-500">-${currentLiabilities.toLocaleString()}</span>
               </div>
@@ -1084,19 +1031,19 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
               </div>
             </div>
           </div>
-          <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg mt-4 leading-normal">
+          <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg mt-2 leading-normal">
             <FontAwesomeIcon icon={faLightbulb} className="mr-1.5" />系統分析您過去的資產歷史，算出平均每月淨存入金額為 <strong>${averageMonthlySavings.toLocaleString()}</strong> 元。
           </div>
         </div>
 
         {/* Monthly Savings Slider */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3"><FontAwesomeIcon icon={faSackDollar} className="mr-1.5" />每月預計淨儲蓄金</div>
-            <div className="text-3xl font-extrabold text-slate-800 mb-6">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><FontAwesomeIcon icon={faSackDollar} className="mr-1.5" />每月預計淨儲蓄金</div>
+            <div className="text-2xl font-extrabold text-slate-800 mb-3">
               ${projectedSavings.toLocaleString()} <span className="text-xs text-slate-400 font-normal">/ 月</span>
             </div>
-            <input 
+            <input
               type="range"
               min="0"
               max="100000"
@@ -1111,19 +1058,19 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
               <span>$100,000</span>
             </div>
           </div>
-          <div className="text-[10px] text-slate-400 mt-4 leading-normal">
+          <div className="text-[10px] text-slate-400 mt-2 leading-normal">
             調整您未來每個月預期能留在帳戶中的「收入減支出」金額。
           </div>
         </div>
 
         {/* Investment ROI Slider */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3"><FontAwesomeIcon icon={faArrowTrendUp} className="mr-1.5" />預估證券年化報酬率</div>
-            <div className="text-3xl font-extrabold text-slate-800 mb-6">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><FontAwesomeIcon icon={faArrowTrendUp} className="mr-1.5" />預估證券年化報酬率</div>
+            <div className="text-2xl font-extrabold text-slate-800 mb-3">
               {expectedRoi}% <span className="text-xs text-slate-400 font-normal">/ 年</span>
             </div>
-            <input 
+            <input
               type="range"
               min="0"
               max="15"
@@ -1138,7 +1085,7 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
               <span>15%</span>
             </div>
           </div>
-          <div className="text-[10px] text-slate-400 mt-4 leading-normal">
+          <div className="text-[10px] text-slate-400 mt-2 leading-normal">
             調整您持有美股、台股等投資組合的年化回報率，系統將以月複利複滾計算。
           </div>
         </div>
@@ -1146,8 +1093,8 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
       </div>
 
       {/* Projection Chart Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex-1 min-h-0 flex flex-col">
+        <div className="flex justify-between items-center mb-3 shrink-0">
           <div>
             <h3 className="font-bold text-slate-800 text-sm"><FontAwesomeIcon icon={faChartLine} className="mr-1.5" />未來 12 個月資產淨值模擬折線圖</h3>
             <p className="text-xxs text-slate-400 mt-0.5">以當月為基準，結合儲蓄與複利公式計算出未來一年的資產軌跡</p>
@@ -1164,7 +1111,7 @@ function ProjectionDashboard({ latestBs, history }: ProjectionDashboardProps) {
           </div>
         </div>
 
-        <div className="h-[320px]">
+        <div className="flex-1 min-h-[100px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={forecastData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

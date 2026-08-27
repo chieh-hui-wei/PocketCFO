@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
 
 // Caching system for GET requests
 const cache: Record<string, { data: any; expiry: number }> = {};
-const CACHE_TTL = 30_000; // 30 seconds Cache Time-To-Live
+const CACHE_TTL = 300_000; // 5 minutes Cache Time-To-Live (cache is cleared on any mutation anyway)
 
 async function fetchWithCache(url: string, params?: any) {
   const cacheKey = url + (params ? JSON.stringify(params) : "");
