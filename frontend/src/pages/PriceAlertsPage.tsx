@@ -8,6 +8,7 @@ import {
   PRICE_ALERT_CURRENCIES,
 } from "../services/api";
 import { formatUtc8 } from "../utils/formatters";
+import { toast } from "../store/useToastStore";
 
 const STATUS_LABEL: Record<PriceAlert["status"], string> = {
   active: "監控中",
@@ -36,7 +37,6 @@ export default function PriceAlertsPage() {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // auto_trade form state
@@ -75,11 +75,11 @@ export default function PriceAlertsPage() {
   const handleCreateAutoTrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticker.trim() || !targetPrice || !quantity) {
-      setToastMsg("⚠️ 請填寫股票代號、目標價與股數");
+      toast.warning("請填寫股票代號、目標價與股數");
       return;
     }
     if (broker === "sinopac") {
-      setToastMsg("⚠️ 永豐金尚未支援自動下單");
+      toast.warning("永豐金尚未支援自動下單");
       return;
     }
     setSubmitting(true);
@@ -94,10 +94,10 @@ export default function PriceAlertsPage() {
       };
       if (editingAutoId != null) {
         await updatePriceAlert(editingAutoId, payload);
-        setToastMsg("✅ 已更新監控條件");
+        toast.success("已更新監控條件");
       } else {
         await createPriceAlert(payload);
-        setToastMsg("✅ 已建立到價自動下單監控");
+        toast.success("已建立到價自動下單監控");
       }
       setEditingAutoId(null);
       setTicker("");
@@ -105,7 +105,7 @@ export default function PriceAlertsPage() {
       setQuantity("");
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ ${editingAutoId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
+      toast.error(`${editingAutoId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +130,7 @@ export default function PriceAlertsPage() {
   const handleCreateNotify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notifyTicker.trim() || (notifyCondition === "target_price" && !notifyTargetPrice)) {
-      setToastMsg("⚠️ 請填寫股票代號與目標價");
+      toast.warning("請填寫股票代號與目標價");
       return;
     }
     setSubmitting(true);
@@ -148,10 +148,10 @@ export default function PriceAlertsPage() {
       };
       if (editingNotifyId != null) {
         await updatePriceAlert(editingNotifyId, payload);
-        setToastMsg("✅ 已更新監控條件");
+        toast.success("已更新監控條件");
       } else {
         await createPriceAlert(payload);
-        setToastMsg("✅ 已建立通知監控");
+        toast.success("已建立通知監控");
       }
       setEditingNotifyId(null);
       setNotifyTicker("");
@@ -159,7 +159,7 @@ export default function PriceAlertsPage() {
       setNotifyCurrency("TWD");
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ ${editingNotifyId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
+      toast.error(`${editingNotifyId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -184,10 +184,10 @@ export default function PriceAlertsPage() {
   const handleCancel = async (id: number) => {
     try {
       await cancelPriceAlert(id);
-      setToastMsg("⏸️ 已取消該筆監控");
+      toast.info("已取消該筆監控");
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ 取消失敗: ${err.response?.data?.detail || err.message}`);
+      toast.error(`取消失敗: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -197,15 +197,6 @@ export default function PriceAlertsPage() {
 
   return (
     <div className="space-y-6">
-      {toastMsg && (
-        <div className="p-4 rounded-2xl bg-slate-900 text-white text-sm font-medium shadow-lg flex justify-between items-center animate-in fade-in duration-200">
-          <span>{toastMsg}</span>
-          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white font-bold text-xs ml-4 cursor-pointer">
-            關閉
-          </button>
-        </div>
-      )}
-
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-black text-slate-900 tracking-tight">股價監控</h1>

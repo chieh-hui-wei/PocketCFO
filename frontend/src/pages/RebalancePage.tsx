@@ -5,13 +5,13 @@ import {
   sendRebalanceAlertEmail,
   RebalanceAnalysis,
 } from "../services/api";
+import { toast } from "../store/useToastStore";
 
 export default function RebalancePage() {
   const [analysis, setAnalysis] = useState<RebalanceAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Edit Settings state
   const [isEditingSettings, setIsEditingSettings] = useState(false);
@@ -52,7 +52,7 @@ export default function RebalancePage() {
     e.preventDefault();
     const sum = Number(targetStock) + Number(targetBond) + Number(targetCash);
     if (Math.abs(sum - 100) > 0.01) {
-      setToastMsg("⚠️ 股票、債券與現金的預計比例加總必須等於 100%");
+      toast.warning("股票、債券與現金的預計比例加總必須等於 100%");
       return;
     }
 
@@ -67,11 +67,11 @@ export default function RebalancePage() {
         leveraged_tickers: leveragedTickers,
         custom_cash_amount: customCash.trim() !== "" ? Number(customCash) : -1,
       });
-      setToastMsg("✅ 再平衡策略設定已更新");
+      toast.success("再平衡策略設定已更新");
       setIsEditingSettings(false);
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ 儲存失敗: ${err.response?.data?.detail || err.message}`);
+      toast.error(`儲存失敗: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSavingSettings(false);
     }
@@ -81,9 +81,9 @@ export default function RebalancePage() {
     setSendingEmail(true);
     try {
       const res = await sendRebalanceAlertEmail();
-      setToastMsg(`📧 再平衡提醒信件已成功寄送至 ${res.sent_to}`);
+      toast.success(`再平衡提醒信件已成功寄送至 ${res.sent_to}`);
     } catch (err: any) {
-      setToastMsg(`❌ 寄送失敗: ${err.response?.data?.detail || err.message}`);
+      toast.error(`寄送失敗: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSendingEmail(false);
     }
@@ -98,10 +98,14 @@ export default function RebalancePage() {
     const newStatus = !analysis.enable_email_alert;
     try {
       await updateRebalanceSettings({ enable_email_alert: newStatus });
-      setToastMsg(newStatus ? "✅ 已開啟資產偏離「自動郵件提醒」" : "⏸️ 已關閉「自動郵件提醒」");
+      if (newStatus) {
+        toast.success("已開啟資產偏離「自動郵件提醒」");
+      } else {
+        toast.info("已關閉「自動郵件提醒」");
+      }
       fetchData();
     } catch (err: any) {
-      setToastMsg(`❌ 設定更新失敗: ${err.response?.data?.detail || err.message}`);
+      toast.error(`設定更新失敗: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -133,15 +137,6 @@ export default function RebalancePage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification Banner */}
-      {toastMsg && (
-        <div className="p-4 rounded-2xl bg-slate-900 text-white text-sm font-medium shadow-lg flex justify-between items-center animate-in fade-in duration-200">
-          <span>{toastMsg}</span>
-          <button onClick={() => setToastMsg(null)} className="text-slate-400 hover:text-white font-bold text-xs ml-4 cursor-pointer">
-            關閉
-          </button>
-        </div>
-      )}
 
       {/* Header Bar */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
