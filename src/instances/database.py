@@ -203,6 +203,8 @@ async def run_migrations() -> None:
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_start_date DATE",
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_count INTEGER",
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_payment_day INTEGER",
+        # 2026-08-27: price_alerts — notify-only alerts can target foreign-currency tickers
+        "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS currency VARCHAR(8) NOT NULL DEFAULT 'TWD'",
     ]
 
     # Each statement gets its own transaction: on Postgres a single failed statement

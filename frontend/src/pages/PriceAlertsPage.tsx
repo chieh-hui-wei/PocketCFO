@@ -5,6 +5,7 @@ import {
   updatePriceAlert,
   cancelPriceAlert,
   PriceAlert,
+  PRICE_ALERT_CURRENCIES,
 } from "../services/api";
 import { formatUtc8 } from "../utils/formatters";
 
@@ -52,6 +53,7 @@ export default function PriceAlertsPage() {
   const [notifyCondition, setNotifyCondition] = useState<"target_price" | "ma20">("target_price");
   const [notifyDirection, setNotifyDirection] = useState<"above" | "below">("above");
   const [notifyTargetPrice, setNotifyTargetPrice] = useState("");
+  const [notifyCurrency, setNotifyCurrency] = useState("TWD");
 
   const fetchData = async () => {
     setLoading(true);
@@ -142,6 +144,7 @@ export default function PriceAlertsPage() {
         // MA20 alerts don't use a fixed target price; backend requires target_price > 0,
         // so pass a placeholder that's ignored for notify_ma20 comparisons.
         target_price: notifyCondition === "ma20" ? Number(notifyTargetPrice || 1) : Number(notifyTargetPrice),
+        currency: notifyCurrency,
       };
       if (editingNotifyId != null) {
         await updatePriceAlert(editingNotifyId, payload);
@@ -153,6 +156,7 @@ export default function PriceAlertsPage() {
       setEditingNotifyId(null);
       setNotifyTicker("");
       setNotifyTargetPrice("");
+      setNotifyCurrency("TWD");
       fetchData();
     } catch (err: any) {
       setToastMsg(`❌ ${editingNotifyId != null ? "更新" : "建立"}失敗: ${err.response?.data?.detail || err.message}`);
@@ -167,12 +171,14 @@ export default function PriceAlertsPage() {
     setNotifyCondition(a.alert_type === "notify_ma20" ? "ma20" : "target_price");
     setNotifyDirection(a.direction ?? "above");
     setNotifyTargetPrice(a.alert_type === "notify_ma20" ? "" : String(a.target_price));
+    setNotifyCurrency(a.currency ?? "TWD");
   };
 
   const cancelEditNotify = () => {
     setEditingNotifyId(null);
     setNotifyTicker("");
     setNotifyTargetPrice("");
+    setNotifyCurrency("TWD");
   };
 
   const handleCancel = async (id: number) => {
@@ -323,8 +329,9 @@ export default function PriceAlertsPage() {
         <>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <p className="text-xs text-slate-500">
-              純通知模式不會下單，只會在觸發時寄信提醒。到價提醒每分鐘檢查現價；MA20 均線提醒則在每日收盤後（約 13:31）用當日收盤價與 20 日均線比較一次。
-              每筆監控僅會觸發一次。
+              純通知模式不會下單，只會在觸發時寄信提醒。支援台股（TWD）與美股等外幣標的（USD 等）：台股於台股盤中時段（09:00–13:30，一至五）、
+              美股於美股盤中時段（台灣時間約 21:30–05:00）每分鐘檢查一次現價；MA20 均線提醒則在每日台股收盤後（約 13:31）用當日收盤價與 20 日均線比較一次。
+              目標價請輸入該標的原幣別的金額（例如美股請輸入美金金額並選擇 USD）。每筆監控僅會觸發一次。
             </p>
           </div>
 
@@ -369,15 +376,28 @@ export default function PriceAlertsPage() {
               {notifyCondition === "target_price" && (
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">目標價</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={notifyTargetPrice}
-                    onChange={(e) => setNotifyTargetPrice(e.target.value)}
-                    placeholder="600.00"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={notifyCurrency}
+                      onChange={(e) => setNotifyCurrency(e.target.value)}
+                      className="px-2 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                    >
+                      {PRICE_ALERT_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={notifyTargetPrice}
+                      onChange={(e) => setNotifyTargetPrice(e.target.value)}
+                      placeholder="600.00"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -454,8 +474,8 @@ export default function PriceAlertsPage() {
                           </span>
                         </td>
                         <td className="py-3 px-3 text-center text-[11px]">{a.broker ? BROKER_LABEL[a.broker] : "-"}</td>
-                        <td className="py-3 px-3 text-right font-mono">{a.target_price.toFixed(2)}</td>
-                        <td className="py-3 px-3 text-right font-mono">{a.quantity?.toLocaleString() ?? "-"}</td>
+                        <td className="py-3 px-3 text-right font-mono whitespace-nowrap">{a.target_price.toFixed(2)}</td>
+                        <td className="py-3 px-3 text-right font-mono whitespace-nowrap">{a.quantity?.toLocaleString() ?? "-"}</td>
                       </>
                     ) : (
                       <>
@@ -467,8 +487,8 @@ export default function PriceAlertsPage() {
                             {a.direction === "above" ? "漲破" : "跌破"}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-right font-mono">
-                          {a.alert_type === "notify_ma20" ? "-" : a.target_price.toFixed(2)}
+                        <td className="py-3 px-3 text-right font-mono whitespace-nowrap">
+                          {a.alert_type === "notify_ma20" ? "-" : `${a.currency} ${a.target_price.toFixed(2)}`}
                         </td>
                       </>
                     )}

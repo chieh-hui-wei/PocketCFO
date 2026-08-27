@@ -419,6 +419,7 @@ class PriceAlert(Base):
         Enum(PriceAlertBroker), nullable=True, default=PriceAlertBroker.ESUN
     )
     target_price: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="TWD", server_default="TWD")
     quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)  # shares, only for AUTO_TRADE
     status: Mapped[PriceAlertStatus] = mapped_column(
         Enum(PriceAlertStatus), nullable=False, default=PriceAlertStatus.ACTIVE, index=True

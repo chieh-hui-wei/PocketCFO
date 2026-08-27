@@ -55,8 +55,10 @@ class PriceAlertService:
         direction: str | None = None,
         broker: str | None = None,
         name: str | None = None,
+        currency: str = "TWD",
     ) -> PriceAlert:
         resolved_type = PriceAlertType(alert_type)
+        resolved_currency = (currency or "TWD").strip().upper()
 
         if resolved_type == PriceAlertType.AUTO_TRADE:
             resolved_broker = PriceAlertBroker(broker or "esun")
@@ -70,6 +72,7 @@ class PriceAlertService:
                 quantity=quantity,
                 broker=resolved_broker,
                 target_price=target_price,
+                currency=resolved_currency,
                 status=PriceAlertStatus.ACTIVE,
             )
         else:
@@ -79,6 +82,7 @@ class PriceAlertService:
                 alert_type=resolved_type,
                 direction=PriceAlertDirection(direction),
                 target_price=target_price,
+                currency=resolved_currency,
                 status=PriceAlertStatus.ACTIVE,
             )
         return await self.repo.create(alert)
@@ -100,6 +104,7 @@ class PriceAlertService:
         direction: str | None = None,
         broker: str | None = None,
         name: str | None = None,
+        currency: str = "TWD",
     ) -> PriceAlert | None:
         """Edit the conditions of an ACTIVE alert. Only ACTIVE alerts can be edited."""
         resolved_type = PriceAlertType(alert_type)
@@ -108,6 +113,7 @@ class PriceAlertService:
             "name": name,
             "alert_type": resolved_type,
             "target_price": target_price,
+            "currency": (currency or "TWD").strip().upper(),
         }
 
         if resolved_type == PriceAlertType.AUTO_TRADE:
@@ -205,7 +211,8 @@ async def _process_alert(db: AsyncSession, alert: PriceAlert) -> None:
         await db.commit()
         if user and user.email:
             await send_price_alert_notify_email(
-                user.email, alert.ticker, alert.alert_type.value, compare_price, reference_value, alert.direction.value
+                user.email, alert.ticker, alert.alert_type.value, compare_price, reference_value, alert.direction.value,
+                currency=alert.currency,
             )
 
 

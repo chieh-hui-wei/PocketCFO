@@ -28,6 +28,7 @@ def _serialize(alert) -> dict:
         "direction": alert.direction.value if alert.direction else None,
         "broker": alert.broker.value if alert.broker else None,
         "target_price": alert.target_price,
+        "currency": alert.currency,
         "quantity": alert.quantity,
         "status": alert.status.value,
         "order_result": alert.order_result,
@@ -66,6 +67,7 @@ async def create_price_alert(
             direction=body.direction,
             broker=body.broker,
             name=body.name,
+            currency=body.currency,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -93,6 +95,7 @@ async def update_price_alert(
             direction=body.direction,
             broker=body.broker,
             name=body.name,
+            currency=body.currency,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

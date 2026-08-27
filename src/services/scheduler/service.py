@@ -659,8 +659,10 @@ async def start_scheduler() -> None:
 async def start_price_alert_scheduler() -> None:
     """
     Independent background loop, ticking every 60s, that checks active target-price
-    alerts and auto-places orders via E-Sun when hit. Runs only during TW market
-    hours (09:00-13:30 Taipei time, Mon-Fri) to avoid unnecessary API calls.
+    alerts and auto-places orders via E-Sun when hit. Runs during TW market hours
+    (09:00-13:30 Taipei time, Mon-Fri) for TWD tickers, and additionally during US
+    market hours (~21:30-05:00 Taipei time, covering EDT/EST plus pre/post-market
+    buffer) so foreign-currency (e.g. USD) notify alerts still get checked.
     Deliberately separate from start_scheduler()'s 600s daily-sync loop.
     """
     from zoneinfo import ZoneInfo
@@ -674,8 +676,9 @@ async def start_price_alert_scheduler() -> None:
         try:
             now = datetime.now(tz_taipei)
             is_weekday = now.weekday() < 5
-            in_market_hours = (9, 0) <= (now.hour, now.minute) <= (13, 30)
-            if is_weekday and in_market_hours:
+            in_tw_market_hours = is_weekday and (9, 0) <= (now.hour, now.minute) <= (13, 30)
+            in_us_market_hours = now.hour >= 21 or now.hour < 5
+            if in_tw_market_hours or in_us_market_hours:
                 await check_and_execute_price_alerts()
         except Exception as e:
             log.error(f"Exception in price alert scheduler tick: {e}")

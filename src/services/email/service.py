@@ -285,7 +285,8 @@ async def send_price_alert_result_email(to_email: str, ticker: str, side: str, t
 
 
 async def send_price_alert_notify_email(
-    to_email: str, ticker: str, alert_type: str, current_price: float, reference_value: float, direction: str
+    to_email: str, ticker: str, alert_type: str, current_price: float, reference_value: float, direction: str,
+    currency: str = "TWD",
 ):
     """
     Notify the user that a notify-only price alert (target price or MA20) has been
@@ -298,7 +299,7 @@ async def send_price_alert_notify_email(
     bg_color = "#eff6ff"
     border_color = "#bfdbfe"
     title = f"{ticker} 現價已{direction_label}{condition_label}"
-    detail = f"現價 {current_price:,.2f} 已{direction_label}{condition_label} {reference_value:,.2f}。"
+    detail = f"現價 {currency} {current_price:,.2f} 已{direction_label}{condition_label} {currency} {reference_value:,.2f}。"
 
     body_html = f"""
     <html>
@@ -325,11 +326,11 @@ async def send_price_alert_notify_email(
               </tr>
               <tr style="border-bottom: 1px solid #f1f5f9;">
                 <td style="padding: 10px; color: #64748b;">現價</td>
-                <td style="padding: 10px; text-align: right; font-family: monospace;">{current_price:,.2f}</td>
+                <td style="padding: 10px; text-align: right; font-family: monospace;">{currency} {current_price:,.2f}</td>
               </tr>
               <tr>
                 <td style="padding: 10px; color: #64748b;">比較值</td>
-                <td style="padding: 10px; text-align: right; font-family: monospace;">{reference_value:,.2f}</td>
+                <td style="padding: 10px; text-align: right; font-family: monospace;">{currency} {reference_value:,.2f}</td>
               </tr>
             </tbody>
           </table>
