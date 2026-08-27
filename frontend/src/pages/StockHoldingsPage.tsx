@@ -516,12 +516,12 @@ export default function StockHoldingsPage() {
             </div>
           </div>
           <div className="border border-slate-200 rounded-xl overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[1200px] table-fixed">
+            <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="px-3 py-3 w-40 sticky left-0 bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] z-10">標的</th>
+                  <th className="px-3 py-3 whitespace-nowrap sticky left-0 bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] z-10">標的</th>
                   {Array.from({ length: 12 }, (_, i) => (
-                    <th key={i} className="px-2 py-3 text-right">{i + 1}月</th>
+                    <th key={i} className="px-2 py-3 text-right whitespace-nowrap">{i + 1}月</th>
                   ))}
                 </tr>
               </thead>
@@ -830,18 +830,18 @@ export default function StockHoldingsPage() {
                     )}
                   </div>
                   <div className="border border-slate-200 rounded-xl overflow-x-auto">
-                    <table className="w-full text-left text-sm min-w-[900px]">
+                    <table className="w-full text-left text-sm">
                       <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                         <tr>
-                          <th className="px-3 py-3 w-[1%] whitespace-nowrap">標的名稱</th>
+                          <th className="px-3 py-3 whitespace-nowrap">標的名稱</th>
                           <th className="px-3 py-3 text-center whitespace-nowrap">類別</th>
                           <th className="px-3 py-3 text-right whitespace-nowrap">總股數</th>
                           <th className="px-3 py-3 text-right whitespace-nowrap">平均成本</th>
                           <th className="px-3 py-3 text-right whitespace-nowrap">收盤現價</th>
                           <th className="px-3 py-3 text-right whitespace-nowrap">估算市值</th>
-                          <th className="px-3 py-3 text-right min-w-[110px] whitespace-nowrap">未實現損益</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">未實現損益</th>
                           <th className="px-3 py-3 text-right whitespace-nowrap">報酬率</th>
-                          <th className="px-3 py-3 text-right min-w-[100px] whitespace-nowrap">資產佔比</th>
+                          <th className="px-3 py-3 text-right whitespace-nowrap">資產佔比</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-mono">
@@ -873,24 +873,24 @@ export default function StockHoldingsPage() {
                                     {item.category === "BOND" ? "債券" : "股票"}
                                   </span>
                                 </td>
-                                <td className="px-3 py-3 text-right font-semibold">{item.totalQty.toLocaleString()}</td>
-                                <td className="px-3 py-3 text-right text-slate-500">
+                                <td className="px-3 py-3 text-right font-semibold whitespace-nowrap">{item.totalQty.toLocaleString()}</td>
+                                <td className="px-3 py-3 text-right text-slate-500 whitespace-nowrap">
                                   ${item.avgCost.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                                 </td>
-                                <td className="px-3 py-3 text-right text-slate-500">
+                                <td className="px-3 py-3 text-right text-slate-500 whitespace-nowrap">
                                   ${item.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                                 </td>
-                                <td className="px-3 py-3 text-right">
+                                <td className="px-3 py-3 text-right whitespace-nowrap">
                                   <div className="text-slate-800 font-bold">
                                     ${item.totalMarketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                   </div>
                                 </td>
-                                <td className="px-3 py-3 text-right">
+                                <td className="px-3 py-3 text-right whitespace-nowrap">
                                   <div className={`font-bold ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                     {item.unrealizedPnl >= 0 ? `+ $${item.unrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(item.unrealizedPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                                   </div>
                                 </td>
-                                <td className={`px-3 py-3 text-right font-bold ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                <td className={`px-3 py-3 text-right font-bold whitespace-nowrap ${item.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                   {item.roi >= 0 ? `+${item.roi.toFixed(2)}%` : `${item.roi.toFixed(2)}%`}
                                 </td>
                                 <td className="px-3 py-3 text-right">
@@ -942,7 +942,7 @@ export default function StockHoldingsPage() {
                                 </td>
                                 <td className="px-4 py-3 text-center">{b.stockCount}</td>
                                 <td className="px-4 py-3 text-right font-bold text-slate-800">${b.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                <td className={`px-4 py-3 text-right font-bold whitespace-nowrap min-w-[120px] ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                   {b.unrealizedPnl >= 0 ? `+ $${b.unrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `- $${Math.abs(b.unrealizedPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                                 </td>
                                 <td className={`px-4 py-3 text-right font-bold ${b.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
@@ -1022,14 +1022,14 @@ export default function StockHoldingsPage() {
                         <table className="w-full text-left text-sm">
                           <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                             <tr>
-                              <th className="px-4 py-3">標的名稱</th>
-                              <th className="px-4 py-3 text-right">持有股數</th>
-                              <th className="px-4 py-3 text-right">平均成本</th>
-                              <th className="px-4 py-3 text-right">收盤現價</th>
-                              <th className="px-4 py-3 text-right">估算市值</th>
-                              <th className="px-4 py-3 text-right">未實現損益</th>
-                              <th className="px-4 py-3 text-right">報酬率</th>
-                              <th className="px-4 py-3 text-right min-w-[100px]">資產佔比</th>
+                              <th className="px-4 py-3 whitespace-nowrap">標的名稱</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">持有股數</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">平均成本</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">收盤現價</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">估算市值</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">未實現損益</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">報酬率</th>
+                              <th className="px-4 py-3 text-right whitespace-nowrap">資產佔比</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 font-mono">
@@ -1046,8 +1046,8 @@ export default function StockHoldingsPage() {
                                     <div className="font-bold text-slate-800">{s.name || s.ticker}</div>
                                     <div className="text-[10px] text-slate-400">{s.ticker}</div>
                                   </td>
-                                  <td className="px-4 py-3 text-right font-semibold">{s.quantity.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right">
+                                  <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">{s.quantity.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right whitespace-nowrap">
                                     {s.currency === 'USD' && s.original_avg_cost != null ? (
                                       <>
                                         <div className="font-semibold">USD {s.original_avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
@@ -1057,7 +1057,7 @@ export default function StockHoldingsPage() {
                                       <div className="font-semibold">${s.avg_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-right">
+                                  <td className="px-4 py-3 text-right whitespace-nowrap">
                                     {s.currency === 'USD' && s.original_current_price != null ? (
                                       <>
                                         <div className="font-semibold">USD {s.original_current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
@@ -1067,7 +1067,7 @@ export default function StockHoldingsPage() {
                                       <div className="font-semibold">${s.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-right">
+                                  <td className="px-4 py-3 text-right whitespace-nowrap">
                                     {s.currency === 'USD' && s.original_market_value != null ? (
                                       <>
                                         <div className="text-slate-800 font-bold">USD {s.original_market_value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
@@ -1077,7 +1077,7 @@ export default function StockHoldingsPage() {
                                       <div className="text-slate-800 font-bold">${s.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-right font-mono">
+                                  <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
                                     {s.currency === 'USD' && s.original_unrealized_pnl != null ? (
                                       <>
                                         <div className={`font-bold ${s.original_unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
@@ -1093,7 +1093,7 @@ export default function StockHoldingsPage() {
                                       </div>
                                     )}
                                   </td>
-                                  <td className={`px-4 py-3 text-right font-mono font-bold ${s.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  <td className={`px-4 py-3 text-right font-mono font-bold whitespace-nowrap ${s.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                     {s.roi >= 0 ? `+${s.roi.toFixed(2)}%` : `${s.roi.toFixed(2)}%`}
                                   </td>
                                   <td className="px-4 py-3 text-right">

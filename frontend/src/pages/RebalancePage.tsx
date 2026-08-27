@@ -484,7 +484,7 @@ export default function RebalancePage() {
               <thead>
                 <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px]">
                   <th className="py-3 px-4">標的 / 資產</th>
-                  <th className="py-3 px-3 text-center w-20 whitespace-nowrap">類別</th>
+                  <th className="py-3 px-3 text-center whitespace-nowrap">類別</th>
                   <th className="py-3 px-3 text-center whitespace-nowrap">槓桿倍數</th>
                   <th className="py-3 px-3 text-right whitespace-nowrap">目前股數</th>
                   <th className="py-3 px-3 text-right bg-slate-100/70 text-slate-900 whitespace-nowrap">預計比例</th>

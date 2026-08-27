@@ -710,12 +710,12 @@ export default function TransactionsPage() {
                       className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                     />
                   </th>
-                  <th className="px-4 py-4 w-32">日期</th>
-                  <th className="px-4 py-4 w-28">來源</th>
-                  <th className="px-4 py-4 w-32">類別</th>
+                  <th className="px-4 py-4 whitespace-nowrap">日期</th>
+                  <th className="px-4 py-4 whitespace-nowrap">來源</th>
+                  <th className="px-4 py-4 whitespace-nowrap">類別</th>
                   <th className="px-4 py-4">摘要 / 商家</th>
-                  <th className="px-4 py-4 text-right w-32">金額</th>
-                  <th className="px-4 py-4 text-center w-32">操作</th>
+                  <th className="px-4 py-4 text-right whitespace-nowrap">金額</th>
+                  <th className="px-4 py-4 text-center whitespace-nowrap">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
