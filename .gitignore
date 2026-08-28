@@ -85,7 +85,6 @@ scratch/
 scratch_*.py
 test.ipynb
 scripts/
-tests/
 
 # Uploads directory
 uploads/
