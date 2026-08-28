@@ -32,6 +32,18 @@ const BROKER_LABEL: Record<string, string> = {
 
 type Tab = "auto_trade" | "notify";
 
+const FX_TICKER_PATTERN = /^([A-Z]{3})TWD=X$/;
+const FX_CURRENCIES = PRICE_ALERT_CURRENCIES.filter((c) => c !== "TWD");
+
+function fxTickerFor(currency: string): string {
+  return `${currency}TWD=X`;
+}
+
+function fxLabelFor(ticker: string): string | null {
+  const m = ticker.match(FX_TICKER_PATTERN);
+  return m ? `${m[1]}/TWD` : null;
+}
+
 export default function PriceAlertsPage() {
   const [tab, setTab] = useState<Tab>("auto_trade");
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
@@ -49,7 +61,9 @@ export default function PriceAlertsPage() {
 
   // notify form state
   const [editingNotifyId, setEditingNotifyId] = useState<number | null>(null);
+  const [notifyAssetType, setNotifyAssetType] = useState<"stock" | "fx">("stock");
   const [notifyTicker, setNotifyTicker] = useState("");
+  const [notifyFxCurrency, setNotifyFxCurrency] = useState<string>(FX_CURRENCIES[0] ?? "USD");
   const [notifyCondition, setNotifyCondition] = useState<"target_price" | "ma20">("target_price");
   const [notifyDirection, setNotifyDirection] = useState<"above" | "below">("above");
   const [notifyTargetPrice, setNotifyTargetPrice] = useState("");
@@ -129,14 +143,16 @@ export default function PriceAlertsPage() {
 
   const handleCreateNotify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!notifyTicker.trim() || (notifyCondition === "target_price" && !notifyTargetPrice)) {
-      toast.warning("請填寫股票代號與目標價");
+    const isFx = notifyAssetType === "fx";
+    if ((!isFx && !notifyTicker.trim()) || (notifyCondition === "target_price" && !notifyTargetPrice)) {
+      toast.warning(isFx ? "請填寫匯率目標值" : "請填寫股票代號與目標價");
       return;
     }
     setSubmitting(true);
     try {
       const payload = {
-        ticker: notifyTicker.trim().toUpperCase(),
+        ticker: isFx ? fxTickerFor(notifyFxCurrency) : notifyTicker.trim().toUpperCase(),
+        name: isFx ? `${notifyFxCurrency}/TWD` : undefined,
         alert_type: (notifyCondition === "ma20" ? "notify_ma20" : "notify_price") as
           | "notify_ma20"
           | "notify_price",
@@ -144,7 +160,8 @@ export default function PriceAlertsPage() {
         // MA20 alerts don't use a fixed target price; backend requires target_price > 0,
         // so pass a placeholder that's ignored for notify_ma20 comparisons.
         target_price: notifyCondition === "ma20" ? Number(notifyTargetPrice || 1) : Number(notifyTargetPrice),
-        currency: notifyCurrency,
+        // FX rates (e.g. USDTWD=X) are always quoted in TWD per unit of foreign currency.
+        currency: isFx ? "TWD" : notifyCurrency,
       };
       if (editingNotifyId != null) {
         await updatePriceAlert(editingNotifyId, payload);
@@ -167,7 +184,15 @@ export default function PriceAlertsPage() {
 
   const handleEditNotify = (a: PriceAlert) => {
     setEditingNotifyId(a.id);
-    setNotifyTicker(a.ticker);
+    const fxMatch = a.ticker.match(FX_TICKER_PATTERN);
+    if (fxMatch) {
+      setNotifyAssetType("fx");
+      setNotifyFxCurrency(fxMatch[1]);
+      setNotifyTicker("");
+    } else {
+      setNotifyAssetType("stock");
+      setNotifyTicker(a.ticker);
+    }
     setNotifyCondition(a.alert_type === "notify_ma20" ? "ma20" : "target_price");
     setNotifyDirection(a.direction ?? "above");
     setNotifyTargetPrice(a.alert_type === "notify_ma20" ? "" : String(a.target_price));
@@ -176,6 +201,7 @@ export default function PriceAlertsPage() {
 
   const cancelEditNotify = () => {
     setEditingNotifyId(null);
+    setNotifyAssetType("stock");
     setNotifyTicker("");
     setNotifyTargetPrice("");
     setNotifyCurrency("TWD");
@@ -320,9 +346,9 @@ export default function PriceAlertsPage() {
         <>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <p className="text-xs text-slate-500">
-              純通知模式不會下單，只會在觸發時寄信提醒。支援台股（TWD）與美股等外幣標的（USD 等）：台股於台股盤中時段（09:00–13:30，一至五）、
-              美股於美股盤中時段（台灣時間約 21:30–05:00）每分鐘檢查一次現價；MA20 均線提醒則在每日台股收盤後（約 13:31）用當日收盤價與 20 日均線比較一次。
-              目標價請輸入該標的原幣別的金額（例如美股請輸入美金金額並選擇 USD）。每筆監控僅會觸發一次。
+              純通知模式不會下單，只會在觸發時寄信提醒。支援台股（TWD）與美股等外幣標的（USD 等），也支援匯率提醒（如 USD/TWD）：
+              股票/ETF 於對應盤中時段每分鐘檢查一次現價，匯率則全天候每分鐘檢查一次；MA20 均線提醒則在每日台股收盤後（約 13:31）用當日收盤價與 20 日均線比較一次。
+              目標價請輸入該標的原幣別的金額（例如美股請輸入美金金額並選擇 USD），匯率提醒的目標值一律以台幣計價。每筆監控僅會觸發一次。
             </p>
           </div>
 
@@ -330,18 +356,58 @@ export default function PriceAlertsPage() {
             <h3 className="font-extrabold text-sm text-slate-800 border-b border-slate-100 pb-2">
               {editingNotifyId != null ? "編輯通知監控" : "新增通知監控"}
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">股票代號</label>
-                <input
-                  type="text"
-                  value={notifyTicker}
-                  onChange={(e) => setNotifyTicker(e.target.value)}
-                  placeholder="2330"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:outline-none focus:border-blue-500"
-                  required
-                />
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">監控標的類型</label>
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setNotifyAssetType("stock")}
+                  className={`rounded-lg px-4 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                    notifyAssetType === "stock" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  股票 / ETF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotifyAssetType("fx")}
+                  className={`rounded-lg px-4 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                    notifyAssetType === "fx" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  匯率
+                </button>
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {notifyAssetType === "stock" ? (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">股票代號</label>
+                  <input
+                    type="text"
+                    value={notifyTicker}
+                    onChange={(e) => setNotifyTicker(e.target.value)}
+                    placeholder="2330"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 font-mono focus:outline-none focus:border-blue-500"
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">貨幣對（兌台幣）</label>
+                  <select
+                    value={notifyFxCurrency}
+                    onChange={(e) => setNotifyFxCurrency(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                  >
+                    {FX_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}/TWD
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">通知條件</label>
                 <select
@@ -366,19 +432,27 @@ export default function PriceAlertsPage() {
               </div>
               {notifyCondition === "target_price" && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">目標價</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    {notifyAssetType === "fx" ? "目標匯率（TWD）" : "目標價"}
+                  </label>
                   <div className="flex gap-2">
-                    <select
-                      value={notifyCurrency}
-                      onChange={(e) => setNotifyCurrency(e.target.value)}
-                      className="px-2 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                    >
-                      {PRICE_ALERT_CURRENCIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    {notifyAssetType === "fx" ? (
+                      <span className="px-2 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 bg-slate-50">
+                        TWD
+                      </span>
+                    ) : (
+                      <select
+                        value={notifyCurrency}
+                        onChange={(e) => setNotifyCurrency(e.target.value)}
+                        className="px-2 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                      >
+                        {PRICE_ALERT_CURRENCIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <input
                       type="number"
                       step="0.01"
@@ -433,7 +507,7 @@ export default function PriceAlertsPage() {
             <table className="w-full text-left font-sans text-xs">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px]">
-                  <th className="py-3 px-4">股票代號</th>
+                  <th className="py-3 px-4">監控標的</th>
                   {tab === "auto_trade" ? (
                     <>
                       <th className="py-3 px-3 text-center">方向</th>
@@ -456,7 +530,7 @@ export default function PriceAlertsPage() {
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                 {filteredAlerts.map((a) => (
                   <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">{a.ticker}</td>
+                    <td className="py-3 px-4 font-bold text-slate-900">{fxLabelFor(a.ticker) ?? a.ticker}</td>
                     {tab === "auto_trade" ? (
                       <>
                         <td className="py-3 px-3 text-center">
