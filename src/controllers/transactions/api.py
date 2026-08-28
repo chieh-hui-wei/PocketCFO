@@ -395,31 +395,9 @@ async def update_transaction(
             txn.amount = body.amount
             
         if body.category is not None:
-            reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
-            reverse_cat["帳內互轉"] = "TRANSFER_IN"
-            reverse_cat["非固定支出"] = "OTHER"
-            reverse_cat["非固定收入"] = "OTHER"
-            reverse_cat["其他收入"] = "OTHER"
-            reverse_cat["其他支出"] = "OTHER"
-            reverse_cat["其他"] = "OTHER"
-            reverse_cat["支出"] = "EXPENSE"
-            is_generic_transfer_label = body.category == "帳內互轉"
-            cat_val = reverse_cat.get(body.category, body.category)
-            if isinstance(cat_val, str):
-                cat_val = cat_val.upper()
-            try:
-                txn.category = TransactionCategory(cat_val)
-            except ValueError:
-                txn.category = TransactionCategory.OTHER
-
-            if txn.category in (TransactionCategory.TRANSFER_IN, TransactionCategory.TRANSFER_OUT):
-                txn.is_internal_transfer = True
-                # The generic "帳內互轉" label doesn't specify a direction, so derive it from the
-                # amount's sign. An explicit "轉入"/"轉出" choice is respected as-is.
-                if is_generic_transfer_label:
-                    txn.category = TransactionCategory.TRANSFER_IN if txn.amount > 0 else TransactionCategory.TRANSFER_OUT
-            else:
-                txn.is_internal_transfer = False
+            txn.category, txn.is_internal_transfer = TransactionService.resolve_category_update(
+                body.category, txn.amount
+            )
                 
         await db.flush()
         await TransactionService.recompute_affected_periods(db, current_user.id, {(txn.txn_date.year, txn.txn_date.month)})
@@ -508,38 +486,12 @@ async def bulk_update_category(
         if not txns:
             return {"status": "ok", "updated_count": 0}
             
-        reverse_cat = {v: k for k, v in CATEGORY_TRANSLATION.items()}
-        reverse_cat["帳內互轉"] = "TRANSFER_IN"
-        reverse_cat["非固定支出"] = "OTHER"
-        reverse_cat["非固定收入"] = "OTHER"
-        reverse_cat["其他收入"] = "OTHER"
-        reverse_cat["其他支出"] = "OTHER"
-        reverse_cat["其他"] = "OTHER"
-        reverse_cat["支出"] = "EXPENSE"
-        is_generic_transfer_label = body.category == "帳內互轉"
-        cat_val = reverse_cat.get(body.category, body.category)
-        if isinstance(cat_val, str):
-            cat_val = cat_val.upper()
-        try:
-            new_cat = TransactionCategory(cat_val)
-        except ValueError:
-            new_cat = TransactionCategory.OTHER
-
         periods_to_recompute = set((t.txn_date.year, t.txn_date.month) for t in txns)
 
         for t in txns:
-            if new_cat in (TransactionCategory.TRANSFER_IN, TransactionCategory.TRANSFER_OUT):
-                t.is_internal_transfer = True
-                # The generic "帳內互轉" label doesn't specify a direction, so derive it from the
-                # amount's sign. An explicit "轉入"/"轉出" choice is respected as-is.
-                t.category = (
-                    (TransactionCategory.TRANSFER_IN if t.amount > 0 else TransactionCategory.TRANSFER_OUT)
-                    if is_generic_transfer_label
-                    else new_cat
-                )
-            else:
-                t.category = new_cat
-                t.is_internal_transfer = False
+            t.category, t.is_internal_transfer = TransactionService.resolve_category_update(
+                body.category, t.amount
+            )
         await db.flush()
         
         await TransactionService.recompute_affected_periods(db, current_user.id, periods_to_recompute)
