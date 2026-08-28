@@ -6,7 +6,56 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies (WeasyPrint runtime libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libjpeg-dev libopenjp2-7-dev libffi-dev
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio
+
+      - name: Run unit tests
+        env:
+          APP_ENV: test
+          APP_SECRET_KEY: test-secret
+          APP_HOST: 0.0.0.0
+          APP_PORT: "8888"
+          APP_DEBUG: "false"
+          DATABASE_URL: "postgresql+asyncpg://user:pass@localhost:5432/testdb"
+          GEMINI_API_KEY: test
+          GEMINI_MODEL: test
+          SINOPAC_API_BASE_URL: "http://test"
+          SINOPAC_ACCOUNT_ID: test
+          SINOPAC_API_KEY: test
+          SINOPAC_API_SECRET: test
+          SINOPAC_CERT_PATH: test
+          SINOPAC_CERT_PASSWORD: test
+          TAISHIN_API_BASE_URL: "http://test"
+          TAISHIN_ACCOUNT_ID: test
+          TAISHIN_API_KEY: test
+          TAISHIN_API_SECRET: test
+          TAISHIN_CERT_PATH: test
+          TAISHIN_CERT_PASSWORD: test
+          UPLOAD_DIR: /tmp/uploads
+          MAX_UPLOAD_SIZE_MB: "50"
+          CORS_ORIGINS: '["*"]'
+          INTERNAL_ACCOUNT_IDS: "[]"
+        run: pytest tests/ -v
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
