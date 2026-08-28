@@ -40,6 +40,7 @@ export default function TransactionsPage() {
     if (paramType === "income" || paramType === "expense") return paramType;
     return "all";
   });
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   useEffect(() => {
     getAccounts(true)
@@ -69,7 +70,15 @@ export default function TransactionsPage() {
   useEffect(() => {
     setSelectedTxnIds([]);
     setCurrentPage(1);
-  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter]);
+  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter, categoryFilter]);
+
+  useEffect(() => {
+    // Reset category filter if it no longer matches any loaded transaction
+    if (categoryFilter !== "all" && !transactions.some(t => getCategoryLabel(t) === categoryFilter)) {
+      setCategoryFilter("all");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -357,6 +366,7 @@ export default function TransactionsPage() {
       if (typeFilter === "expense") return t.amount < 0;
       return true;
     })
+    .filter(t => categoryFilter === "all" || getCategoryLabel(t) === categoryFilter)
     .filter(t => {
       if (selectedAccountId === "all") return true;
       if (selectedAccountId === "source:credit_card") return t.source === "credit_card";
@@ -502,8 +512,8 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-wrap justify-between items-center gap-4 mb-6 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-nowrap items-center gap-4 mb-6 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Account Filter */}
           <select
             value={selectedAccountId}
@@ -543,6 +553,18 @@ export default function TransactionsPage() {
             )}
           </select>
 
+          {/* Category Filter */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+          >
+            <option value="all">所有類別</option>
+            {Array.from(new Set(transactions.map(t => getCategoryLabel(t)).filter(Boolean))).map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
           {/* Type Filter Segment */}
           <div className="flex bg-slate-200/60 p-0.5 rounded-xl border border-slate-200/20">
             <button
@@ -569,36 +591,22 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
+        <div className="flex items-center gap-4 shrink-0">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none whitespace-nowrap">
             <input
               type="checkbox"
-              checked={excludeTransfers}
-              onChange={e => setExcludeTransfers(e.target.checked)}
+              checked={excludeTransfers && excludeInvestments && excludeCardPayments}
+              onChange={e => {
+                setExcludeTransfers(e.target.checked);
+                setExcludeInvestments(e.target.checked);
+                setExcludeCardPayments(e.target.checked);
+              }}
               className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
             />
-            排除帳內互轉
+            排除轉帳／投資／信用卡繳款
           </label>
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
-            <input
-              type="checkbox"
-              checked={excludeInvestments}
-              onChange={e => setExcludeInvestments(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-            />
-            排除投資
-          </label>
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 select-none">
-            <input
-              type="checkbox"
-              checked={excludeCardPayments}
-              onChange={e => setExcludeCardPayments(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-            />
-            排除信用卡繳款
-          </label>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-4 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-4 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-bold text-slate-700 whitespace-nowrap">
               <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
               {formatMonth(currentDate)}
               <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>
@@ -606,7 +614,7 @@ export default function TransactionsPage() {
             <button
               type="button"
               onClick={() => setShowBreakdown(!showBreakdown)}
-              className={`flex items-center gap-2 border px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
+              className={`flex items-center gap-2 border px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer whitespace-nowrap ${
                 showBreakdown
                   ? "bg-blue-50 border-blue-200 text-blue-600 shadow-blue-100"
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
