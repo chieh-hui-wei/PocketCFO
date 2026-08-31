@@ -15,6 +15,10 @@ import { faChartPie, faTableList, faChartLine, faBullseye, faLightbulb, faSackDo
 
 
 
+const isFirstrade = (acc: AccountWithSnapshot) =>
+  acc.type === "brokerage" &&
+  ((acc.name || "").toLowerCase().includes("firstrade") || (acc.institution || "").toLowerCase().includes("firstrade"));
+
 export default function BalanceSheetPage() {
   const [history, setHistory] = useState<BalanceSheetRecord[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +34,8 @@ export default function BalanceSheetPage() {
 
   // Snapshot balances state being edited
   const [editBalances, setEditBalances] = useState<Record<number, string>>({});
+  // Manual override for un-invested cash within brokerage accounts (e.g. Firstrade idle cash)
+  const [editCashOverrides, setEditCashOverrides] = useState<Record<number, string>>({});
 
   const [currentDate, setCurrentDate] = useState(() => {
     const d = new Date();
@@ -64,6 +70,14 @@ export default function BalanceSheetPage() {
           balances[acc.id] = nativeVal !== null ? String(Math.abs(nativeVal)) : "";
         });
         setEditBalances(balances);
+
+        const cashOverrides: Record<number, string> = {};
+        data.forEach(acc => {
+          if (isFirstrade(acc)) {
+            cashOverrides[acc.id] = acc.manual_cash_override !== null ? String(acc.manual_cash_override) : "";
+          }
+        });
+        setEditCashOverrides(cashOverrides);
       })
       .catch(console.error);
   };
@@ -177,7 +191,15 @@ export default function BalanceSheetPage() {
         } else {
           const val = parseFloat(valStr);
           if (!isNaN(val)) {
-            await saveAccountSnapshot(acc.id, targetPeriod, val);
+            let cashOverride: number | null = null;
+            if (isFirstrade(acc)) {
+              const overrideStr = editCashOverrides[acc.id];
+              if (overrideStr !== undefined && overrideStr.trim() !== "") {
+                const overrideVal = parseFloat(overrideStr);
+                if (!isNaN(overrideVal)) cashOverride = overrideVal;
+              }
+            }
+            await saveAccountSnapshot(acc.id, targetPeriod, val, cashOverride);
           }
         }
       }
@@ -886,26 +908,45 @@ export default function BalanceSheetPage() {
                 ) : (
                   <div className="space-y-3">
                     {accounts.map(acc => (
-                      <div key={acc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-colors">
-                        <div>
-                          <div className="font-bold text-slate-800 text-sm">{acc.name}</div>
-                          <div className="flex gap-2 items-center text-xxs mt-0.5">
-                            <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold">
-                              {acc.type === "liability" ? "負債" : acc.type === "credit_card" ? "信用卡" : acc.type === "brokerage" ? "證券" : "銀行"}
-                            </span>
-                            <span className="text-slate-400">{acc.institution}</span>
+                      <div key={acc.id} className="p-3 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-colors space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-bold text-slate-800 text-sm">{acc.name}</div>
+                            <div className="flex gap-2 items-center text-xxs mt-0.5">
+                              <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold">
+                                {acc.type === "liability" ? "負債" : acc.type === "credit_card" ? "信用卡" : acc.type === "brokerage" ? "證券" : "銀行"}
+                              </span>
+                              <span className="text-slate-400">{acc.institution}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-500 text-xs font-bold">{acc.currency && acc.currency !== "TWD" ? acc.currency : "$"}</span>
+                            <input
+                              type="number"
+                              placeholder="輸入餘額"
+                              value={editBalances[acc.id] ?? ""}
+                              onChange={e => setEditBalances(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                              className="w-32 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-right font-medium text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+                            />
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-500 text-xs font-bold">{acc.currency && acc.currency !== "TWD" ? acc.currency : "$"}</span>
-                          <input
-                            type="number"
-                            placeholder="輸入餘額"
-                            value={editBalances[acc.id] ?? ""}
-                            onChange={e => setEditBalances(prev => ({ ...prev, [acc.id]: e.target.value }))}
-                            className="w-32 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-right font-medium text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-                          />
-                        </div>
+                        {isFirstrade(acc) && (
+                          <div className="flex items-center justify-between bg-amber-50/60 border border-amber-100 rounded-lg px-3 py-2">
+                            <label className="text-xxs font-bold text-amber-700">
+                              尚未投入股市的現金部位 (手動調整，留空則自動以「總餘額 - 持股市值」估算)
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-500 text-xs font-bold">{acc.currency && acc.currency !== "TWD" ? acc.currency : "$"}</span>
+                              <input
+                                type="number"
+                                placeholder="自動估算"
+                                value={editCashOverrides[acc.id] ?? ""}
+                                onChange={e => setEditCashOverrides(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                                className="w-32 px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-right font-medium text-slate-800 focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

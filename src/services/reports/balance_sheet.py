@@ -87,7 +87,10 @@ class BalanceSheetService:
                 # Check if it is Firstrade (overseas broker)
                 is_firstrade = "firstrade" in (acct.name or "").lower() or "firstrade" in (acct.institution or "").lower()
                 
-                broker_cash_twd = max(snap.balance - snap_stocks_mv, 0.0) if is_firstrade else 0.0
+                if is_firstrade and snap.manual_cash_override is not None:
+                    broker_cash_twd = max(snap.manual_cash_override * (snap.exchange_rate or 1.0), 0.0)
+                else:
+                    broker_cash_twd = max(snap.balance - snap_stocks_mv, 0.0) if is_firstrade else 0.0
                 total_securities_mv += snap_stocks_mv + broker_cash_twd
                 if broker_cash_twd > 0:
                     detail["brokerage_cash"].append(
@@ -295,8 +298,12 @@ class BalanceSheetService:
                             item["name"] = matched.name
                             detail_changed = True
                         snap = db_snaps.get(matched.id)
-                        if snap and item.get("balance") != snap.balance:
-                            item["balance"] = snap.balance
+                        if snap and snap.manual_cash_override is not None:
+                            expected_balance = round(snap.manual_cash_override * (snap.exchange_rate or 1.0), 2)
+                        else:
+                            expected_balance = snap.balance if snap else None
+                        if snap and item.get("balance") != expected_balance:
+                            item["balance"] = expected_balance
                             detail_changed = True
                     deduped_brokerage.append(item)
                 detail["brokerage_cash"] = deduped_brokerage

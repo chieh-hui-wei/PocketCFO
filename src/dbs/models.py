@@ -172,6 +172,7 @@ class AccountSnapshot(Base):
     exchange_rate: Mapped[float] = mapped_column(Float, default=1.0)
     payment_due_date: Mapped[date | None] = mapped_column(Date)
     source: Mapped[str] = mapped_column(String(32), default="pdf")  # pdf | api
+    manual_cash_override: Mapped[float | None] = mapped_column(Float)  # user-adjusted un-invested cash (TWD), brokerage accounts only
     raw_data: Mapped[str | None] = mapped_column(Text)  # JSON blob from Gemini
     upload_history_id: Mapped[int | None] = mapped_column(ForeignKey("upload_histories.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

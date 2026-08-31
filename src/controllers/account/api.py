@@ -194,6 +194,7 @@ async def list_snapshots_for_period(
             "original_balance": snap.original_balance if snap else None,
             "has_snapshot": snap is not None,
             "snapshot_source": snap.source if snap else None,
+            "manual_cash_override": snap.manual_cash_override if snap else None,
         })
     return result
 
@@ -223,6 +224,9 @@ async def save_snapshot(
         from src.services.exchange_rate.service import get_currency_twd_rate
         rate = await get_currency_twd_rate(period, from_currency=account.currency)
 
+    # Stored in the account's native currency (like original_balance); converted to TWD at read time.
+    manual_cash_override = body.cash_override
+
     snapshot = await snap_repo.upsert(
         AccountSnapshot(
             account_id=account_id,
@@ -232,6 +236,7 @@ async def save_snapshot(
             currency=account.currency or "TWD",
             exchange_rate=rate,
             source="manual",
+            manual_cash_override=manual_cash_override,
         )
     )
     bs_service = BalanceSheetService(db, current_user.id)

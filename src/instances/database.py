@@ -205,6 +205,9 @@ async def run_migrations() -> None:
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS installment_payment_day INTEGER",
         # 2026-08-27: price_alerts — notify-only alerts can target foreign-currency tickers
         "ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS currency VARCHAR(8) NOT NULL DEFAULT 'TWD'",
+        # 2026-08-31: account_snapshots — manual override for brokerage un-invested cash
+        # (e.g. Firstrade idle cash not yet reflected by parsed holdings), native currency.
+        "ALTER TABLE account_snapshots ADD COLUMN IF NOT EXISTS manual_cash_override FLOAT",
     ]
 
     # Each statement gets its own transaction: on Postgres a single failed statement

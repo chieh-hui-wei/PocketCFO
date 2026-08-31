@@ -176,6 +176,7 @@ export interface AccountWithSnapshot extends Account {
   original_balance: number | null;
   has_snapshot: boolean;
   snapshot_source: string | null;
+  manual_cash_override: number | null;
 }
 
 export async function getAccountsWithSnapshots(year: number, month: number) {
@@ -186,11 +187,13 @@ export async function getAccountsWithSnapshots(year: number, month: number) {
 export async function saveAccountSnapshot(
   accountId: number,
   periodDate: string,
-  balance: number
+  balance: number,
+  cashOverride?: number | null
 ) {
   const { data } = await api.post(`/accounts/${accountId}/snapshots`, {
     period_date: periodDate,
     balance,
+    cash_override: cashOverride ?? null,
   });
   return data;
 }

@@ -28,6 +28,7 @@ class CreateAccountRequest(BaseModel):
 class SaveSnapshotRequest(BaseModel):
     period_date: str
     balance: float
+    cash_override: Optional[float] = None
 
 
 class SaveSecurityRequest(BaseModel):
