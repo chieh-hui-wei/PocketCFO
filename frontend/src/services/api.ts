@@ -1,12 +1,15 @@
 // frontend/src/services/api.ts
 import axios from "axios";
+import { toast } from "../store/useToastStore";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api/v1",
   timeout: 120_000, // PDF parsing can take time (increased to 2 min to prevent timeout)
 });
 
-// Interceptor to strip leading slash and inject JWT token
+// Interceptor to strip leading slash, inject JWT token, and confirm receipt of
+// slow mutations (many backend actions — PDF parsing, broker syncs — take a
+// while to respond, so let the user know the click was registered).
 api.interceptors.request.use((config) => {
   if (config.url && config.url.startsWith("/")) {
     config.url = config.url.substring(1);
@@ -14,6 +17,10 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem("pocketcfo_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const method = (config.method || "get").toLowerCase();
+  if (method !== "get" && !config.url?.includes("auth/login")) {
+    toast.info("已送出請求，處理中…", 2500);
   }
   return config;
 });
