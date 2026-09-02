@@ -193,8 +193,8 @@ class RebalanceService:
         consolidated_map: Dict[str, Dict[str, Any]] = {}
         for sec in securities:
             ticker_upper = (sec.ticker or "").strip().upper()
-            mv_twd = sec.market_value if sec.market_value else (sec.original_market_value * (sec.exchange_rate or 1.0))
-            price_twd = sec.current_price if sec.current_price else (sec.original_current_price * (sec.exchange_rate or 1.0))
+            mv_twd = sec.market_value if sec.market_value else ((sec.original_market_value or 0.0) * (sec.exchange_rate or 1.0))
+            price_twd = sec.current_price if sec.current_price else ((sec.original_current_price or 0.0) * (sec.exchange_rate or 1.0))
 
             if ticker_upper in consolidated_map:
                 consolidated_map[ticker_upper]["quantity"] += sec.quantity
