@@ -872,7 +872,7 @@ class StatementService:
                     txn_date=actual_date,
                     merchant=item.get("merchant", ""),
                     description=item.get("description", ""),
-                    amount=-float(item.get("amount") or 0),
+                    amount=-abs(float(item.get("amount") or 0)),
                     balance_after=None,
                     category=category,
                     is_internal_transfer=False,
