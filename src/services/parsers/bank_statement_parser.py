@@ -222,16 +222,18 @@ async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
             
     df = pd.DataFrame(rows, columns=header)
     df['發票日期'] = df['發票日期'].astype(str)
-    df['消費明細_金額'] = pd.to_numeric(df['消費明細_金額'], errors='coerce').fillna(0)
+    df['發票金額'] = pd.to_numeric(df['發票金額'], errors='coerce').fillna(0)
     
     period_year = None
     period_month = None
     
+    # Group by invoice number to merge items
     grouped = df.groupby('發票號碼').agg({
         '發票日期': 'first',
         '賣方名稱': 'first',
         '載具自訂名稱': 'first',
-        '消費明細_金額': 'sum',
+        '發票金額': 'first',
+        '消費明細_品名': lambda x: ', '.join(str(i).strip() for i in x if pd.notna(i))
     }).reset_index()
     
     items = []
@@ -247,13 +249,15 @@ async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
             formatted_date = date_str
             
         merchant = str(row['賣方名稱']).strip()
+        description = str(row['消費明細_品名']).strip()
+        
         items.append({
             "date": formatted_date,
             "merchant": merchant,
-            "description": merchant,
-            "amount": float(row['消費明細_金額']),
+            "description": description,
+            "amount": float(row['發票金額']),
             "payment_method": str(row['載具自訂名稱']).strip() if pd.notna(row['載具自訂名稱']) and str(row['載具自訂名稱']).strip() else "電子載具",
-            "invoice_number": row['發票號碼']
+            "invoice_number": str(row['發票號碼']).strip()
         })
         
     if period_year is None:
