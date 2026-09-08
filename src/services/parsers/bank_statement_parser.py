@@ -249,7 +249,8 @@ async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
             formatted_date = date_str
             
         merchant = str(row['賣方名稱']).strip()
-        description = str(row['消費明細_品名']).strip()
+        item_names = str(row['消費明細_品名']).strip()
+        description = f"{merchant} - {item_names}" if item_names else merchant
         
         items.append({
             "date": formatted_date,
