@@ -870,8 +870,8 @@ class StatementService:
                 Transaction(
                     account_id=None,
                     txn_date=actual_date,
-                    merchant=item.get("merchant", ""),
-                    description=item.get("description", ""),
+                    merchant=(item.get("merchant") or "")[:256],
+                    description=(item.get("description") or "")[:256],
                     amount=-abs(float(item.get("amount") or 0)),
                     balance_after=None,
                     category=category,
