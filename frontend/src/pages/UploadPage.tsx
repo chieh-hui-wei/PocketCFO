@@ -208,7 +208,7 @@ export default function UploadPage() {
         })),
         transactions: (rawData.transactions || rawData.items || []).map((t: any) => {
           let amt = t.amount != null ? t.amount : (parseFloat(t.credit || 0) - parseFloat(t.debit || 0));
-          if (kind === "credit_card") {
+          if (kind === "credit_card" || kind === "einvoice") {
             const isRefund = !!t.is_refund;
             amt = isRefund ? Math.abs(amt) : -Math.abs(amt);
           }
