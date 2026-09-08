@@ -1017,7 +1017,13 @@ class StatementService:
                 data = await parse_einvoice_statement(pdf_path)
             data["kind"] = "einvoice"
             
+            # E-invoice items are always consumption (expenses) — normalize to negative
+            for item in data.get("items", []):
+                raw_amt = float(item.get("amount") or 0)
+                item["amount"] = -abs(raw_amt)
+            
             # Dry-run duplicate check against existing credit card transactions
+
             try:
                 from datetime import datetime
                 period_date = date(data["period_year"], data["period_month"], 1)
