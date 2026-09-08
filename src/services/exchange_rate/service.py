@@ -35,28 +35,34 @@ async def get_currency_twd_rate(target_date: date, from_currency: str = "usd") -
         target_date: The date to fetch the rate for (uses last available if weekend/holiday).
         from_currency: The source currency code (e.g. "usd", "eur", "jpy"). Case-insensitive.
     """
-    currency = from_currency.lower()
-    date_str = target_date.strftime("%Y-%m-%d")
-    url = f"https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{date_str}/v1/currencies/{currency}.json"
-    fallback_url = f"https://latest.currency-api.pages.dev/v1/currencies/{currency}.json"
+    currency = from_currency.upper()
+    
+    from datetime import timedelta
+    # Look back up to 7 days to handle weekends and holidays
+    start_date = (target_date - timedelta(days=7)).strftime("%Y-%m-%d")
+    end_date = target_date.strftime("%Y-%m-%d")
+    
+    url = f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanExchangeRate&data_id={currency}&start_date={start_date}&end_date={end_date}"
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, timeout=5.0)
             if response.status_code == 200:
                 data = response.json()
-                rate = data.get(currency, {}).get("twd")
-                if rate:
-                    return float(rate)
-            log.warning(f"Failed to fetch {currency}/TWD for {date_str}, trying fallback URL.")
-            response = await client.get(fallback_url, timeout=5.0)
-            if response.status_code == 200:
-                data = response.json()
-                rate = data.get(currency, {}).get("twd")
-                if rate:
-                    return float(rate)
+                records = data.get("data", [])
+                if records:
+                    # Get the most recent record on or before target_date
+                    latest = records[-1]
+                    # Usually "spot_sell" (即期賣出價) is the standard for credit cards / transfers. 
+                    # Fallback to cash_sell if spot_sell is not available (e.g. for some currencies).
+                    rate = latest.get("spot_sell") or latest.get("cash_sell")
+                    if rate:
+                        return float(rate)
+            else:
+                log.warning(f"Failed to fetch {currency}/TWD from FinMind, status: {response.status_code}")
+                
     except Exception as e:
-        log.error(f"Error fetching exchange rate {currency}/TWD: {e}")
+        log.error(f"Error fetching exchange rate {currency}/TWD from FinMind: {e}")
 
     fallback = _FALLBACK_RATES.get(currency, 1.0)
     log.warning(f"Using hardcoded fallback exchange rate for {currency.upper()}/TWD ({fallback})")
