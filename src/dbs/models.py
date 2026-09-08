@@ -226,8 +226,8 @@ class Transaction(Base):
     source: Mapped[TransactionSource] = mapped_column(
         Enum(TransactionSource), default=TransactionSource.BANK, nullable=False
     )
-    merchant: Mapped[str | None] = mapped_column(String(256))
-    description: Mapped[str] = mapped_column(String(256))
+    merchant: Mapped[str | None] = mapped_column(String(512))
+    description: Mapped[str] = mapped_column(String(512))
     amount: Mapped[float] = mapped_column(
         Float, nullable=False
     )  # positive=credit, negative=debit
