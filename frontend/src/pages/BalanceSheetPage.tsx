@@ -240,14 +240,14 @@ export default function BalanceSheetPage() {
     <div className="animate-in fade-in duration-150 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* Header */}
-      <div className="flex justify-between items-center mb-4 shrink-0">
+      <div className="grid grid-cols-3 items-center mb-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">資產負債表</h1>
           <p className="text-sm text-slate-500 mt-1">了解你的財務狀況與資產負債結構</p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+        <div className="flex justify-self-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
@@ -280,7 +280,7 @@ export default function BalanceSheetPage() {
           </button>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex justify-self-end gap-3">
           {activeTab !== "projection" && (
             <>
               <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
