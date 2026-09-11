@@ -28,6 +28,9 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [isSubmittingTxn, setIsSubmittingTxn] = useState(false);
+  const [savingEditId, setSavingEditId] = useState<number | null>(null);
+  const [deletingTxnId, setDeletingTxnId] = useState<number | null>(null);
   const [excludeTransfers, setExcludeTransfers] = useState(true);
   const [excludeInvestments, setExcludeInvestments] = useState(true);
   const [excludeCardPayments, setExcludeCardPayments] = useState(true);
@@ -167,6 +170,7 @@ export default function TransactionsPage() {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingTxn) return;
     if (!formDate || !formDescription || formAmount <= 0) {
       toast.warning("請填寫交易日期、說明，且金額必須大於 0");
       return;
@@ -174,6 +178,7 @@ export default function TransactionsPage() {
 
     const amountVal = formType === "expense" ? -Math.abs(formAmount) : Math.abs(formAmount);
 
+    setIsSubmittingTxn(true);
     try {
       await createTransaction({
         date: formDate,
@@ -190,6 +195,8 @@ export default function TransactionsPage() {
     } catch (e) {
       console.error(e);
       toast.error("手動新增交易失敗");
+    } finally {
+      setIsSubmittingTxn(false);
     }
   };
 
@@ -247,6 +254,8 @@ export default function TransactionsPage() {
   };
 
   const handleSaveEdit = async (id: number) => {
+    if (savingEditId !== null) return;
+    setSavingEditId(id);
     try {
       await updateTransaction(id, {
         date: editDate,
@@ -260,19 +269,25 @@ export default function TransactionsPage() {
     } catch (e) {
       console.error(e);
       toast.error("儲存交易失敗");
+    } finally {
+      setSavingEditId(null);
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (deletingTxnId !== null) return;
     if (!window.confirm("確定要刪除此筆交易嗎？（資產負債表與損益表將會重新計算）")) {
       return;
     }
+    setDeletingTxnId(id);
     try {
       await deleteTransaction(id);
       fetchTxns();
     } catch (e) {
       console.error(e);
       toast.error("刪除交易失敗");
+    } finally {
+      setDeletingTxnId(null);
     }
   };
 
@@ -725,13 +740,15 @@ export default function TransactionsPage() {
                           <div className="flex justify-center gap-1.5">
                             <button
                               onClick={() => handleSaveEdit(t.id)}
-                              className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-blue-700 shadow-sm transition-colors cursor-pointer"
+                              disabled={savingEditId !== null}
+                              className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-blue-700 shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              儲存
+                              {savingEditId === t.id ? "儲存中..." : "儲存"}
                             </button>
                             <button
                               onClick={handleCancelEdit}
-                              className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer"
+                              disabled={savingEditId !== null}
+                              className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               取消
                             </button>
@@ -740,17 +757,19 @@ export default function TransactionsPage() {
                           <div className="flex justify-center gap-1.5">
                             <button
                               onClick={() => handleStartEdit(t)}
-                              className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
+                              disabled={deletingTxnId !== null}
+                              className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               title="編輯交易"
                             >
                               編輯
                             </button>
                             <button
                               onClick={() => handleDelete(t.id)}
-                              className="bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
+                              disabled={deletingTxnId !== null}
+                              className="bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               title="刪除交易"
                             >
-                              刪除
+                              {deletingTxnId === t.id ? "刪除中..." : "刪除"}
                             </button>
                           </div>
                         )}
@@ -978,15 +997,17 @@ export default function TransactionsPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors cursor-pointer"
+                  disabled={isSubmittingTxn}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer"
+                  disabled={isSubmittingTxn}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  確認新增
+                  {isSubmittingTxn ? "新增中..." : "確認新增"}
                 </button>
               </div>
             </form>
