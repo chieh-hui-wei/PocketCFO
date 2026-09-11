@@ -248,7 +248,7 @@ export default function UploadPage() {
 
   // STEP 2: Save Confirmed Statement to DB
   const handleConfirm = async () => {
-    if (!editData) return;
+    if (!editData || isProcessing) return;
     setIsProcessing(true);
 
     try {
@@ -1130,17 +1130,19 @@ export default function UploadPage() {
 
             {/* Bottom Actions */}
             <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-              <button 
+              <button
                 onClick={handleCancelReview}
-                className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+                disabled={isProcessing}
+                className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 取消核對
               </button>
-              <button 
+              <button
                 onClick={handleConfirm}
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-md hover:shadow-lg hover:scale-[1.01] transition-all"
+                disabled={isProcessing}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-md hover:shadow-lg hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
-                確認無誤並寫入資料庫
+                {isProcessing ? '寫入中請稍候...' : '確認無誤並寫入資料庫'}
               </button>
             </div>
 
