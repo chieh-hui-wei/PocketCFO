@@ -10,6 +10,10 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
+# In-memory cache keyed by (currency, target_date) to avoid repeated FinMind calls
+# for the same day (e.g. balance-sheet recompute triggered on every snapshot save).
+_RATE_CACHE: dict[tuple[str, date], float] = {}
+
 # Default fallback rates for common currencies to TWD
 _FALLBACK_RATES: dict[str, float] = {
     "usd": 32.0,
@@ -36,7 +40,11 @@ async def get_currency_twd_rate(target_date: date, from_currency: str = "usd") -
         from_currency: The source currency code (e.g. "usd", "eur", "jpy"). Case-insensitive.
     """
     currency = from_currency.upper()
-    
+
+    cache_key = (currency, target_date)
+    if cache_key in _RATE_CACHE:
+        return _RATE_CACHE[cache_key]
+
     from datetime import timedelta
     # Look back up to 7 days to handle weekends and holidays
     start_date = (target_date - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -57,6 +65,7 @@ async def get_currency_twd_rate(target_date: date, from_currency: str = "usd") -
                     # Fallback to cash_sell if spot_sell is not available (e.g. for some currencies).
                     rate = latest.get("spot_sell") or latest.get("cash_sell")
                     if rate:
+                        _RATE_CACHE[cache_key] = float(rate)
                         return float(rate)
             else:
                 log.warning(f"Failed to fetch {currency}/TWD from FinMind, status: {response.status_code}")

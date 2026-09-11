@@ -34,7 +34,10 @@ def _amortized_installment_balance(account: Account, base_snap: AccountSnapshot,
     months_elapsed = max(0, months_elapsed)
     if account.installment_count:
         months_elapsed = min(months_elapsed, account.installment_count)
-    return min(0.0, base_snap.balance + months_elapsed * account.installment_amount)
+    # Normalize by magnitude so this works regardless of whether the baseline
+    # snapshot was entered as a positive or negative balance.
+    remaining = max(0.0, abs(base_snap.balance) - months_elapsed * account.installment_amount)
+    return -remaining
 
 
 class StockHoldingService:
