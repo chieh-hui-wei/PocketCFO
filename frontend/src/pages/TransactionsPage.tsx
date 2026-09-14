@@ -494,13 +494,13 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-nowrap items-center gap-4 mb-6 shrink-0 overflow-x-auto">
+      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-nowrap justify-between items-center gap-4 mb-6 shrink-0 overflow-x-auto">
         <div className="flex items-center gap-3 shrink-0">
           {/* Account Filter */}
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer min-w-[140px]"
           >
             <option value="all">所有交易來源</option>
             {transactions.some(t => t.source === "credit_card") && <option value="source:credit_card">所有信用卡帳單</option>}
@@ -539,7 +539,7 @@ export default function TransactionsPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer min-w-[110px]"
           >
             <option value="all">所有類別</option>
             {Array.from(new Set(transactions.map(t => getCategoryLabel(t)).filter(Boolean))).map(cat => (
