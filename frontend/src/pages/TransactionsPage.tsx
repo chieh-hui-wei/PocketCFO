@@ -786,9 +786,8 @@ export default function TransactionsPage() {
         {/* Pagination (el-pagination style) */}
         {filteredTxns.length > 0 && (
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-white text-xs text-slate-500">
-            <div className="font-medium">共 {filteredTxns.length} 筆</div>
-
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">共 {filteredTxns.length} 筆</span>
               <select
                 value={pageSize}
                 onChange={e => handlePageSizeChange(parseInt(e.target.value))}
@@ -798,7 +797,9 @@ export default function TransactionsPage() {
                   <option key={size} value={size}>{size} 筆/頁</option>
                 ))}
               </select>
+            </div>
 
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
