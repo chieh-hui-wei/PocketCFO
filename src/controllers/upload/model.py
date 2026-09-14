@@ -22,6 +22,7 @@ class ConfirmTransaction(BaseModel):
     date: str
     description: Optional[str] = None
     merchant: Optional[str] = None
+    category: Optional[str] = None
     amount: float
     balance: Optional[float] = None
     action: Optional[str] = None
