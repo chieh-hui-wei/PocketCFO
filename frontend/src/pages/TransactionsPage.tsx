@@ -791,7 +791,7 @@ export default function TransactionsPage() {
               <select
                 value={pageSize}
                 onChange={e => handlePageSizeChange(parseInt(e.target.value))}
-                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-600 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-600 focus:outline-none focus:border-blue-500 cursor-pointer min-w-[80px]"
               >
                 {[10, 20, 50, 100].map(size => (
                   <option key={size} value={size}>{size} 筆/頁</option>

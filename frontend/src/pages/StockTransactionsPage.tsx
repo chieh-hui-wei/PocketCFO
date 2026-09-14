@@ -137,7 +137,7 @@ export default function StockTransactionsPage() {
             <select
               value={selectedBroker}
               onChange={(e) => setSelectedBroker(e.target.value)}
-              className="bg-white border border-slate-200 px-4 py-2 rounded-full text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="bg-white border border-slate-200 px-4 py-2 rounded-full text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer min-w-[110px]"
             >
               <option value="all">所有券商</option>
               {availableBrokers.map(b => (

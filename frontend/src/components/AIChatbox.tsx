@@ -236,7 +236,7 @@ export default function AIChatbox() {
               <select
                 value={selectedModel}
                 onChange={e => setSelectedModel(e.target.value)}
-                className="bg-white/20 text-white text-[11px] font-bold px-2 py-1 rounded border border-white/30 focus:outline-none cursor-pointer focus:bg-indigo-700"
+                className="bg-white/20 text-white text-[11px] font-bold px-2 py-1 rounded border border-white/30 focus:outline-none cursor-pointer focus:bg-indigo-700 min-w-[150px]"
                 title="選擇 AI 模型 (若額度超限系統將自動切換至備用模型)"
               >
                 <option value="gemini-3.1-flash-lite" className="text-slate-800">Gemini 3.1 Flash Lite</option>
