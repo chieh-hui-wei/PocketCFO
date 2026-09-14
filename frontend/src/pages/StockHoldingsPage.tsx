@@ -596,7 +596,7 @@ export default function StockHoldingsPage() {
               onClick={() => setViewMode("month")}
               className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === "month"
-                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                  ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -606,7 +606,7 @@ export default function StockHoldingsPage() {
               onClick={() => setViewMode("year")}
               className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === "year"
-                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                  ? "bg-white text-blue-600 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
