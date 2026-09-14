@@ -26,6 +26,7 @@ export default function DashboardPage() {
   });
 
   const [recentTxns, setRecentTxns] = useState<TransactionRecord[]>([]);
+  const [trendRange, setTrendRange] = useState<"6m" | "1y" | "all">("6m");
 
   useEffect(() => {
     getBalanceSheetHistory().then(setBsHistory).catch(console.error);
@@ -47,13 +48,14 @@ export default function DashboardPage() {
   const latestBs = bsHistory.find(b => b.period === targetPeriod) || null;
   const latestIs = isHistory.find(b => b.period === targetPeriod) || null;
 
-  // Mock Trend Data for Net Worth
+  // Trend Data for Net Worth
   const trendData = [...bsHistory].reverse().map(b => ({
     name: b.period.split("-")[1] + "月",
     value: b.net_worth
   }));
 
-  const finalTrendData = trendData.length > 0 ? trendData : [];
+  const trendRangeMonths = trendRange === "6m" ? 6 : trendRange === "1y" ? 12 : undefined;
+  const finalTrendData = trendRangeMonths ? trendData.slice(-trendRangeMonths) : trendData;
 
   const pieData = latestIs && latestIs.total_expenses > 0 ? [
     { name: '信用卡支出', value: latestIs.credit_card_expenses },
@@ -109,9 +111,21 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-slate-800">淨資產變化趨勢</h3>
             <div className="flex gap-2">
-              <button className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">6個月</button>
-              <button className="px-3 py-1 text-slate-400 hover:bg-slate-50 rounded-full text-xs font-bold transition-colors">1年</button>
-              <button className="px-3 py-1 text-slate-400 hover:bg-slate-50 rounded-full text-xs font-bold transition-colors">全部</button>
+              {([
+                { key: "6m", label: "6個月" },
+                { key: "1y", label: "1年" },
+                { key: "all", label: "全部" },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setTrendRange(opt.key)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                    trendRange === opt.key ? "bg-slate-100 text-slate-600" : "text-slate-400 hover:bg-slate-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
           <div className="h-[250px] w-full">
