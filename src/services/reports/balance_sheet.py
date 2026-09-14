@@ -97,8 +97,10 @@ class BalanceSheetService:
                         {
                             "name": f"{acct.name} (閒置現金)",
                             "balance": round(broker_cash_twd),
-                            # Keep original USD cash balance if available
-                            "original_balance": snap.original_balance if hasattr(snap, 'original_balance') else round(broker_cash_twd / snap.exchange_rate) if snap.exchange_rate > 1 else None,
+                            # snap.original_balance is the account's TOTAL original-currency balance
+                            # (market value + cash, see save_brokerage_statement), not the cash-only
+                            # portion — derive the cash-only figure from broker_cash_twd instead.
+                            "original_balance": round(broker_cash_twd / snap.exchange_rate, 2) if snap.exchange_rate else None,
                             "currency": snap.currency or "USD",
                             "exchange_rate": snap.exchange_rate,
                         }
