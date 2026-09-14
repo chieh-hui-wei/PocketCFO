@@ -240,7 +240,7 @@ export default function BalanceSheetPage() {
     <div className="animate-in fade-in duration-150 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* Header */}
-      <div className="grid grid-cols-3 items-center mb-4 shrink-0">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">資產負債表</h1>
           <p className="text-sm text-slate-500 mt-1">了解你的財務狀況與資產負債結構</p>
@@ -283,7 +283,7 @@ export default function BalanceSheetPage() {
         <div className="flex justify-self-end gap-3">
           {activeTab !== "projection" && (
             <>
-              <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+              <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700 whitespace-nowrap">
                 <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrevMonth}>{"<"}</span>
                 {formatMonth(currentDate)}
                 <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNextMonth}>{">"}</span>

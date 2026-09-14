@@ -224,14 +224,14 @@ export default function IncomeStatementPage() {
     <div className="animate-in fade-in duration-150 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* Header */}
-      <div className="flex justify-between items-center mb-8 shrink-0">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-8 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">損益表</h1>
           <p className="text-sm text-slate-500 mt-1">掌握你的收入與支出狀況</p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+        <div className="flex justify-self-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition-all duration-200 ${
@@ -254,25 +254,25 @@ export default function IncomeStatementPage() {
           </button>
         </div>
 
-        <div className="flex gap-3">
-          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700">
+        <div className="flex justify-self-end gap-3 shrink-0">
+          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm text-sm font-bold text-slate-700 whitespace-nowrap">
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handlePrev}>{"<"}</span>
             {formatPeriodLabel(currentDate)}
             <span className="text-slate-400 cursor-pointer hover:text-slate-800" onClick={handleNext}>{">"}</span>
           </div>
-          <div className="flex bg-slate-100 p-1 rounded-lg">
-            <button 
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner whitespace-nowrap">
+            <button
               onClick={() => setViewMode("month")}
               className={`rounded px-3 py-1 text-sm font-bold transition-colors ${
-                viewMode === "month" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                viewMode === "month" ? "bg-white text-blue-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               月視圖
             </button>
-            <button 
+            <button
               onClick={() => setViewMode("year")}
               className={`rounded px-3 py-1 text-sm font-bold transition-colors ${
-                viewMode === "year" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                viewMode === "year" ? "bg-white text-blue-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               年視圖
@@ -280,7 +280,7 @@ export default function IncomeStatementPage() {
           </div>
           <button 
             onClick={handleExport}
-            className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap"
           >
             匯出 Excel
           </button>
