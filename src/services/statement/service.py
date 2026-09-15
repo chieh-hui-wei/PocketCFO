@@ -244,8 +244,10 @@ class StatementService:
             inst = data.get("institution", "unknown").strip()
 
             if not account_code:
-                # Attempt to fuzzy match against existing accounts using the masked pattern
-                matching_acc = self._find_matching_db_account(inst, acc_num_match, AccountType.BANK, db_accounts)
+                # Attempt to fuzzy match against existing accounts using the masked pattern,
+                # requiring the currency to match so distinct currency sub-ledgers of one
+                # physical account don't collide onto the same Account row.
+                matching_acc = self._find_matching_db_account(inst, acc_num_match, AccountType.BANK, db_accounts, currency=currency)
                 if matching_acc:
                     account_code = matching_acc.code
                     # Keep existing custom name; only overwrite if it looks like a bare institution name
@@ -255,11 +257,20 @@ class StatementService:
                     else:
                         display_name = existing_name
                 else:
-                    # New account — code is digits-only account number
+                    # New account — code is digits-only account number. If that code is
+                    # already taken by another currency's Account (e.g. this physical
+                    # account also holds a TWD or USD sub-ledger), suffix the currency so
+                    # each sub-ledger gets its own row instead of colliding. Check the live
+                    # DB (not just the in-memory db_accounts snapshot), since an earlier
+                    # sub-ledger from this same statement may have just been created below
+                    # and db_accounts isn't refreshed mid-loop.
                     if acc_num_digits:
-                        account_code = acc_num_digits
+                        code_taken = any(a.code == acc_num_digits for a in db_accounts) or bool(
+                            await self.account_repo.get_by_code(acc_num_digits)
+                        )
+                        account_code = f"{acc_num_digits}_{currency}" if code_taken else acc_num_digits
                     else:
-                        account_code = f"bank_{inst}"
+                        account_code = f"bank_{inst}_{currency}"
 
             if not display_name:
                 display_name = _smart_account_display_name(inst, account_type_label, currency)
@@ -271,6 +282,10 @@ class StatementService:
                 institution=data.get("institution", ""),
                 currency=currency,
             )
+            # Keep the in-memory snapshot in sync so later iterations of this same
+            # statement (e.g. another currency sub-ledger) see accounts just resolved.
+            if account not in db_accounts:
+                db_accounts.append(account)
 
             # Fallback to last transaction's balance if closing_balance is missing
             closing_balance_orig = float(acc_data.get("closing_balance") or 0)
@@ -1112,9 +1127,15 @@ class StatementService:
             for acc in all_accounts:
                 # Match digits-only code against old-style "bank_inst_number" or "broker_inst_number"
                 acc_digits = re.sub(r'[^0-9]', '', acc.code)
-                if acc_digits and clean_code and acc_digits == clean_code:
-                    account = acc
-                    break
+                if not (acc_digits and clean_code and acc_digits == clean_code):
+                    continue
+                # Don't collapse a different currency's sub-ledger onto this account
+                # just because the digits-only code matches (see currency-aware
+                # matching note in _find_matching_db_account).
+                if acc.currency and acc.currency != currency:
+                    continue
+                account = acc
+                break
 
         if not account:
             account = await self.account_repo.create(
@@ -1258,16 +1279,25 @@ class StatementService:
         parsed_acc_num: str,
         account_type: AccountType,
         db_accounts: list[Account],
+        currency: str | None = None,
     ) -> Account | None:
         if not parsed_acc_num:
             return None
-            
+
         for db_acc in db_accounts:
             if db_acc.account_type != account_type:
                 continue
             if not self._institutions_match(db_acc.institution, institution):
                 continue
-                
+            # One physical account number can hold multiple currency sub-ledgers
+            # (e.g. a foreign-currency account with both JPY and USD balances).
+            # Require the currency to match once it's known, otherwise a statement
+            # for a different currency would collide onto the same Account row and
+            # silently overwrite its balance/currency (see balance-sheet duplicate
+            # rows caused by this collision).
+            if currency and db_acc.currency and db_acc.currency != currency:
+                continue
+
             db_nums = self._get_db_account_numbers(db_acc)
             for db_num in db_nums:
                 if self.fuzzy_match_acc_nums(db_num, parsed_acc_num):
