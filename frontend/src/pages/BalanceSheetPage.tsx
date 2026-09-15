@@ -497,8 +497,16 @@ export default function BalanceSheetPage() {
                 const cashItems: any[] = [
                   ...(latestBs?.detail?.cash?.filter((c: any) => c.balance !== 0) || []),
                 ];
-                // Sort by balance descending
-                cashItems.sort((a, b) => b.balance - a.balance);
+                // Group by bank (institution), TWD accounts first and foreign-currency
+                // accounts pushed to the bottom; sort by balance within each group.
+                cashItems.sort((a, b) => {
+                  const aForeign = a.currency && a.currency !== "TWD" ? 1 : 0;
+                  const bForeign = b.currency && b.currency !== "TWD" ? 1 : 0;
+                  if (aForeign !== bForeign) return aForeign - bForeign;
+                  const instCompare = (a.institution || "").localeCompare(b.institution || "");
+                  if (instCompare !== 0) return instCompare;
+                  return b.balance - a.balance;
+                });
 
                 // Try to build a mapping of previous month's individual cash item balances
                 const prevCashItemsMap: Record<string, number> = {};
