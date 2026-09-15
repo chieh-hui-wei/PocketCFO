@@ -361,6 +361,8 @@ async def save_securities_for_account(
             account_id=account_id,
             period_date=period,
             balance=total_market_val,
+            currency="TWD",
+            exchange_rate=1.0,
             source="manual",
         )
     )

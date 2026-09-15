@@ -489,6 +489,8 @@ class StatementService:
             account_id=account.id,
             period_date=period,
             balance=-float(data.get("total_amount") or 0),
+            currency="TWD",
+            exchange_rate=1.0,
             payment_due_date=payment_due_date,
             source="pdf",
             raw_data=json.dumps(data, ensure_ascii=False),

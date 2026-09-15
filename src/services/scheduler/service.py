@@ -376,6 +376,8 @@ async def sync_taishin_assets(year: int, month: int, user_id: int = 1, target_da
                 account_id=account_id,
                 period_date=period,
                 balance=total_balance,
+                currency="TWD",
+                exchange_rate=1.0,
                 source="api",
                 raw_data=json.dumps({"cash_balance": balance["cash_balance"], "positions": positions}, ensure_ascii=False)
             )
@@ -480,6 +482,8 @@ async def sync_esun_assets(year: int, month: int, user_id: int = 1, target_date:
                 account_id=account_id,
                 period_date=period,
                 balance=total_balance,
+                currency="TWD",
+                exchange_rate=1.0,
                 source="api",
                 raw_data=json.dumps({"cash_balance": balance["cash_balance"], "positions": positions}, ensure_ascii=False)
             )
