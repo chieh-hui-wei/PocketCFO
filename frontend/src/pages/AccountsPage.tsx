@@ -18,6 +18,8 @@ import { faBuildingColumns, faBullseye, faVault, faLock, faMoneyBillWave, faTria
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmittingAccount, setIsSubmittingAccount] = useState(false);
+  const [deletingAccountId, setDeletingAccountId] = useState<number | null>(null);
 
   // Virtual Savings Pots States
   const [pots, setPots] = useState<SavingsPot[]>([]);
@@ -117,10 +119,12 @@ export default function AccountsPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingAccount) return;
     if (!formName || !formInstitution) {
       toast.warning("請填寫帳戶名稱與金融機構");
       return;
     }
+    setIsSubmittingAccount(true);
     try {
       await createAccount(
         formName,
@@ -149,12 +153,15 @@ export default function AccountsPage() {
     } catch (e) {
       console.error(e);
       toast.error("建立帳戶失敗");
+    } finally {
+      setIsSubmittingAccount(false);
     }
   };
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAccount) return;
+    if (!selectedAccount || isSubmittingAccount) return;
+    setIsSubmittingAccount(true);
     try {
       await updateAccount(selectedAccount.id, {
         name: formName,
@@ -175,13 +182,17 @@ export default function AccountsPage() {
     } catch (e) {
       console.error(e);
       toast.error("儲存帳戶修改失敗");
+    } finally {
+      setIsSubmittingAccount(false);
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (deletingAccountId !== null) return;
     if (!window.confirm("確定要刪除此帳戶嗎？這個操作是安全刪除（隱藏帳戶），但歷史交易數據會保留。")) {
       return;
     }
+    setDeletingAccountId(id);
     try {
       await deleteAccount(id);
       toast.success("帳戶已成功刪除！");
@@ -189,6 +200,8 @@ export default function AccountsPage() {
     } catch (e) {
       console.error(e);
       toast.error("刪除帳戶失敗");
+    } finally {
+      setDeletingAccountId(null);
     }
   };
 
@@ -375,16 +388,18 @@ export default function AccountsPage() {
                           <div className="flex justify-center gap-2">
                             <button
                               onClick={() => handleOpenEdit(a)}
-                              className="text-blue-600 hover:text-blue-700 font-bold text-xs"
+                              disabled={deletingAccountId !== null}
+                              className="text-blue-600 hover:text-blue-700 font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               編輯
                             </button>
                             <span className="text-slate-300">|</span>
                             <button
                               onClick={() => handleDelete(a.id)}
-                              className="text-red-600 hover:text-red-700 font-bold text-xs"
+                              disabled={deletingAccountId !== null}
+                              className="text-red-600 hover:text-red-700 font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              刪除
+                              {deletingAccountId === a.id ? "刪除中..." : "刪除"}
                             </button>
                           </div>
                         </td>
@@ -718,15 +733,17 @@ export default function AccountsPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
+                  disabled={isSubmittingAccount}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
+                  disabled={isSubmittingAccount}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  確認新增
+                  {isSubmittingAccount ? "新增中..." : "確認新增"}
                 </button>
               </div>
             </form>
@@ -998,15 +1015,17 @@ export default function AccountsPage() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
+                  disabled={isSubmittingAccount}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
+                  disabled={isSubmittingAccount}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  儲存修改
+                  {isSubmittingAccount ? "儲存中..." : "儲存修改"}
                 </button>
               </div>
             </form>
