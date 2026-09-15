@@ -83,6 +83,9 @@ class SnapshotRepository:
         row = existing.scalar_one_or_none()
         if row:
             row.balance = snapshot.balance
+            row.original_balance = snapshot.original_balance
+            row.currency = snapshot.currency
+            row.exchange_rate = snapshot.exchange_rate
             row.payment_due_date = snapshot.payment_due_date
             row.source = snapshot.source
             row.raw_data = snapshot.raw_data
