@@ -44,10 +44,20 @@ class TaishinClient:
 
     async def get_positions(self) -> list[dict[str, Any]]:
         """Fetch current stock positions from 台新 API."""
-        inventories = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: self.sdk.accounting.inventories(self.accounts[0])
-        )
+        try:
+            inventories = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self.sdk.accounting.inventories(self.accounts[0])
+            )
+        except Exception as exc:
+            # 台新's inventories endpoint returns error code 5001 ("查無資料") instead of
+            # an empty result when the account currently holds no positions — treat that
+            # specific case as "no holdings" rather than a sync failure. Any other error
+            # is re-raised as-is.
+            if '"code":"5001"' in str(exc) or "查無資料" in str(exc):
+                log.info("taishin.inventories: no holdings (5001 查無資料), returning empty list")
+                return []
+            raise
         holdings = []
 
         for target in inventories.position_summaries:
