@@ -474,10 +474,10 @@ export default function BalanceSheetPage() {
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 bg-slate-50">項目</th>
-                <th className="px-4 py-3 bg-slate-50">分組分類</th>
-                <th className="px-4 py-3 text-right bg-slate-50">本月金額</th>
-                <th className="px-4 py-3 text-right bg-slate-50">變動金額</th>
-                <th className="px-4 py-3 text-right bg-slate-50">變動%</th>
+                <th className="px-4 py-3 bg-slate-50 whitespace-nowrap w-28">分組分類</th>
+                <th className="px-4 py-3 text-right bg-slate-50 whitespace-nowrap w-32">本月金額</th>
+                <th className="px-4 py-3 text-right bg-slate-50 whitespace-nowrap w-32">變動金額</th>
+                <th className="px-4 py-3 text-right bg-slate-50 whitespace-nowrap w-24">變動%</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -541,6 +541,7 @@ export default function BalanceSheetPage() {
                       return (
                         <tr key={`cash-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">
+                            <span className="text-slate-400 font-mono mr-1.5 inline-block w-6 text-right shrink-0">{i + 1}.</span>
                             <span>{displayName}</span>
                             {c.currency && c.currency !== 'TWD' && c.original_balance != null && (
                               <span className="ml-2 text-[11px] text-slate-400 font-mono">
@@ -630,6 +631,7 @@ export default function BalanceSheetPage() {
                       return (
                         <tr key={`sec-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
                           <td className="px-4 py-2 pl-8 text-sm text-slate-600">
+                            <span className="text-slate-400 font-mono mr-1.5 inline-block w-6 text-right shrink-0">{i + 1}.</span>
                             <span>{s.name.includes("閒置現金") ? s.name : `${s.broker} - ${s.name}`}</span>
                             {s.currency && s.currency !== 'TWD' && s.original_market_value != null && (
                               <span className="ml-2 text-[11px] text-slate-400 font-mono">
@@ -702,7 +704,7 @@ export default function BalanceSheetPage() {
 
                       return (
                         <tr key={`cc-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">{cc.name}</td>
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600"><span className="text-slate-400 font-mono mr-1.5 inline-block w-6 text-right shrink-0">{i + 1}.</span>{cc.name}</td>
 
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
                           <td className="px-4 py-2 text-sm text-right text-slate-600 font-mono">${cc.payable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
@@ -764,7 +766,7 @@ export default function BalanceSheetPage() {
 
                       return (
                         <tr key={`liab-${i}`} className="hover:bg-slate-50 transition-colors bg-slate-50/50">
-                          <td className="px-4 py-2 pl-8 text-sm text-slate-600">{l.name}</td>
+                          <td className="px-4 py-2 pl-8 text-sm text-slate-600"><span className="text-slate-400 font-mono mr-1.5 inline-block w-6 text-right shrink-0">{i + 1}.</span>{l.name}</td>
 
                           <td className="px-4 py-2 text-sm text-slate-400"></td>
                           <td className="px-4 py-2 text-sm text-right text-slate-600 font-mono">${l.balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
