@@ -48,11 +48,15 @@ export default function DashboardPage() {
   const latestBs = bsHistory.find(b => b.period === targetPeriod) || null;
   const latestIs = isHistory.find(b => b.period === targetPeriod) || null;
 
-  // Trend Data for Net Worth
-  const trendData = [...bsHistory].reverse().map(b => ({
-    name: b.period.split("-")[1] + "月",
-    value: b.net_worth
-  }));
+  // Trend Data for Net Worth — historical only: up to and including the
+  // currently viewed month, never future/placeholder periods.
+  const trendData = [...bsHistory]
+    .filter(b => b.period <= targetPeriod)
+    .reverse()
+    .map(b => ({
+      name: b.period.split("-")[1] + "月",
+      value: b.net_worth
+    }));
 
   const trendRangeMonths = trendRange === "6m" ? 6 : trendRange === "1y" ? 12 : undefined;
   const finalTrendData = trendRangeMonths ? trendData.slice(-trendRangeMonths) : trendData;
