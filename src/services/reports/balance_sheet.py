@@ -72,12 +72,12 @@ class BalanceSheetService:
             if acct.account_type == AccountType.CREDIT_CARD:
                 total_cc_payable += snap.balance
                 detail["credit_cards"].append(
-                    {"name": acct.name, "payable": abs(snap.balance)}
+                    {"account_id": acct.id, "name": acct.name, "payable": abs(snap.balance)}
                 )
             elif acct.account_type == AccountType.LIABILITY:
                 total_other_liabilities += abs(snap.balance)
                 detail["liabilities"].append(
-                    {"name": acct.name, "balance": abs(snap.balance)}
+                    {"account_id": acct.id, "name": acct.name, "balance": abs(snap.balance)}
                 )
             elif acct.account_type == AccountType.BROKERAGE:
                 # snap.balance = total_market_value + cash_balance (both converted to TWD)
@@ -95,6 +95,7 @@ class BalanceSheetService:
                 if broker_cash_twd > 0:
                     detail["brokerage_cash"].append(
                         {
+                            "account_id": acct.id,
                             "name": f"{acct.name} (閒置現金)",
                             "balance": round(broker_cash_twd),
                             # snap.original_balance is the account's TOTAL original-currency balance
@@ -108,6 +109,7 @@ class BalanceSheetService:
             else:
                 total_cash += snap.balance
                 detail["cash"].append({
+                    "account_id": acct.id,
                     "name": acct.name,
                     "institution": acct.institution or "",
                     "currency": snap.currency or "TWD",
@@ -241,23 +243,34 @@ class BalanceSheetService:
                 allocated_live_ids = set()
                 deduped_cash = []
                 for item in detail["cash"]:
-                    # Match by checking both institution and checking if the name aligns, AND ensuring we do not double-bind, STRICTLY restricted to BANK accounts
-                    # Note: do NOT require a.currency == item.currency here — the account's
-                    # currency field can legitimately differ from what was cached (e.g. after
-                    # a re-upload), and gating the match on it caused unmatched items to be
-                    # re-added as "new" every call, duplicating indefinitely.
-                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
-                    # Fallback to institution match if only one such account exists
+                    # Prefer the stable account_id stamped by compute()/a previous sync — this
+                    # is an exact match and immune to name/currency drift. Only fall back to
+                    # fuzzy institution+name matching for older cached items that predate it.
+                    matched = None
+                    cached_account_id = item.get("account_id")
+                    if cached_account_id is not None:
+                        candidate = accounts.get(cached_account_id)
+                        if candidate and candidate.account_type == AccountType.BANK:
+                            matched = candidate
+                    if not matched:
+                        matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    # Fallback to institution match if only one such (still unallocated) account exists
                     if not matched:
                         matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.id not in allocated_live_ids), None)
 
                     if matched:
-                        allocated_live_ids.add(matched.id)
                         if matched.id in seen_ids:
+                            # Another item this pass already bound to this same account — this
+                            # one is a genuine duplicate (e.g. a stale cached row), drop it
+                            # rather than letting it fall through to an unrelated account.
                             detail_changed = True
                             continue # Skip duplicate rows
                         seen_ids.add(matched.id)
+                        allocated_live_ids.add(matched.id)
 
+                        if item.get("account_id") != matched.id:
+                            item["account_id"] = matched.id
+                            detail_changed = True
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
@@ -279,6 +292,7 @@ class BalanceSheetService:
                     if not acct or acct.account_type != AccountType.BANK or acct_id in allocated_live_ids:
                         continue
                     deduped_cash.append({
+                        "account_id": acct_id,
                         "name": acct.name,
                         "institution": acct.institution or "",
                         "currency": snap.currency or "TWD",
@@ -296,14 +310,24 @@ class BalanceSheetService:
                 allocated_live_ids = set()
                 deduped_brokerage = []
                 for item in detail["brokerage_cash"]:
-                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BROKERAGE and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    matched = None
+                    cached_account_id = item.get("account_id")
+                    if cached_account_id is not None:
+                        candidate = accounts.get(cached_account_id)
+                        if candidate and candidate.account_type == AccountType.BROKERAGE:
+                            matched = candidate
+                    if not matched:
+                        matched = next((a for a in accounts.values() if a.account_type == AccountType.BROKERAGE and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     if matched:
-                        allocated_live_ids.add(matched.id)
                         if matched.id in seen_ids:
                             detail_changed = True
                             continue
                         seen_ids.add(matched.id)
+                        allocated_live_ids.add(matched.id)
 
+                        if item.get("account_id") != matched.id:
+                            item["account_id"] = matched.id
+                            detail_changed = True
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
@@ -324,14 +348,24 @@ class BalanceSheetService:
                 allocated_live_ids = set()
                 deduped_cc = []
                 for item in detail["credit_cards"]:
-                    matched = next((a for a in accounts.values() if a.account_type == AccountType.CREDIT_CARD and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    matched = None
+                    cached_account_id = item.get("account_id")
+                    if cached_account_id is not None:
+                        candidate = accounts.get(cached_account_id)
+                        if candidate and candidate.account_type == AccountType.CREDIT_CARD:
+                            matched = candidate
+                    if not matched:
+                        matched = next((a for a in accounts.values() if a.account_type == AccountType.CREDIT_CARD and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     if matched:
-                        allocated_live_ids.add(matched.id)
                         if matched.id in seen_ids:
                             detail_changed = True
                             continue
                         seen_ids.add(matched.id)
+                        allocated_live_ids.add(matched.id)
 
+                        if item.get("account_id") != matched.id:
+                            item["account_id"] = matched.id
+                            detail_changed = True
                         if item.get("name") != matched.name:
                             item["name"] = matched.name
                             detail_changed = True
@@ -349,14 +383,24 @@ class BalanceSheetService:
             allocated_live_ids = set()
             deduped_liab = []
             for item in detail["liabilities"]:
-                matched = next((a for a in accounts.values() if a.account_type == AccountType.LIABILITY and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                matched = None
+                cached_account_id = item.get("account_id")
+                if cached_account_id is not None:
+                    candidate = accounts.get(cached_account_id)
+                    if candidate and candidate.account_type == AccountType.LIABILITY:
+                        matched = candidate
+                if not matched:
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.LIABILITY and (a.name in item.get("name") or item.get("name") in a.name)), None)
                 if matched:
-                    allocated_live_ids.add(matched.id)
                     if matched.id in seen_ids:
                         detail_changed = True
                         continue
                     seen_ids.add(matched.id)
+                    allocated_live_ids.add(matched.id)
 
+                    if item.get("account_id") != matched.id:
+                        item["account_id"] = matched.id
+                        detail_changed = True
                     if item.get("name") != matched.name:
                         item["name"] = matched.name
                         detail_changed = True
@@ -371,7 +415,7 @@ class BalanceSheetService:
                 acct = accounts.get(acct_id)
                 if not acct or acct.account_type != AccountType.LIABILITY or acct_id in allocated_live_ids:
                     continue
-                deduped_liab.append({"name": acct.name, "balance": abs(snap.balance)})
+                deduped_liab.append({"account_id": acct_id, "name": acct.name, "balance": abs(snap.balance)})
                 allocated_live_ids.add(acct_id)
                 detail_changed = True
             detail["liabilities"] = deduped_liab
