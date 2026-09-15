@@ -242,10 +242,14 @@ class BalanceSheetService:
                 deduped_cash = []
                 for item in detail["cash"]:
                     # Match by checking both institution and checking if the name aligns, AND ensuring we do not double-bind, STRICTLY restricted to BANK accounts
-                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
+                    # Note: do NOT require a.currency == item.currency here — the account's
+                    # currency field can legitimately differ from what was cached (e.g. after
+                    # a re-upload), and gating the match on it caused unmatched items to be
+                    # re-added as "new" every call, duplicating indefinitely.
+                    matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.id not in allocated_live_ids and (a.name in item.get("name") or item.get("name") in a.name)), None)
                     # Fallback to institution match if only one such account exists
                     if not matched:
-                        matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.currency == item.get("currency") and a.id not in allocated_live_ids), None)
+                        matched = next((a for a in accounts.values() if a.account_type == AccountType.BANK and a.institution == item.get("institution") and a.id not in allocated_live_ids), None)
 
                     if matched:
                         allocated_live_ids.add(matched.id)
@@ -262,6 +266,10 @@ class BalanceSheetService:
                             item["balance"] = snap.balance
                             if snap.original_balance is not None:
                                 item["original_balance"] = snap.original_balance
+                            detail_changed = True
+                        if snap and item.get("currency") != (snap.currency or "TWD"):
+                            item["currency"] = snap.currency or "TWD"
+                            item["exchange_rate"] = snap.exchange_rate
                             detail_changed = True
                     deduped_cash.append(item)
                 # Add any bank accounts that have a snapshot for this period but were never
