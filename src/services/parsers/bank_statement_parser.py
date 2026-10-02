@@ -234,7 +234,7 @@ async def parse_einvoice_csv(csv_path: Path) -> dict[str, Any]:
         '發票日期': 'first',
         '賣方名稱': 'first',
         '載具自訂名稱': 'first',
-        '發票金額': 'first',
+        '發票金額': 'sum',  # each row's 發票金額 is that line's amount (discounts are negative lines)
         '消費明細_品名': lambda x: ', '.join(str(i).strip() for i in x if pd.notna(i))
     }).reset_index()
     
