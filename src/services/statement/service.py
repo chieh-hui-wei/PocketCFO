@@ -6,7 +6,8 @@ Handles bank statements, credit card bills, and brokerage statements.
 from __future__ import annotations
 
 import json
-from datetime import date
+import calendar
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 import re
@@ -102,6 +103,24 @@ def _smart_account_display_name(
 
     return f"{short} {type_part}"
 
+
+
+# E-invoice merchants that are routinely paid via a known account: match by amount within ±days
+EINVOICE_PAYMENT_RULES = [
+    # 7-11 / 全家 → LINE Bank debit card
+    {"merchants": ["統一超商", "7-11", "7-eleven", "全家", "fami"], "source": TransactionSource.BANK, "institutions": ["連線", "LINE Bank"], "days": 3},
+    # 全聯 → 國泰世華 credit card
+    {"merchants": ["全聯", "pxpay"], "source": TransactionSource.CREDIT_CARD, "institutions": ["國泰", "cathay"], "days": 3},
+]
+
+
+def match_payment_rule(merchant: str) -> dict | None:
+    import unicodedata
+    m = unicodedata.normalize('NFKC', merchant or "").lower().replace(" ", "")
+    for rule in EINVOICE_PAYMENT_RULES:
+        if any(k in m for k in rule["merchants"]):
+            return rule
+    return None
 
 
 def is_merchant_overlap(m1: str, m2: str) -> bool:
@@ -987,7 +1006,6 @@ class StatementService:
             data["kind"] = "bank"
             # Inject end-of-month exchange rate for any non-TWD accounts during preview
             if data.get("accounts"):
-                import calendar
                 from datetime import date as _date
                 py = data.get("period_year")
                 pm = data.get("period_month")
@@ -1017,7 +1035,6 @@ class StatementService:
             exchange_rate = 1.0
             if currency == "USD":
                 period = first_of_month(data["period_year"], data["period_month"])
-                import calendar
                 last_day = calendar.monthrange(period.year, period.month)[1]
                 target_date = date(period.year, period.month, last_day)
                 try:
@@ -1045,7 +1062,18 @@ class StatementService:
                 from datetime import datetime
                 period_date = date(data["period_year"], data["period_month"], 1)
                 cc_txns = await self.txn_repo.get_by_period_and_source(period_date, TransactionSource.CREDIT_CARD)
-                
+
+                last_day = calendar.monthrange(period_date.year, period_date.month)[1]
+                rule_txns: dict[int, list] = {}
+                for idx, rule in enumerate(EINVOICE_PAYMENT_RULES):
+                    rule_txns[idx] = list(await self.txn_repo.get_txns_by_institution(
+                        period_date - timedelta(days=rule["days"]),
+                        period_date.replace(day=last_day) + timedelta(days=rule["days"]),
+                        rule["source"],
+                        rule["institutions"],
+                    ))
+                matched_rule_ids = set()
+
                 matched_cc_ids = set()
                 for item in data.get("items", []):
                     item_date_str = item.get("date")
@@ -1067,6 +1095,19 @@ class StatementService:
                             if is_merchant_overlap(item_merchant, c_merchant):
                                 matched_cc_ids.add(c.id)
                                 is_dup = True
+                                break
+
+                    rule = match_payment_rule(item_merchant)
+                    if not is_dup and rule:
+                        for t in rule_txns[EINVOICE_PAYMENT_RULES.index(rule)]:
+                            if t.id in matched_rule_ids or t.id in matched_cc_ids or t.amount >= 0:
+                                continue
+                            day_diff = abs((t.txn_date - item_date).days)
+                            amt_diff = abs(abs(t.amount) - abs(item_amt))
+                            if day_diff <= rule["days"] and amt_diff < 0.01:
+                                matched_rule_ids.add(t.id)
+                                is_dup = True
+                                log.info(f"einvoice.deduplicate.payment_rule_match txn={t.id} source={rule['source'].value} amount={item_amt}")
                                 break
                     item["is_duplicate"] = is_dup
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Sequence
 
-from sqlalchemy import select, func, update, delete
+from sqlalchemy import select, func, update, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -22,6 +22,7 @@ from src.dbs.models import (
     PriceAlertStatus,
     Security,
     Transaction,
+    TransactionSource,
     UploadHistory,
 )
 
@@ -243,6 +244,21 @@ class TransactionRepository:
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.source == source,
+            )
+        )
+        return result.scalars().all()
+
+    async def get_txns_by_institution(
+        self, start: date, end: date, source: str, institution_keywords: list[str]
+    ) -> Sequence[Transaction]:
+        """Transactions of `source` in [start, end] whose account institution matches any keyword."""
+        result = await self.db.execute(
+            select(Transaction).join(Account, Transaction.account_id == Account.id).where(
+                Transaction.user_id == self.user_id,
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+                Transaction.source == source,
+                or_(*[Account.institution.ilike(f"%{k}%") for k in institution_keywords]),
             )
         )
         return result.scalars().all()
