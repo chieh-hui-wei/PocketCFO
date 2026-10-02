@@ -93,7 +93,9 @@ def _apply_override(merchant: str, description: str, rules: "list[CategoryRule]"
         return "travel"
     if any(k in combined for k in ["udemy", "hahow", "coursera", "補習班", "書局", "書店", "課程", "大專", "大學", "學費"]):
         return "study"
-        
+    if any(k in combined for k in ["曌躍"]):
+        return "exercise"
+
     for rule in rules:
         if _normalize(rule.keyword) in combined:
             return rule.category
