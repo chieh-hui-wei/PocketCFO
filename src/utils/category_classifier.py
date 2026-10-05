@@ -156,7 +156,8 @@ async def classify_transactions_batch(
         raw = response.text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         parsed = json.loads(raw)
         for entry in parsed.get("results", []):
-            item_id = entry.get("id")
+            # Gemini may echo numeric-looking string ids back as numbers
+            item_id = str(entry["id"]) if entry.get("id") is not None else None
             category = entry.get("category", "other")
             if category not in VALID_CATEGORIES:
                 category = "other"

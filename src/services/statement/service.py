@@ -849,6 +849,7 @@ class StatementService:
         period = first_of_month(data["period_year"], data["period_month"])
 
         txns = []
+        unclassified: list[Transaction] = []
         raw_items = data.get("items") or data.get("transactions") or []
         for item in raw_items:
             # Skip database writes for duplicate transactions
@@ -902,25 +903,27 @@ class StatementService:
                 except ValueError:
                     category = TransactionCategory.EXPENSE
 
-            txns.append(
-                Transaction(
-                    account_id=None,
-                    txn_date=actual_date,
-                    merchant=item.get("merchant") or "",
-                    description=item.get("description") or "",
-                    amount=-abs(float(item.get("amount") or 0)),
-                    balance_after=None,
-                    category=category,
-                    is_internal_transfer=False,
-                    is_refund=False,
-                    raw_data=json.dumps(item, ensure_ascii=False),
-                    source=TransactionSource.E_INVOICE,
-                    payment_method=item.get("payment_method", "其他"),
-                    invoice_number=item.get("invoice_number"),
-                    is_duplicate=False,  # They are saved, so they are not duplicates
-                    upload_history_id=upload_history_id,
-                )
+            txn = Transaction(
+                account_id=None,
+                txn_date=actual_date,
+                merchant=item.get("merchant") or "",
+                description=item.get("description") or "",
+                amount=-abs(float(item.get("amount") or 0)),
+                balance_after=None,
+                category=category,
+                is_internal_transfer=False,
+                is_refund=False,
+                raw_data=json.dumps(item, ensure_ascii=False),
+                source=TransactionSource.E_INVOICE,
+                payment_method=item.get("payment_method", "其他"),
+                invoice_number=item.get("invoice_number"),
+                is_duplicate=False,  # They are saved, so they are not duplicates
+                upload_history_id=upload_history_id,
             )
+            txns.append(txn)
+            # Keep the category confirmed in the preview; only classify items that have none
+            if not cat_str:
+                unclassified.append(txn)
 
         if txns:
             await self.txn_repo.bulk_insert(txns)
@@ -932,11 +935,11 @@ class StatementService:
             rules = list(await rule_repo.list_all())
             classify_items = [
                 {"id": str(t.id), "merchant": t.merchant or "", "description": t.description or ""}
-                for t in txns
+                for t in unclassified
             ]
             if classify_items:
                 classification = await classify_transactions_batch(classify_items, rules)
-                for t in txns:
+                for t in unclassified:
                     cat = classification.get(str(t.id))
                     if cat:
                         t.category = _category_to_enum(cat)
