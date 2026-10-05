@@ -384,6 +384,7 @@ export async function updateTransaction(
     description?: string;
     amount?: number;
     category?: string;
+    source?: string;
   }
 ) {
   const { data } = await api.put(`/transactions/${txnId}`, payload);

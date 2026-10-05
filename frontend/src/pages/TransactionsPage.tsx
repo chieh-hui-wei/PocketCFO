@@ -110,6 +110,7 @@ export default function TransactionsPage() {
   const [editCategory, setEditCategory] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState<number>(0);
+  const [editSource, setEditSource] = useState("");
 
 
   // Manual Transaction Adding States
@@ -226,7 +227,8 @@ export default function TransactionsPage() {
       case "bank": return "銀行";
       case "credit_card": return "信用卡";
       case "brokerage": return "證券";
-      case "einvoice": return "發票";
+      case "einvoice":
+      case "e_invoice": return "發票";
       default: return src;
     }
   };
@@ -248,6 +250,7 @@ export default function TransactionsPage() {
     setEditCategory(cat);
     setEditDescription(t.description || t.merchant || "");
     setEditAmount(t.amount);
+    setEditSource(t.source);
   };
 
   const handleCancelEdit = () => {
@@ -263,7 +266,8 @@ export default function TransactionsPage() {
         description: editDescription,
         merchant: editDescription,
         amount: editAmount,
-        category: editCategory
+        category: editCategory,
+        source: editSource
       });
       setEditingTxnId(null);
       fetchTxns();
@@ -696,9 +700,21 @@ export default function TransactionsPage() {
 
                       {/* Source */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
-                          {t.institution || getSourceLabel(t.source)}
-                        </span>
+                        {isEditing ? (
+                          <select
+                            value={editSource}
+                            onChange={e => setEditSource(e.target.value)}
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
+                          >
+                            <option value="bank">銀行</option>
+                            <option value="credit_card">信用卡</option>
+                            <option value="e_invoice">發票</option>
+                          </select>
+                        ) : (
+                          <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
+                            {t.institution || getSourceLabel(t.source)}
+                          </span>
+                        )}
                       </td>
 
                       {/* Category */}

@@ -398,6 +398,12 @@ async def update_transaction(
             txn.category, txn.is_internal_transfer = TransactionService.resolve_category_update(
                 body.category, txn.amount
             )
+
+        if body.source is not None:
+            try:
+                txn.source = TransactionSource("e_invoice" if body.source == "einvoice" else body.source)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid source: {body.source}")
                 
         await db.flush()
         await TransactionService.recompute_affected_periods(db, current_user.id, {(txn.txn_date.year, txn.txn_date.month)})
