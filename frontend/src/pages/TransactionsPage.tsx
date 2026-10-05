@@ -44,6 +44,7 @@ export default function TransactionsPage() {
     return "all";
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     getAccounts(true)
@@ -73,7 +74,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     setSelectedTxnIds([]);
     setCurrentPage(1);
-  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter, categoryFilter]);
+  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter, categoryFilter, searchTerm]);
 
   useEffect(() => {
     // Reset category filter if it no longer matches any loaded transaction
@@ -387,6 +388,12 @@ export default function TransactionsPage() {
       if (selectedAccountId === "source:brokerage") return t.source === "brokerage";
       if (selectedAccountId === "source:bank") return t.source === "bank";
       return t.account_id === parseInt(selectedAccountId);
+    })
+    .filter(t => {
+      const keywords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (keywords.length === 0) return true;
+      const haystack = `${t.description || ""} ${t.merchant || ""} ${getCategoryLabel(t) || ""}`.toLowerCase();
+      return keywords.every(kw => haystack.includes(kw));
     });
 
   const totalPages = Math.max(1, Math.ceil(filteredTxns.length / pageSize));
@@ -490,6 +497,29 @@ export default function TransactionsPage() {
           >
             + 手動新增
           </button>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-3 shrink-0">
+        <div className="relative max-w-md">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="搜尋摘要／商家／類別，多個關鍵字用空白分隔"
+            className="w-full bg-white border border-slate-200 pl-9 pr-8 py-2 rounded-xl text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500"
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              title="清除搜尋"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
