@@ -107,10 +107,10 @@ def _smart_account_display_name(
 
 # E-invoice merchants that are routinely paid via a known account: match by amount within ±days
 EINVOICE_PAYMENT_RULES = [
-    # 7-11 / 全家 → LINE Bank debit card
-    {"merchants": ["統一超商", "7-11", "7-eleven", "全家", "fami"], "source": TransactionSource.BANK, "institutions": ["連線", "LINE Bank"], "days": 3},
+    # 7-11 / 全家 / 萊爾富 / 三商家購(美聯社) → LINE Bank debit card (posting date can lag the purchase by days)
+    {"merchants": ["統一超商", "7-11", "7-eleven", "全家", "fami", "萊爾富", "hi-life", "hilife", "三商家購", "美聯社"], "source": TransactionSource.BANK, "institutions": ["連線", "LINE Bank"], "days": 7},
     # 全聯 → 國泰世華 credit card
-    {"merchants": ["全聯", "pxpay"], "source": TransactionSource.CREDIT_CARD, "institutions": ["國泰", "cathay"], "days": 3},
+    {"merchants": ["全聯", "pxpay"], "source": TransactionSource.CREDIT_CARD, "institutions": ["國泰", "cathay"], "days": 7},
 ]
 
 

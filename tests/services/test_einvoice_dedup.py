@@ -2,8 +2,8 @@
 Tests for e-invoice line-item totals and payment-account duplicate matching.
 
 - Carrier CSV rows carry per-line amounts, so an invoice total is the sum of its lines.
-- 7-11 / 全家 invoices match LINE Bank debits, 全聯 invoices match 國泰世華 card charges,
-  by amount within ±3 days.
+- 7-11 / 全家 / 萊爾富 / 三商家購 invoices match LINE Bank debits, 全聯 invoices match 國泰世華 card charges,
+  by amount within ±7 days.
 """
 import pytest
 from datetime import date
@@ -50,6 +50,9 @@ def test_match_payment_rule():
 
     assert match_payment_rule("統一超商股份有限公司")["source"] == TransactionSource.BANK
     assert match_payment_rule("全家便利商店")["source"] == TransactionSource.BANK
+    assert match_payment_rule("萊爾富國際股份有限公司")["source"] == TransactionSource.BANK
+    assert match_payment_rule("三商家購股份有限公司")["source"] == TransactionSource.BANK
+    assert match_payment_rule("美聯社")["source"] == TransactionSource.BANK
     assert match_payment_rule("全聯實業股份有限公司")["source"] == TransactionSource.CREDIT_CARD
     assert match_payment_rule("星巴克") is None
 
@@ -79,17 +82,18 @@ async def _parse_with(items: list[dict], line_bank: list, cathay: list) -> list[
 
 
 @pytest.mark.asyncio
-async def test_cvs_invoice_matches_line_bank_within_3_days():
+async def test_cvs_invoice_matches_line_bank_within_7_days():
     items = await _parse_with(
         [
             {"date": "2026-05-10", "merchant": "統一超商股份有限公司", "amount": 85},
             {"date": "2026-05-10", "merchant": "全家便利商店", "amount": 85},  # only one bank debit to match
-            {"date": "2026-05-20", "merchant": "全家便利商店", "amount": 60},  # 4 days off
+            {"date": "2026-05-20", "merchant": "全家便利商店", "amount": 60},  # 8 days off
+            {"date": "2026-05-01", "merchant": "萊爾富國際股份有限公司", "amount": 39},
         ],
-        line_bank=[_txn(1, date(2026, 5, 13), -85), _txn(2, date(2026, 5, 24), -60)],
+        line_bank=[_txn(1, date(2026, 5, 17), -85), _txn(2, date(2026, 5, 28), -60), _txn(5, date(2026, 4, 26), -39)],
         cathay=[],
     )
-    assert [i["is_duplicate"] for i in items] == [True, False, False]
+    assert [i["is_duplicate"] for i in items] == [True, False, False, True]
 
 
 @pytest.mark.asyncio
@@ -100,6 +104,6 @@ async def test_pxmart_invoice_matches_cathay_card_and_ignores_others():
             {"date": "2026-05-31", "merchant": "星巴克", "amount": 150},  # no payment rule
         ],
         line_bank=[_txn(3, date(2026, 5, 31), -150)],
-        cathay=[_txn(4, date(2026, 6, 2), -573)],  # cross-month, 2 days later
+        cathay=[_txn(4, date(2026, 6, 7), -573)],  # cross-month, 7 days later
     )
     assert [i["is_duplicate"] for i in items] == [True, False]
