@@ -24,7 +24,7 @@ class UpdateTransactionRequest(BaseModel):
     description: Optional[str] = None
     amount: Optional[float] = None
     category: Optional[str] = None
-    source: Optional[str] = None
+    account_id: Optional[int] = None
 
 
 class BulkDeleteRequest(BaseModel):

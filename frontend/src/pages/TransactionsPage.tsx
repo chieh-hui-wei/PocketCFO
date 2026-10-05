@@ -37,6 +37,7 @@ export default function TransactionsPage() {
   const [selectedTxnIds, setSelectedTxnIds] = useState<number[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
+  const bankAccounts = allAccounts.filter(acc => acc.type === "bank");
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">(() => {
     const params = new URLSearchParams(window.location.search);
     const paramType = params.get("type");
@@ -44,7 +45,6 @@ export default function TransactionsPage() {
     return "all";
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     getAccounts(true)
@@ -74,7 +74,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     setSelectedTxnIds([]);
     setCurrentPage(1);
-  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter, categoryFilter, searchTerm]);
+  }, [currentDate, selectedAccountId, excludeTransfers, excludeInvestments, excludeCardPayments, typeFilter, categoryFilter]);
 
   useEffect(() => {
     // Reset category filter if it no longer matches any loaded transaction
@@ -110,7 +110,7 @@ export default function TransactionsPage() {
   const [editCategory, setEditCategory] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState<number>(0);
-  const [editSource, setEditSource] = useState("");
+  const [editAccountId, setEditAccountId] = useState<number | "">("");
 
 
   // Manual Transaction Adding States
@@ -121,7 +121,6 @@ export default function TransactionsPage() {
   const [formAmount, setFormAmount] = useState<number>(0);
   const [formType, setFormType] = useState<"income" | "expense">("expense");
   const [formCategory, setFormCategory] = useState("固定支出");
-  const [formSource, setFormSource] = useState("bank");
   const [formAccountId, setFormAccountId] = useState<number | "">("");
   const [accounts, setAccounts] = useState<Account[]>([]);
 
@@ -140,7 +139,6 @@ export default function TransactionsPage() {
     setFormAmount(0);
     setFormType("expense");
     setFormCategory("支出");
-    setFormSource("bank");
     setFormAccountId("");
     setShowAddModal(true);
 
@@ -188,7 +186,7 @@ export default function TransactionsPage() {
         merchant: formMerchant || undefined,
         amount: amountVal,
         category: formCategory,
-        source: formSource,
+        source: "bank",
         account_id: formAccountId === "" ? null : formAccountId,
       });
 
@@ -250,7 +248,7 @@ export default function TransactionsPage() {
     setEditCategory(cat);
     setEditDescription(t.description || t.merchant || "");
     setEditAmount(t.amount);
-    setEditSource(t.source);
+    setEditAccountId(t.account_id ?? "");
   };
 
   const handleCancelEdit = () => {
@@ -267,7 +265,7 @@ export default function TransactionsPage() {
         merchant: editDescription,
         amount: editAmount,
         category: editCategory,
-        source: editSource
+        ...(editAccountId !== "" ? { account_id: editAccountId } : {})
       });
       setEditingTxnId(null);
       fetchTxns();
@@ -392,12 +390,6 @@ export default function TransactionsPage() {
       if (selectedAccountId === "source:brokerage") return t.source === "brokerage";
       if (selectedAccountId === "source:bank") return t.source === "bank";
       return t.account_id === parseInt(selectedAccountId);
-    })
-    .filter(t => {
-      const keywords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      if (keywords.length === 0) return true;
-      const haystack = `${t.description || ""} ${t.merchant || ""} ${getCategoryLabel(t) || ""}`.toLowerCase();
-      return keywords.every(kw => haystack.includes(kw));
     });
 
   const totalPages = Math.max(1, Math.ceil(filteredTxns.length / pageSize));
@@ -501,29 +493,6 @@ export default function TransactionsPage() {
           >
             + 手動新增
           </button>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-3 shrink-0">
-        <div className="relative max-w-md">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜尋摘要／商家／類別，多個關鍵字用空白分隔"
-            className="w-full bg-white border border-slate-200 pl-9 pr-8 py-2 rounded-xl text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500"
-          />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-              title="清除搜尋"
-            >
-              ✕
-            </button>
-          )}
         </div>
       </div>
 
@@ -700,15 +669,18 @@ export default function TransactionsPage() {
 
                       {/* Source */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {isEditing ? (
+                        {isEditing && t.source === "bank" ? (
                           <select
-                            value={editSource}
-                            onChange={e => setEditSource(e.target.value)}
+                            value={editAccountId}
+                            onChange={e => setEditAccountId(e.target.value ? parseInt(e.target.value) : "")}
                             className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500"
                           >
-                            <option value="bank">銀行</option>
-                            <option value="credit_card">信用卡</option>
-                            <option value="e_invoice">發票</option>
+                            {editAccountId === "" && <option value="">未指定帳戶</option>}
+                            {bankAccounts.map(acc => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.institution} - {acc.name} ({acc.currency})
+                              </option>
+                            ))}
                           </select>
                         ) : (
                           <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
@@ -1009,30 +981,17 @@ export default function TransactionsPage() {
                     )}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5">交易來源</label>
-                  <select
-                    value={formSource}
-                    onChange={e => setFormSource(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
-                  >
-                    <option value="bank">銀行</option>
-                    <option value="credit_card">信用卡</option>
-                    <option value="brokerage">證券</option>
-                    <option value="einvoice">發票</option>
-                  </select>
-                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">關聯帳戶 (選填)</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">銀行帳戶 (選填)</label>
                 <select
                   value={formAccountId}
                   onChange={e => setFormAccountId(e.target.value ? parseInt(e.target.value) : "")}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                 >
                   <option value="">無 (不指定)</option>
-                  {accounts.map(acc => (
+                  {accounts.filter(acc => acc.type === "bank").map(acc => (
                     <option key={acc.id} value={acc.id}>
                       {acc.institution} - {acc.name} ({acc.currency})
                     </option>

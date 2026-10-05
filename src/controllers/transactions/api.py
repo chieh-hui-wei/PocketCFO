@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.instances.database import get_db
 from src.dbs.repository import TransactionRepository, AccountRepository
 from src.middleware.auth import verify_token
-from src.dbs.models import Transaction, TransactionCategory, TransactionSource, Account, User
+from src.dbs.models import Transaction, TransactionCategory, TransactionSource, Account, AccountType, User
 from src.utils.date_utils import first_of_month
 from src.utils.transfer_detector import TransferDetector
 from src.controllers.transactions.model import (
@@ -399,11 +399,15 @@ async def update_transaction(
                 body.category, txn.amount
             )
 
-        if body.source is not None:
-            try:
-                txn.source = TransactionSource("e_invoice" if body.source == "einvoice" else body.source)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid source: {body.source}")
+        # Only bank transactions can be moved; credit card / e-invoice rows belong to their uploaded statement
+        if body.account_id is not None and body.account_id != txn.account_id:
+            if txn.source != TransactionSource.BANK:
+                raise HTTPException(status_code=400, detail="只有銀行交易可以更改帳戶")
+            res = await db.execute(select(Account).where(Account.id == body.account_id, Account.user_id == current_user.id))
+            account = res.scalar_one_or_none()
+            if not account or account.account_type != AccountType.BANK:
+                raise HTTPException(status_code=400, detail="Bank account not found")
+            txn.account_id = account.id
                 
         await db.flush()
         await TransactionService.recompute_affected_periods(db, current_user.id, {(txn.txn_date.year, txn.txn_date.month)})
