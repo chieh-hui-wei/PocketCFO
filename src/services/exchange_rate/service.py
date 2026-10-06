@@ -74,7 +74,7 @@ async def get_currency_twd_rate(target_date: date, from_currency: str = "usd") -
     except Exception as e:
         log.error(f"Error fetching exchange rate {currency}/TWD from FinMind: {e}")
 
-    fallback = _FALLBACK_RATES.get(currency, 1.0)
+    fallback = _FALLBACK_RATES.get(currency.lower(), 1.0)
     log.warning(f"Using hardcoded fallback exchange rate for {currency.upper()}/TWD ({fallback})")
     return fallback
 
