@@ -5,7 +5,8 @@ Service for fetching historical exchange rates.
 
 import httpx
 import logging
-from datetime import date
+import time
+from datetime import date, timedelta
 from typing import Optional
 
 log = logging.getLogger(__name__)
@@ -76,6 +77,42 @@ async def get_currency_twd_rate(target_date: date, from_currency: str = "usd") -
     fallback = _FALLBACK_RATES.get(currency, 1.0)
     log.warning(f"Using hardcoded fallback exchange rate for {currency.upper()}/TWD ({fallback})")
     return fallback
+
+
+_SPOT_CACHE: dict[str, tuple[float, dict]] = {}
+_SPOT_CACHE_TTL_SECONDS = 30 * 60
+
+
+async def get_bot_spot_rates(currency: str) -> Optional[dict]:
+    """
+    Latest Bank of Taiwan posted spot rates for `currency` (via FinMind, one record per day),
+    e.g. {"date": "2026-10-05", "spot_buy": 31.72, "spot_sell": 31.82}. Cached for 30 minutes.
+    """
+    currency = currency.upper()
+    cached = _SPOT_CACHE.get(currency)
+    if cached and time.monotonic() - cached[0] < _SPOT_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    today = date.today()
+    url = (
+        "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanExchangeRate"
+        f"&data_id={currency}&start_date={today - timedelta(days=7)}&end_date={today}"
+    )
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=5.0)
+        records = response.json().get("data", []) if response.status_code == 200 else []
+    except Exception as e:
+        log.error(f"Error fetching Bank of Taiwan spot rate {currency}/TWD from FinMind: {e}")
+        return None
+
+    latest = next((r for r in reversed(records) if r.get("spot_buy") and r.get("spot_sell")), None)
+    if not latest:
+        log.warning(f"No Bank of Taiwan spot rate found for {currency}/TWD")
+        return None
+    rates = {"date": latest["date"], "spot_buy": float(latest["spot_buy"]), "spot_sell": float(latest["spot_sell"])}
+    _SPOT_CACHE[currency] = (time.monotonic(), rates)
+    return rates
 
 
 async def get_usd_twd_rate(target_date: date) -> float:

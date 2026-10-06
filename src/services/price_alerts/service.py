@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -28,6 +29,7 @@ from src.dbs.repository import PriceAlertRepository
 from src.instances.database import AsyncSessionLocal
 from src.services.brokers.esun_client import get_esun_client
 from src.services.brokers.taishin_client import get_taishin_client
+from src.services.exchange_rate.service import get_bot_spot_rates
 from src.services.email.service import send_price_alert_notify_email, send_price_alert_result_email
 from src.utils.stock_utils import fetch_live_quote, fetch_ma20
 
@@ -190,6 +192,19 @@ async def check_and_execute_price_alerts() -> None:
                 log.error(f"Failed to process price alert id={alert.id} ticker={alert.ticker}: {e}")
 
 
+FX_TICKER_PATTERN = re.compile(r"^([A-Z]{3})TWD=X$")
+
+
+async def _fetch_bot_fx_rate(alert: PriceAlert) -> float | None:
+    """Bank of Taiwan spot rate matching the alert direction: waiting for the rate to fall
+    means buying foreign currency (bank's spot sell); waiting for it to rise means selling it
+    (bank's spot buy)."""
+    rates = await get_bot_spot_rates(FX_TICKER_PATTERN.match(alert.ticker).group(1))
+    if not rates:
+        return None
+    return rates["spot_sell"] if alert.direction == PriceAlertDirection.BELOW else rates["spot_buy"]
+
+
 async def _process_alert(db: AsyncSession, alert: PriceAlert) -> None:
     if alert.alert_type == PriceAlertType.NOTIFY_MA20:
         reference_value = await fetch_ma20(alert.ticker)
@@ -197,6 +212,12 @@ async def _process_alert(db: AsyncSession, alert: PriceAlert) -> None:
         if reference_value is None or compare_price is None:
             log.warning(f"Could not compute MA20/price for {alert.ticker}, skipping alert id={alert.id}")
             return
+    elif FX_TICKER_PATTERN.match(alert.ticker):
+        compare_price = await _fetch_bot_fx_rate(alert)
+        if compare_price is None:
+            log.warning(f"Could not fetch Bank of Taiwan rate for {alert.ticker}, skipping alert id={alert.id}")
+            return
+        reference_value = alert.target_price
     else:
         compare_price = await fetch_live_quote(alert.ticker)
         if compare_price is None:
