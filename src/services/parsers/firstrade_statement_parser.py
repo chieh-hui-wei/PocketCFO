@@ -24,8 +24,8 @@ Return ONLY valid JSON with this exact schema:
   "total_market_value": float or null,
   "holdings": [
     {
-      "ticker": "string or null (e.g. VT, VTI)",
-      "name": "string",
+      "ticker": "string (US ticker symbol, e.g. VT, QQQM)",
+      "name": "string (standard fund/company name, e.g. Vanguard Total World Stock ETF)",
       "quantity": float or null,
       "avg_cost": float or null,
       "current_price": float or null,
@@ -37,8 +37,8 @@ Return ONLY valid JSON with this exact schema:
     {
       "date": "YYYY-MM-DD",
       "action": "string (e.g., BUY, SELL, DIVIDEND, INTEREST, TAX)",
-      "ticker": "string or null",
-      "name": "string (stock name)",
+      "ticker": "string or null (US ticker symbol; null only for INTEREST or cash-only rows)",
+      "name": "string (standard fund/company name, same as in holdings for the same ticker)",
       "quantity": float or null,
       "price": float or null,
       "amount": float or null,
@@ -55,6 +55,11 @@ Important rules:
 - `amount` in transactions is the total settlement amount (DEBIT or CREDIT). Use positive values.
 - `action` should be one of BUY, SELL, DIVIDEND, INTEREST, TAX or OTHER.
 - Ensure that the sum of `market_value` for all holdings roughly matches `total_market_value`.
+- **Ticker symbols — VERY IMPORTANT**: Every holding and every security-related transaction (BUY, SELL, DIVIDEND, TAX, reinvest) MUST have its US ticker symbol in `ticker`.
+  - Use the SYMBOL/CUSIP column of PORTFOLIO SUMMARY when available.
+  - ACCOUNT ACTIVITY rows usually show only the issuer description and CUSIP (e.g. `VANGUARD INTL EQUITY INDEX FD`, `CUSIP: 922042742`). Resolve the ticker by matching the description/CUSIP to the PORTFOLIO SUMMARY, or from your own knowledge of the security if it is not held anymore (e.g. sold positions).
+  - The same security MUST use the same `ticker` and `name` across holdings and transactions.
+- `name` must be the security's common fund/company name in title case (e.g. `Vanguard Total World Stock ETF` for VT, `Invesco NASDAQ 100 ETF` for QQQM), NOT the issuer trust line printed on the statement (e.g. NOT `VANGUARD INTL EQUITY INDEX FD` or `INVESCO EXCHANGE TRADED FD TR`).
 - If the account number in the PDF contains asterisks/X (e.g. `***-12345` or `**812345`), you MUST retain the asterisks/X. Do NOT guess or randomly fill in missing digits.
 """
 
