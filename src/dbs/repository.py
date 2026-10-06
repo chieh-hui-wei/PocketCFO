@@ -505,6 +505,26 @@ class PriceAlertRepository:
         await self.db.flush()
         return alert
 
+    async def reactivate(self, alert_id: int) -> PriceAlert | None:
+        """Re-arm a triggered/failed/cancelled alert with the same conditions."""
+        alert = await self.get_by_id(alert_id)
+        if not alert or alert.status == PriceAlertStatus.ACTIVE:
+            return None
+        alert.status = PriceAlertStatus.ACTIVE
+        alert.triggered_at = None
+        alert.order_result = None
+        await self.db.flush()
+        return alert
+
+    async def delete(self, alert_id: int) -> bool:
+        """Permanently delete a non-active alert (active ones must be cancelled first)."""
+        alert = await self.get_by_id(alert_id)
+        if not alert or alert.status == PriceAlertStatus.ACTIVE:
+            return False
+        await self.db.delete(alert)
+        await self.db.flush()
+        return True
+
     async def update(self, alert_id: int, **fields: Any) -> PriceAlert | None:
         alert = await self.get_by_id(alert_id)
         if not alert or alert.status != PriceAlertStatus.ACTIVE:

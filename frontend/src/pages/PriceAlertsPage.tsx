@@ -4,6 +4,8 @@ import {
   createPriceAlert,
   updatePriceAlert,
   cancelPriceAlert,
+  reactivatePriceAlert,
+  deletePriceAlert,
   PriceAlert,
   PRICE_ALERT_CURRENCIES,
 } from "../services/api";
@@ -214,6 +216,28 @@ export default function PriceAlertsPage() {
       fetchData();
     } catch (err: any) {
       toast.error(`取消失敗: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
+  const handleReactivate = async (a: PriceAlert) => {
+    if (a.alert_type === "auto_trade" && !window.confirm("重新啟用後，到價時會再次自動下單，確定要繼續監控嗎？")) return;
+    try {
+      await reactivatePriceAlert(a.id);
+      toast.success("已重新啟用監控");
+      fetchData();
+    } catch (err: any) {
+      toast.error(`重新啟用失敗: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("確定要刪除這筆監控設定嗎？刪除後無法復原。")) return;
+    try {
+      await deletePriceAlert(id);
+      toast.info("已刪除該筆監控");
+      fetchData();
+    } catch (err: any) {
+      toast.error(`刪除失敗: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -580,7 +604,20 @@ export default function PriceAlertsPage() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-slate-300">-</span>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleReactivate(a)}
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                          >
+                            繼續監控
+                          </button>
+                          <button
+                            onClick={() => handleDelete(a.id)}
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                          >
+                            刪除
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -906,4 +906,13 @@ export async function cancelPriceAlert(alertId: number) {
   return data as PriceAlert;
 }
 
+export async function reactivatePriceAlert(alertId: number) {
+  const { data } = await api.post(`/price-alerts/${alertId}/reactivate`);
+  return data as PriceAlert;
+}
+
+export async function deletePriceAlert(alertId: number) {
+  await api.delete(`/price-alerts/${alertId}/permanent`);
+}
+
 

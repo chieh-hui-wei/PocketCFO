@@ -93,6 +93,18 @@ class PriceAlertService:
             await self.db.commit()
         return alert
 
+    async def reactivate_alert(self, alert_id: int) -> PriceAlert | None:
+        alert = await self.repo.reactivate(alert_id)
+        if alert:
+            await self.db.commit()
+        return alert
+
+    async def delete_alert(self, alert_id: int) -> bool:
+        deleted = await self.repo.delete(alert_id)
+        if deleted:
+            await self.db.commit()
+        return deleted
+
     async def update_alert(
         self,
         alert_id: int,

@@ -116,3 +116,30 @@ async def cancel_price_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found or not active")
     return _serialize(alert)
+
+
+@router.post("/{alert_id}/reactivate")
+async def reactivate_price_alert(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    """Re-arm a filled/failed/cancelled alert so it is monitored again."""
+    service = PriceAlertService(db, current_user.id)
+    alert = await service.reactivate_alert(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found or already active")
+    return _serialize(alert)
+
+
+@router.delete("/{alert_id}/permanent")
+async def delete_price_alert(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_token),
+):
+    """Permanently delete a filled/failed/cancelled alert."""
+    service = PriceAlertService(db, current_user.id)
+    if not await service.delete_alert(alert_id):
+        raise HTTPException(status_code=404, detail="Alert not found or still active")
+    return {"status": "deleted", "id": alert_id}
