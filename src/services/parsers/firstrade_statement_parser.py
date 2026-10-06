@@ -54,6 +54,8 @@ Important rules:
 - `transactions` represents the trading activity (ACCOUNT ACTIVITY -> BUY / SELL TRANSACTIONS / DIVIDENDS AND INTEREST).
 - `amount` in transactions is the total settlement amount (DEBIT or CREDIT). Use positive values.
 - `action` should be one of BUY, SELL, DIVIDEND, INTEREST, TAX or OTHER.
+- `cash_balance` is the closing "Cash account" / "Total Cash (Net Portfolio Balance)" amount.
+- `total_market_value` is the securities value ONLY ("Total Equities" / closing "Securities"), EXCLUDING cash. Do NOT use "TOTAL PRICED PORTFOLIO" or "Total Equity Holdings" — those already include cash.
 - Ensure that the sum of `market_value` for all holdings roughly matches `total_market_value`.
 - **Ticker symbols — VERY IMPORTANT**: Every holding and every security-related transaction (BUY, SELL, DIVIDEND, TAX, reinvest) MUST have its US ticker symbol in `ticker`.
   - Use the SYMBOL/CUSIP column of PORTFOLIO SUMMARY when available.

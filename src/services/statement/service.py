@@ -665,6 +665,10 @@ class StatementService:
         inst_lower = (data.get("institution") or "").lower()
         if "firstrade" in inst_lower:
             cash_balance = float(data.get("cash_balance") or 0)
+            # Firstrade's "TOTAL PRICED PORTFOLIO" already includes cash; derive securities value from holdings
+            holdings_mv = sum(float(h.get("market_value") or 0) for h in data.get("holdings", []))
+            if holdings_mv > 0:
+                total_market_value = holdings_mv
         else:
             cash_balance = 0.0
 
