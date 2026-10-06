@@ -30,6 +30,15 @@ from src.utils.date_utils import first_of_month
 log = logging.getLogger(__name__)
 
 
+def _statement_cash_balance(snap: AccountSnapshot) -> float | None:
+    """Cash balance as parsed from the brokerage statement (original currency), if recorded."""
+    try:
+        cash = json.loads(snap.raw_data or "{}").get("cash_balance")
+    except (ValueError, AttributeError):
+        return None
+    return float(cash) if cash is not None else None
+
+
 class BalanceSheetService:
     def __init__(self, db: AsyncSession, user_id: int) -> None:
         self.db = db
@@ -87,8 +96,11 @@ class BalanceSheetService:
                 # Check if it is Firstrade (overseas broker)
                 is_firstrade = "firstrade" in (acct.name or "").lower() or "firstrade" in (acct.institution or "").lower()
                 
+                stmt_cash = _statement_cash_balance(snap) if is_firstrade else None
                 if is_firstrade and snap.manual_cash_override is not None:
                     broker_cash_twd = max(snap.manual_cash_override * (snap.exchange_rate or 1.0), 0.0)
+                elif stmt_cash is not None:
+                    broker_cash_twd = max(stmt_cash * (snap.exchange_rate or 1.0), 0.0)
                 else:
                     broker_cash_twd = max(snap.balance - snap_stocks_mv, 0.0) if is_firstrade else 0.0
                 total_securities_mv += snap_stocks_mv + broker_cash_twd
