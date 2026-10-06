@@ -764,7 +764,7 @@ class StatementService:
             amt = round(amt_orig * exchange_rate)
             ticker = t.get("ticker")
             ticker_str = f" ({ticker})" if ticker else ""
-            desc = f"{action} {t.get('name', '')}{ticker_str}"
+            desc = f"{action} {t.get('name') or ''}{ticker_str}"
             fee_orig = float(t.get("fee") or 0)
             if fee_orig > 0:
                 desc += f" (含手續費/稅: {fee_orig})"
