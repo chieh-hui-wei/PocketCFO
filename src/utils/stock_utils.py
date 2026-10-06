@@ -228,32 +228,13 @@ async def fetch_live_quote(ticker: str) -> Optional[float]:
     return await fetch_month_end_price(ticker, today.replace(day=1))
 
 
-def normalize_stock_name(ticker: Optional[str], current_name: str) -> str:
-    """Unify stock names (like VT) to standard formal names."""
-    if not ticker:
-        return current_name
-    t = ticker.strip().upper()
-    if t == "VT":
-        return "Vanguard Total World Stock ETF"
-    if t == "BND":
-        return "Vanguard Total Bond Market ETF"
-    if t == "TQQQ":
-        return "ProShares UltraPro QQQ"
-    return current_name
-
-
-def normalize_transaction_description(desc: str) -> str:
-    """Normalize names in transaction descriptions."""
-    if not desc:
-        return desc
-    # Unify Vanguard Total World Stock ETF (VT) variations
-    desc = re.sub(
-        r"VANGUARD INTL EQUITY INDEX FD( TOTAL WORLD STOCK INDEX ETF)?",
-        "Vanguard Total World Stock ETF",
-        desc,
-        flags=re.IGNORECASE
-    )
-    return desc
+def stock_name_from_txn(txn: Any) -> str:
+    """Stock name extracted by Gemini (raw_data), falling back to the description."""
+    try:
+        name = json.loads(txn.raw_data or "{}").get("name")
+    except (ValueError, AttributeError):
+        name = None
+    return name or txn.description or ""
 
 
 async def refresh_live_prices(securities: list, usd_twd_rate: float | None = None) -> None:

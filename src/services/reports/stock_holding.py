@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dbs.models import Account, AccountSnapshot, Security, AccountType, Transaction, TransactionSource
 from src.dbs.repository import AccountRepository, SnapshotRepository, SecurityRepository, TransactionRepository
-from src.utils.stock_utils import parse_stock_transaction, fetch_month_end_price, normalize_stock_name, refresh_live_prices
+from src.utils.stock_utils import parse_stock_transaction, fetch_month_end_price, refresh_live_prices, stock_name_from_txn
 from src.services.exchange_rate.service import get_usd_twd_rate
 
 log = logging.getLogger(__name__)
@@ -257,7 +257,7 @@ class StockHoldingService:
                             if action == "BUY":
                                 positions[ticker] = {
                                     "ticker": ticker,
-                                    "name": normalize_stock_name(ticker, txn.description),
+                                    "name": stock_name_from_txn(txn),
                                     "quantity": qty,
                                     "avg_cost": price,
                                     "currency": "USD",
