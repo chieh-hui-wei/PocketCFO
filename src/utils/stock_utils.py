@@ -259,6 +259,13 @@ async def refresh_live_prices(securities: list, usd_twd_rate: float | None = Non
     if not securities:
         return
 
+    # Detach persisted rows so live prices never get flushed over statement values
+    from sqlalchemy.orm import object_session
+    for s in securities:
+        session = object_session(s)
+        if session is not None:
+            session.expunge(s)
+
     today = _date.today()
 
     # Resolve USD/TWD rate once if any USD security is present
