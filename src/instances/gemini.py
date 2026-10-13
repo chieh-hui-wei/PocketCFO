@@ -26,6 +26,46 @@ def get_gemini_client() -> genai.Client:
     return _client
 
 
+_SLICE_ASPECT = 1.4  # slice height / width
+_SLICE_OVERLAP_RATIO = 0.04
+
+
+def _slice_tall_image(file_bytes: bytes) -> list[bytes] | None:
+    """
+    Split a very tall screenshot (e.g. a full-page web statement) into overlapping slices.
+    Gemini downscales a whole image to a fixed budget, which makes text in long screenshots unreadable.
+    Returns None when the image is not tall enough to need slicing or cannot be decoded.
+    """
+    import io
+    import logging
+    from PIL import Image
+
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        img.load()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not decode image for slicing: {e}")
+        return None
+
+    width, height = img.size
+    slice_h = int(width * _SLICE_ASPECT)
+    if height <= slice_h * 1.5:
+        return None
+
+    overlap = int(slice_h * _SLICE_OVERLAP_RATIO)
+    slices = []
+    top = 0
+    while top < height:
+        bottom = min(top + slice_h, height)
+        buf = io.BytesIO()
+        img.crop((0, top, width, bottom)).convert("RGB").save(buf, format="PNG")
+        slices.append(buf.getvalue())
+        if bottom == height:
+            break
+        top = bottom - overlap
+    return slices
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -58,9 +98,18 @@ async def extract_from_pdf(pdf_path: Path, prompt: str) -> str:
     client = get_gemini_client()
     file_bytes = pdf_path.read_bytes()
 
-    contents = [
-        types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
-    ]
+    image_slices = _slice_tall_image(file_bytes) if is_image else None
+    if image_slices:
+        contents = [types.Part.from_bytes(data=b, mime_type="image/png") for b in image_slices]
+        contents.append(
+            f"The {len(image_slices)} images above are consecutive vertical slices (top to bottom) of ONE long "
+            "statement screenshot. Adjacent slices overlap slightly, so a row cut at a slice edge may appear twice — "
+            "include each transaction only once (use the running balance to tell duplicates apart)."
+        )
+    else:
+        contents = [
+            types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+        ]
 
     # Only attempt local text extraction for PDFs
     if not is_image:
